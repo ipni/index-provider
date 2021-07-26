@@ -182,7 +182,9 @@ req = IngestionRequest{
         Start: 0, 
 }
 ```
-        - Provider will answer with the list of entries for `latest` pointing to the previous `AdvertisementID` in the `Advertisement` field
+
+Provider will answer with the list of entries for `latest` pointing to the previous `AdvertisementID` in the `Advertisement` field
+
 ```go
 resp = IngestionResponse {
         Size: 2
