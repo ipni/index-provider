@@ -178,7 +178,7 @@ a new `Sync` with provider `p`, for `latest AdvertisementID`:
         - It sends a request to ingest the data related with `latest` advertisement, `Sync(ctx, p, latest).
 ```go
 req = IngestionRequest{
-        ID: latest
+        ID: latest,
         Start: 0, 
 }
 ```
@@ -198,11 +198,11 @@ resp = IngestionResponse {
         Entries: {
                 []Entry{
                         Cids: {Cid1, Cid2, ...},
-                        Metadata: []byte{}
+                        Metadata: []byte{},
                 }
 }
 ```
-- If `Size` > `len(Entries), the indexer-node sends a new request to keep fetching data for `latest` with `Start: 1`
+- If `Size > len(Entries)`, the indexer-node sends a new request to keep fetching data for `latest` with `Start: 1`
 until all entries for the Advertisement have been received. It then inspects `Advertisement` to see if `Previous` is equal
 to the latest `AdvertisementID` seen for that provider, if this is not the case, it sends a new request with `latest-1`
 and repeats the process over and over again until the `AdvertisementID` seen in `Previous` for the latest response
@@ -237,15 +237,15 @@ type AdvertisementID Index_Link
 type Index struct {
         Previous: Index_Link{},
         Entries: []Entry{
-                IsRm:           bool
+                IsRm:           bool, 
                 Cids:           []cid.Cid,        // NOTE: This can also be string.
                 Metadata:       []byte,
         },
 } 
 ```
 
-__NOTE: We need to build the selector or the IPLD storer in the indexer node so that it checks the latest Advertisement
-seen and it terminates Graphsync's DAG traversal conveniently.__
+_NOTE: We need to build the selector or the IPLD storer in the indexer node so that it checks the latest Advertisement
+seen and it terminates Graphsync's DAG traversal conveniently._
 
 ## Open Questions / Discussion / Future Work
 - ...
