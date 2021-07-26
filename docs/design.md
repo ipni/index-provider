@@ -207,13 +207,16 @@ until all entries for the Advertisement have been received. It then inspects `Ad
 to the latest `AdvertisementID` seen for that provider, if this is not the case, it sends a new request with `latest-1`
 and repeats the process over and over again until the `AdvertisementID` seen in `Previous` for the latest response
 equals the latest one seen by indexer node for that data provider.
-- Note that pagination is performed at an `Entry` level, i.e. there is no intra-Entry pagination (at least not initially). The data provider should be responsible for dividing single Entries with a large number of CIDs into
+
+Note that pagination is performed at an `Entry` level, i.e. there is no intra-Entry pagination (at least not initially). The data provider should be responsible for dividing single Entries with a large number of CIDs into
 smaller entries when computing the `Size` of the data indexed in `AdvertisementID`. If we identify this as too strong
 of a requirement, we can also introduce intra-Entry pagination to support seamless exchange of entries with a large
 amount of CIDs.
-- Once the full sync is performed, the indexer node updates the latest AdvertisementID seen for `p` to latest.
-- Indexer nodes run ingestion sessions for different providers in parallel, so an indexer node can sync with several provideres in parallel.
-- Indexer nodes can include a `prov_parallel_ingestion` config to determine if it wants to support parallel ingestions for
+
+Once the full sync is performed, the indexer node updates the latest AdvertisementID seen for `p` to latest.
+
+Indexer nodes run ingestion sessions for different providers in parallel, so an indexer node can sync with several provideres in parallel.
+They can also set a `prov_parallel_ingestion` config to determine if it wants to support parallel ingestions for
 the same provider. If `prov_parallel_ingestion = 0` new `Advertisement`s arriving for an indexer node while `syncing` are queued, and are processed after the sync for the provider is done. If `prov_parallel_ingestion > 0`, the indexer node
 tracks `Sync` sessions, and new Advertisements trigger new ingestion sessions with the provider for a non-overlapping
 range between the current syncs and the new one. Thus, if there is a ingestion session with `latest = ID1` and
