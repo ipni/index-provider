@@ -174,13 +174,50 @@ with their indexed data, so that `AdvertisementID` is a link to the indexed data
 the case, the provider may set the `GraphSupport` flag in its `Advertisement` to signal indexer nodes that they
 can use IPLD-aware data transfer protocol, such as Graphsync, for the ingestion session.
 
-Thus, according to how the data providers choose to represent their indexed data locally, two flavors of the ingestion protocols can be instantiated by the indexer node.
+When an indexer node triggers a new `Sync` with provider `p`, for `latest AdvertisementID`:
+- Indexer node checks the last `AdvertisementID` seen for `p`, `current`.
+- It sends a request to ingest the data related with `latest` advertisement, `Sync(ctx, p, latest)`.
 
-### IPLD-unaware transport
-This is the default request-response ingestion protocol used by indexer nodes. When an indexer node triggers
-a new `Sync` with provider `p`, for `latest AdvertisementID`:
-        - Indexer node checks the last `AdvertisementID` seen for `p`, `current`.
-        - It sends a request to ingest the data related with `latest` advertisement, `Sync(ctx, p, latest).
+According to how the data providers choose to represent their indexed data locally, two flavors of the ingestion protocols can be instantiated by the indexer node.
+
+### IPLD-aware Ingestion
+Initially, this will be default transport. If a data provider is indexing data in a way that `AdvertisementID` is linked with the indexed data using IPLD, the `GraphSupport` flag is enabled in its Advertisements to signal indexer nodes that they can use IPLD-aware data transfer
+protocols.
+
+When an indexer node sees an unseen advertisement `latest`, it will trigger an ingestion session to sync with the
+data provider. If `GraphSupport` is enabled, the indexer node can use Graphsync or `go-data-transfer` to fetch `latest` DAG, which links to the data that needs to be ingested, using a [`ExploreRecursiveEdge`](https://ipld.io/specs/selectors/) selector. `latest` will include a link to the data structure for the previous `AdvertisementID` to latest, so Graphsync is able to fetch all the chain of updates from the provider seamlessly up to the latest one seen by the indexer node.
+
+In order not to sync the whole chain of advertisements in every request and exclusively fetching the missing range, 
+the indexer node will have to be able to flag in the Graphsync request a "termination link",
+i.e. the link from which Graphsync can stop traversing the chain and stop recursing links.
+
+Once the sync process is finished, the indexer node updates the latest AdvertisementID seen for provider to `latest`.
+
+```go
+// Example of internal data structure of an index of data provider.
+type AdvertisementID Index_Link
+
+type Index struct {
+        Previous: Index_Link{},
+        Entries: []Entry{
+                IsRm:           bool, 
+                Cids:           []cid.Cid,        // NOTE: This can also be string.
+                Metadata:       []byte,
+        },
+} 
+```
+
+_NOTE: We need to build the selector or the IPLD storer in the indexer node so that it checks the latest Advertisement
+seen and it terminates Graphsync's DAG traversal conveniently._
+
+### IPLD-unaware Ingestion 
+> Out of scope of MVP. For the MVP we are only considering IPLD-aware ingestion, and we enforce the use of IPLD to providers.
+
+It implements a libp2p request-response ingestion protocol that indexer nodes can use when interacting with providers that are not indexing their
+data using IPLD, i.e. Advertisements are not directly linked to data. This protocol is inspired by 
+[Filecoin's Block Sync protocol](https://spec.filecoin.io/#section-algorithms.block_sync). The underlaying idea is the same, to "sync a chain of data".
+
+Thus, when calling `Sync(ctx, p, latest)`, indexer node sends a first request for ingestion as:
 ```go
 req = IngestionRequest{
         ID: latest,
@@ -188,7 +225,8 @@ req = IngestionRequest{
 }
 ```
 
-Provider will answer with the list of entries for `latest` pointing to the previous `AdvertisementID` in the `Advertisement` field
+Provider will answer with the list of entries for `latest` pointing to the previous `AdvertisementID` in the `Advertisement` field. `Size` specifies
+the total number of entries that the advertisement include to give the indexer knowledge of when all entries for the update have been received.
 
 ```go
 resp = IngestionResponse {
@@ -214,7 +252,7 @@ resp = IngestionResponse {
 until all entries for the Advertisement have been received. It then inspects `Advertisement` to see if `Previous` is equal
 to the latest `AdvertisementID` seen for that provider, if this is not the case, it sends a new request with `latest-1`
 and repeats the process over and over again until the `AdvertisementID` seen in `Previous` for the latest response
-equals the latest one seen by indexer node for that data provider.
+equals the latest one seen by indexer node for that data provider and the full sync for the missing range is complete.
 
 Note that pagination is performed at an `Entry` level, i.e. there is no intra-Entry pagination (at least not initially). The data provider should be responsible for dividing single Entries with a large number of CIDs into
 smaller entries when computing the `Size` of the data indexed in `AdvertisementID`. If we identify this as too strong
@@ -225,7 +263,7 @@ Once all the data for an indexer has been fetched, the indexer can use the `Adve
 ingestion by computing the Cid of the entries and verifying that it is equal to `IndexID`, and then verifying the signature
 of the `Advertisement`.
 
-Once the full sync is performed successfully, the indexer node updates the latest AdvertisementID seen for `p` to latest. 
+If the full sync is performed successfully, the indexer node updates the latest AdvertisementID seen for `p` to latest. 
 
 Indexer nodes run ingestion sessions for different providers in parallel, so an indexer node can sync with several provideres in parallel.
 They can also set a `prov_parallel_ingestion` config to determine if it wants to support parallel ingestions for
@@ -235,32 +273,6 @@ range between the current syncs and the new one. Thus, if there is a ingestion s
 a new advertisement arrives with `AdvertisementID: ID2` and `prov_parallel_ingestion > 0` then a new ingestion
 session is started for the range `(ID1, ID2] with `Ingest(ctx, p, ID1, ID2)`.
 
-### IPLD-aware transport
-If a data provider is indexing data in a way that `AdvertisementID` is linked with the indexed data using IPLD, it may enable
-the `GraphSupport` flag in its Advertisements to signal indexer nodes that they can use IPLD-aware data transfer
-protocols.
-
-When an indexer node sees an unseen advertisement `latest`, it will trigger an ingestion session to sync with the
-data provider. If `GraphSupport` is enabled the indexer node can use Graphsync or `go-data-transfer` to fetch `latest` DAG, which links to the data that needs to be ingested, using a [`ExploreRecursiveEdge`](https://ipld.io/specs/selectors/) selector. `latest` will include a link to the data structure for the previous `AdvertisementID` to latest, so Graphsync is able to fetch all the chain of updates from the provider seamlessly up to the latest one seen by the indexer node.
-
-Once the sync process is finished, the indexer node updates the latest AdvertisementID seen for provider to `latest`.
-
-```go
-// Example of internal data structure of an index of data provider.
-type AdvertisementID Index_Link
-
-type Index struct {
-        Previous: Index_Link{},
-        Entries: []Entry{
-                IsRm:           bool, 
-                Cids:           []cid.Cid,        // NOTE: This can also be string.
-                Metadata:       []byte,
-        },
-} 
-```
-
-_NOTE: We need to build the selector or the IPLD storer in the indexer node so that it checks the latest Advertisement
-seen and it terminates Graphsync's DAG traversal conveniently._
 
 ## Open Questions / Discussion / Future Work
 - ...
