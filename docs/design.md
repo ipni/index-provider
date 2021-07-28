@@ -3,7 +3,7 @@ The goal of this reference implementation is to flesh out all the protocol detai
 for data providers to be able to interact with indexer nodes. 
 
 ## Overview
-- Data providers keep a local index of all the data they are providing.
+- Data providers keep a local index with a list of CIDs of all the content they are providing.
 - Data providers are responsible for the advertisement of updates related to the data they are providing.
         - Data providers must be able to uniquely identify the batches of data they are providing, and/or the
         announcements they broadcast to the network in order to be able to serve indexer-node data ingestion requests.
@@ -18,7 +18,8 @@ data structures enforced by the protocol are in the interaction between the two.
 Advertisements are used by data providers to share updates about the data they are providing. Ideally,
 these advertisements are published in a shared pub-sub channel between providers and indexer nodes. However,
 some indexer nodes may choose to provide a dedicated endpoint to allow certain authenticated providers to push announcements and updates directly to them.
-- `Pull` Advertisements: Indexer-nodes pull advertisement from a shared pub-sub channel.
+- `Poll` Advertisements: Indexer-nodes periodically poll providers for new advertisements 
+- `Subscription` Advertisements: Indexer nodes subscribe to a shared pub-sub channel with providers and listen to new advertisements from them. 
 - `Push` Advertisements: Authenticated providers can push advertisements to indexer-nodes.
 
 ```go
@@ -49,9 +50,10 @@ indexer nodes to realize when they have missed a previous advertisement.
 Indexer nodes use these IDs in their ingestion requests to fetch indexing
 data from the provider.
 
-For instance, a Filecoin miner may include as part of a new `Advertisement` the set of CIDs included in a new deal, and it may
-represent its internal state however it wants. However, `IndexID` should be generated as the CID of all the entries included in
-the update to allow the indexer node authenticate that the data ingested belongs to the requested advertisement.
+For instance, a Filecoin miner may reference from a new `Advertisement` the set of CIDs included in a new deal, and it may
+represent the internal state for this CID and its link to the advertisement however it wants. However, `IndexID` should represent the CID of all the entries
+the advertisement is referencing
+to allow the indexer node to authenticate that the data ingested belongs to the requested advertisement.
 
 <!--
 A Filecoin miner may choose to use as `AdvertisementID` a combination of a `dealID` with a prefix to identify if
@@ -83,14 +85,14 @@ Data providers use `IngestionResponse`s to answer to ingestion requests.
 ```go
 type IngestionResponse struct {
         Size            uint64
-        Error           uint32  // optional
+        Error           String  // optional
         Start           uint64  // optional
         Advertisement   Advertisement // optional
         Entries         []Entry
 }
 ```
 - `Size`: Total entries included for `AdvertisementID`.
-- `Error`: Error code (if any).
+- `Error`: Error message (if any).
 - `Start`: Index of the first entry of the response.
 - `Advertisement`: Advertisement to which this response (and thus indexing data) belongs to.
 - `Entries`: The actual entries with the new/removed CIDs.
@@ -98,15 +100,15 @@ type IngestionResponse struct {
 
 ```go
 type Entry struct {
-        IsRm            bool
+        RmCids          []cid.Cid
         Cids            []cid.Cid   // NOTE: We can probably use String instead of cid.Cid
         Metadata        []byte
 
 }
 ```
-- `IsRm`: Flags if the cids included in the entry should be added or removed from hte indexer node.G
+- `RmCids`: List of CIDs to remove from the indexer. 
 - `Cids`: List of CIDs included in the entry.
-- `Metadata`: Metadata to index for CIDs in the entry. If `IsRm = true` it doesn't make sense to add `Metadata` in the Entry.
+- `Metadata`: Metadata to index for CIDs in the entry. If `len(RmCids) != 0 && len(Cids)== 0` it doesn't make sense to add `Metadata` in the Entry.
 
 ## Interfaces
 ### Data Provider
@@ -152,9 +154,10 @@ The interaction protocol between data providers and indexer nodes can be divided
 It orchestrates the announcement of udpates from data providers to indexer nodes. Every time a data provider receives
 an update for the data they provide (e.g. new deal in a Filecoin miner), they may choose to broadcast an `Advertisement`
 to the network so indexer nodes can start indexing this data. Three kinds of updates will initially be supported:
-- `Pull` Advertisements: Data providers broadcast the `Advertisement` for the new data using a shared
+- `Subscription` Advertisements: Data providers broadcast the `Advertisement` for the new data using a shared
 pub-sub channel. When indexer nodes see these updates, they trigger an ingestion session to sync with the
 data provider.
+- `Poll` Advertisements: Indexers can periodically poll providers requesting for new advertisements. This is useful if an indexer or a provider was offline and may have missed updates, or if an indexer chooses not to advertise updates. The indexer issues a request to the provider to get the latest advertisement. The provider responds with the latest advertisement, which the indexer handles the same as if they had been received over gossip.
 - `Push` Advertisements: Some indexer nodes may support advertisement pushes by data providers. Indexers 
 will trigger a new ingestion session to gather the data for that update. 
 - `Immediate` Ingestion: Some data providers may want to share updates for a small number of CIDs which doesn't
@@ -163,9 +166,6 @@ nodes will provide an endpoint for providers to push small updates directly to t
 restrict immediate ingestion updates to authenticated data providers __(we3.storage case)__.
 
 ## Ingestion Protocol
-When indexer nodes realize that they are not in sync with a data provider they are indexing data for, they trigger
-new ingestion sessions with them to gather the new updates. This is orchestrated by the ingestion protocol.
-
 Indexer nodes track locally the latest `AdvertisementID` seen for each data provider. When an `Advertisement` for an unseen `AdvertisementID` is seen for a data provider, a new ingestion session is triggered with the data provider.
 
 Data providers are responsible for broadcasting `Advertisement`s and generating their `AdvertisementID`s in the way that
@@ -200,7 +200,7 @@ type AdvertisementID Index_Link
 type Index struct {
         Previous: Index_Link{},
         Entries: []Entry{
-                IsRm:           bool, 
+                RmCids:         []cid.Cid, 
                 Cids:           []cid.Cid,        // NOTE: This can also be string.
                 Metadata:       []byte,
         },
@@ -236,7 +236,7 @@ resp = IngestionResponse {
         Advertisement: Advertisement{
                 ID: latest,
                 Previous: "latest-1",
-                IndexerID: Link_Index,
+                IndexID: Link_Index,
                 Provider: p,
                 Signature: []byte{},  // The original signature of the advertisement.
                 GraphSupport: false, 
@@ -244,34 +244,45 @@ resp = IngestionResponse {
         Entries: {
                 []Entry{
                         Cids: {Cid1, Cid2, ...},
+                        RmCids: {Cid3, Cid4, ...},
                         Metadata: []byte{},
                 }
 }
 ```
-- If `Size > len(Entries)`, the indexer-node sends a new request to keep fetching data for `latest` with `Start: 1`
-until all entries for the Advertisement have been received. It then inspects `Advertisement` to see if `Previous` is equal
-to the latest `AdvertisementID` seen for that provider, if this is not the case, it sends a new request with `latest-1`
-and repeats the process over and over again until the `AdvertisementID` seen in `Previous` for the latest response
-equals the latest one seen by indexer node for that data provider and the full sync for the missing range is complete.
+
+
+The response may be paginated either by the client requesting a maximum number of entries or by the server delivering up to a configured maximum number of entries.  To get the remaining entries, a subsequent request is made with its start set to the number of entries from the previous response.  So, if totalEntries equals 100 and the response contained 50 entries, the follow-up request should specify 50 for start to get the remaining entries.  This continues until the indexer has the complete response.
+
+The indexer keeps a record of the advertised Index CIDs it has received data for.  The indexer continues walking the chain of Index CIDs backward from `latest` until it receives a response containing an Advertisement with the Previous CID being the last one the indexer has already seen, i.e. `current`, or when the end of the chain is reached (no Previous).  When all the missing links in the chain of Indexes have been received, these are applied, in order, to update the indexer's records of CIDs and providers.
 
 Note that pagination is performed at an `Entry` level, i.e. there is no intra-Entry pagination (at least not initially). The data provider should be responsible for dividing single Entries with a large number of CIDs into
 smaller entries when computing the `Size` of the data indexed in `AdvertisementID`. If we identify this as too strong
 of a requirement, we can also introduce intra-Entry pagination to support seamless exchange of entries with a large
 amount of CIDs.
+<!--
+If `Size > len(Entries)`, the indexer-node sends a new request to keep fetching data for `latest` with `Start: 1`
+until all entries for the Advertisement have been received. It then inspects `Advertisement` to see if `Previous` is equal
+to the latest `AdvertisementID` seen for that provider, if this is not the case, it sends a new request with `latest-1`
+and repeats the process over and over again until the `AdvertisementID` seen in `Previous` for the latest response
+equals the latest one seen by indexer node for that data provider and the full sync for the missing range is complete.
+-->
 
 Once all the data for an indexer has been fetched, the indexer can use the `Advertisement` and the list of entries received to authenticate the
 ingestion by computing the Cid of the entries and verifying that it is equal to `IndexID`, and then verifying the signature
-of the `Advertisement`.
+of the `Advertisement`. The Cid is computed by serializing the content and computing the IPLD link (see [linkingSystem](https://github.com/ipld/go-ipld-prime/blob/master/linking.go))
 
 If the full sync is performed successfully, the indexer node updates the latest AdvertisementID seen for `p` to latest. 
 
 Indexer nodes run ingestion sessions for different providers in parallel, so an indexer node can sync with several provideres in parallel.
+
+<!-- NOT POSSIBLE. WE NEED TO APPLY UPDATES IN ORDER
 They can also set a `prov_parallel_ingestion` config to determine if it wants to support parallel ingestions for
 the same provider. If `prov_parallel_ingestion = 0` new `Advertisement`s arriving for an indexer node while `syncing` are queued, and are processed after the sync for the provider is done. If `prov_parallel_ingestion > 0`, the indexer node
 tracks `Sync` sessions, and new Advertisements trigger new ingestion sessions with the provider for a non-overlapping
 range between the current syncs and the new one. Thus, if there is a ingestion session with `latest = ID1` and
 a new advertisement arrives with `AdvertisementID: ID2` and `prov_parallel_ingestion > 0` then a new ingestion
 session is started for the range `(ID1, ID2] with `Ingest(ctx, p, ID1, ID2)`.
+-->
 
 
 ## Open Questions / Discussion / Future Work
