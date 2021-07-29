@@ -11,16 +11,18 @@ for data providers to be able to interact with indexer nodes.
 advertisement for a data provider, they trigger a new ingestion session to sync with the provider. 
 
 ## Data Structures
-Data providers and indexer nodes can use any internal representation they want for indexed data. They only
+Data providers and indexer nodes can use any internal representation they want for indexed data. The only
 data structures enforced by the protocol are in the interaction between the two.
 
 ### Advertisements
 Advertisements are used by data providers to share updates about the data they are providing. Ideally,
 these advertisements are published in a shared pub-sub channel between providers and indexer nodes. However,
 some indexer nodes may choose to provide a dedicated endpoint to allow certain authenticated providers to push advertisements and updates to individual CID index values (or small sets of them).
-- `Poll` Advertisements: Indexer-nodes periodically poll providers for new advertisements 
-- `Subscription` Advertisements: Indexer nodes subscribe to a shared pub-sub channel with providers and listen to new advertisements from them. 
-- `Push` Advertisements: Authenticated providers can push advertisements to indexer-nodes.
+- `Poll` Advertisements: Indexer-nodes periodically poll known providers for new advertisements.
+- `Subscription` Advertisements: Indexer nodes subscribe to a shared pub-sub channel with providers and listen to new advertisements from them. Indexers can use
+these advertisements also to discover new providers to index.
+- `Push` Advertisements: Authenticated providers can push advertisements to indexer-nodes. Push Advertisements can also be used by indexers for the
+discovery of new providers. Providers looking to be considered and validated by an indexer can send a push advertisements proactively. 
 
 ```go
 // AdvertisementID uniquely identifies an advertisement.
@@ -54,6 +56,8 @@ For instance, a Filecoin miner may reference from a new `Advertisement` the set 
 represent the internal state for this CID and its link to the advertisement however it wants. However, `IndexID` should represent the CID of all the entries
 the advertisement is referencing
 to allow the indexer node to authenticate that the data ingested belongs to the requested advertisement.
+
+Indexer nodes are able to configure the list of advertisement policies they support.
 
 <!--
 A Filecoin miner may choose to use as `AdvertisementID` a combination of a `dealID` with a prefix to identify if
@@ -180,7 +184,7 @@ pub-sub channel. When indexer nodes see these updates, they trigger an ingestion
 data provider. 
 - `Poll` Advertisements (`PublishLocal()`/`Poll()`): Indexers can periodically poll providers requesting for new advertisements. This is useful if an indexer or a provider was offline and may have missed updates, or if an indexer chooses not to advertise updates. The indexer issues a request to the provider to get the latest advertisement. The provider responds with the latest advertisement, which the indexer handles the same as if they had been received over gossip.
 - `Push` Advertisements (`PushAd()`): Some indexer nodes may support advertisement pushes by data providers. Indexers 
-will trigger a new ingestion session to gather the data for that update. 
+will trigger a new ingestion session to gather the data for that update. Pushes from previously unseen provideres may require a validation previous to ingestion.
 - `Immediate` Ingestion (`Push()`): Some data providers may want to share updates for a small number of CIDs which doesn't
 require the generation of a dedicated `Advertisement` and triggering an ingestion session. For this case, indexer
 nodes will provide an endpoint for providers to push small updates directly to them. Indexer nodes may
@@ -194,6 +198,13 @@ suits them best. This means that they may choose to use IPLD data structures und
 with their indexed data, so that `AdvertisementID` is a link to the indexed data for that `Advertisement`. If this is
 the case, the provider may set the `GraphSupport` flag in its `Advertisement` to signal indexer nodes that they
 can use IPLD-aware data transfer protocol, such as Graphsync, for the ingestion session.
+
+It is worth noting, that the same CID may appear in entries of several different advertisements of a provider. For instance,
+if a Filecoin miner receives a new deal that includes a CID of some content it is already indexing, it may notify this update to the
+indexer node by including an entry for that CID with new metadata (like the new expiration date of the deal) in the next advertisement.
+When the indexer node comes across an advertisement including a CID that it is already indexing for the provider, it will simply update
+the metadata with the one of the latest advertisements. Finally, if all the deals that include that CID in a miner expires,
+it can notify this to the indexer by simply adding that CID in the list of `RmCids` for the next advertisement.
 
 When an indexer node triggers a new `Sync` with provider `p`, for `latest AdvertisementID`:
 - Indexer node checks the last `AdvertisementID` seen for `p`, `current`.
