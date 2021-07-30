@@ -307,6 +307,7 @@ If the full sync is performed successfully, the indexer node updates the latest 
 
 Indexer nodes run ingestion sessions for different providers in parallel, so an indexer node can sync with several provideres in parallel.
 
+![](./ingestion.png)
 <!-- NOT POSSIBLE. WE NEED TO APPLY UPDATES IN ORDER
 They can also set a `prov_parallel_ingestion` config to determine if it wants to support parallel ingestions for
 the same provider. If `prov_parallel_ingestion = 0` new `Advertisement`s arriving for an indexer node while `syncing` are queued, and are processed after the sync for the provider is done. If `prov_parallel_ingestion > 0`, the indexer node
