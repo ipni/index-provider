@@ -14,5 +14,5 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.4.0 // indirect
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/willscott/go-legs v0.0.0-20210818144703-8ab56f553d87
+	github.com/willscott/go-legs v0.0.0-20210818075656-0135c1be9fd6
 )
