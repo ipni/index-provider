@@ -283,7 +283,7 @@ resp = IngestionResponse {
 ```
 
 
-The response may be paginated either by the client requesting a maximum number of entries or by the server delivering up to a configured maximum number of entries.  To get the remaining entries, a subsequent request is made with its start set to the number of entries from the previous response.  So, if totalEntries equals 100 and the response contained 50 entries, the follow-up request should specify 50 for start to get the remaining entries.  This continues until the indexer has the complete response.
+The response may be paginated either by the client requesting a maximum number of entries or by the server delivering up to a configured maximum number of entries.  To get the remaining entries, a subsequent request is made with its start set to the number of entries from the previous response.  So, if `Entries` equals 100 and the response contained 50 entries, the follow-up request should specify 50 for start to get the remaining entries.  This continues until the indexer has the complete response.
 
 The indexer keeps a record of the advertised Index CIDs it has received data for.  The indexer continues walking the chain of Index CIDs backward from `latest` until it receives a response containing an `Advertisement` with the `Previous` CID being the last one the indexer has already seen, i.e. `current`, or when the end of the chain is reached (i.e. no `Previous`).  When all the missing links in the chain of Indexes have been received, these are applied, in order, to update the indexer's records of CIDs and providers.
 
