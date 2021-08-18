@@ -123,8 +123,8 @@ type IngestionServer interface {
         
         // PublishLocal provides a new advertisement locally.
         // Indexers can access all advertisements published locally by
-        // an indexers by polling.
-        // Providers may choose where to store this advertisements 
+        // a data provider via polling.
+        // Providers may choose where to store these advertisements 
         // (S3, datastore, etc.)
         func PublishLocal (ctx context.Context, ad Advertisement) error
 
@@ -185,7 +185,7 @@ data provider.
 - `Poll` Advertisements (`PublishLocal()`/`Poll()`): Indexers can periodically poll providers requesting for new advertisements. This is useful if an indexer or a provider was offline and may have missed updates, or if an indexer chooses not to advertise updates. The indexer issues a request to the provider to get the latest advertisement. The provider responds with the latest advertisement, which the indexer handles the same as if they had been received over gossip.
 - `Push` Advertisements (`PushAd()`): Some indexer nodes may support advertisement pushes by data providers. Indexers 
 will trigger a new ingestion session to gather the data for that update. Pushes from previously unseen provideres may require a validation previous to ingestion.
-- `Immediate` Ingestion (`Push()`): Some data providers may want to share updates for a small number of CIDs which doesn't
+- `Immediate` Ingestion (`Push()`): Some data providers may want to share updates for a small number of CIDs which don't
 require the generation of a dedicated `Advertisement` and triggering an ingestion session. For this case, indexer
 nodes will provide an endpoint for providers to push small updates directly to them. Indexer nodes may
 restrict immediate ingestion updates to authenticated data providers __(we3.storage case)__.
@@ -246,7 +246,7 @@ seen and it terminates Graphsync's DAG traversal conveniently._
 > Out of scope of MVP. For the MVP we are only considering IPLD-aware ingestion, and we enforce the use of IPLD to providers.
 
 It implements a libp2p request-response ingestion protocol that indexer nodes can use when interacting with providers that are not indexing their
-data using IPLD, i.e. Advertisements are not directly linked to data. This protocol is inspired by 
+data using IPLD, i.e. `Advertisement`s are not directly linked to data. This protocol is inspired by 
 [Filecoin's Block Sync protocol](https://spec.filecoin.io/#section-algorithms.block_sync). The underlaying idea is the same, to "sync a chain of data".
 
 Thus, when calling `Sync(ctx, p, latest)`, indexer node sends a first request for ingestion as:
@@ -285,7 +285,7 @@ resp = IngestionResponse {
 
 The response may be paginated either by the client requesting a maximum number of entries or by the server delivering up to a configured maximum number of entries.  To get the remaining entries, a subsequent request is made with its start set to the number of entries from the previous response.  So, if totalEntries equals 100 and the response contained 50 entries, the follow-up request should specify 50 for start to get the remaining entries.  This continues until the indexer has the complete response.
 
-The indexer keeps a record of the advertised Index CIDs it has received data for.  The indexer continues walking the chain of Index CIDs backward from `latest` until it receives a response containing an Advertisement with the Previous CID being the last one the indexer has already seen, i.e. `current`, or when the end of the chain is reached (no Previous).  When all the missing links in the chain of Indexes have been received, these are applied, in order, to update the indexer's records of CIDs and providers.
+The indexer keeps a record of the advertised Index CIDs it has received data for.  The indexer continues walking the chain of Index CIDs backward from `latest` until it receives a response containing an `Advertisement` with the `Previous` CID being the last one the indexer has already seen, i.e. `current`, or when the end of the chain is reached (i.e. no `Previous`).  When all the missing links in the chain of Indexes have been received, these are applied, in order, to update the indexer's records of CIDs and providers.
 
 Note that pagination is performed at an `Entry` level, i.e. there is no intra-Entry pagination (at least not initially). The data provider should be responsible for dividing single Entries with a large number of CIDs into
 smaller entries when computing the `Size` of the data indexed in `AdvertisementID`. If we identify this as too strong
@@ -301,9 +301,9 @@ equals the latest one seen by indexer node for that data provider and the full s
 
 Once all the data for an indexer has been fetched, the indexer can use the `Advertisement` and the list of entries received to authenticate the
 ingestion by computing the Cid of the entries and verifying that it is equal to `IndexID`, and then verifying the signature
-of the `Advertisement`. The Cid is computed by serializing the content and computing the IPLD link (see [linkingSystem](https://github.com/ipld/go-ipld-prime/blob/master/linking.go))
+of the `Advertisement`. The CID is computed by serializing the content and computing the IPLD link (see [linkingSystem](https://github.com/ipld/go-ipld-prime/blob/master/linking.go))
 
-If the full sync is performed successfully, the indexer node updates the latest AdvertisementID seen for `p` to latest. 
+If the full sync is performed successfully, the indexer node updates the latest `AdvertisementID` seen for `p` to `latest`. 
 
 Indexer nodes run ingestion sessions for different providers in parallel, so an indexer node can sync with several provideres in parallel.
 
@@ -320,7 +320,7 @@ session is started for the range `(ID1, ID2] with `Ingest(ctx, p, ID1, ID2)`.
 ## Provider Snapshots
 > Work in progress. Needs discussion. Do we need this?
 
-- If provider advertisement chains are becoming too large, they may choose to create a snapshot to
+- If advertisement chains become too large, a provider may choose to create a snapshot to
 prune the chain and ease the syncing process of new indexers.
 - A snapshot is a new advertisement that points to the current state of the provider's index
 without `Previous`. Snapshots can also come pretty handy for indexers to check the consistency of
