@@ -11,11 +11,8 @@ require (
 	github.com/ipld/go-ipld-prime v0.11.1-0.20210814231128-df94e6a99727
 	github.com/lib/pq v1.10.2
 	github.com/libp2p/go-libp2p-core v0.8.6
-	github.com/libp2p/go-libp2p-peer v0.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.4.0 // indirect
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/willscott/go-legs v0.0.0-20210524143907-c1d3c1b5e8e1
+	github.com/willscott/go-legs v0.0.0-20210818144703-8ab56f553d87
 )
-
-replace github.com/willscott/go-legs => github.com/adlrocha/go-legs v0.0.0-20210816101503-7cf29b7df093
