@@ -9,8 +9,8 @@ import (
 	"github.com/mitchellh/go-homedir"
 )
 
-// checkWritable checks the the directory is writable.  If the directory does
-// not exist it is created with writable permission.
+// checkWritable checks the the directory is writable.
+// If the directory does not exist it is created with writable permission.
 func checkWritable(dir string) error {
 	if dir == "" {
 		return errors.New("cannot check empty directory")
@@ -22,38 +22,33 @@ func checkWritable(dir string) error {
 		return err
 	}
 
-	_, err = os.Stat(dir)
-	if err == nil {
-		// dir exists, make sure we can write to it
-		testfile := filepath.Join(dir, "test")
-		fi, err := os.Create(testfile)
-		if err != nil {
-			if os.IsPermission(err) {
-				return fmt.Errorf("%s is not writeable by the current user", dir)
-			}
-			return fmt.Errorf("unexpected error while checking writeablility of repo root: %s", err)
+	if _, err = os.Stat(dir); err != nil {
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			// dir doesn't exist, check that we can create it
+			return os.Mkdir(dir, 0o775)
+		case errors.Is(err, os.ErrPermission):
+			return fmt.Errorf("cannot write to %s, incorrect permissions", err)
+		default:
+			return err
 		}
-		fi.Close()
-		return os.Remove(testfile)
 	}
 
-	if os.IsNotExist(err) {
-		// dir doesn't exist, check that we can create it
-		return os.Mkdir(dir, 0775)
+	// dir exists, make sure we can write to it
+	testfile := filepath.Join(dir, "test")
+	fi, err := os.Create(testfile)
+	if err != nil {
+		if os.IsPermission(err) {
+			return fmt.Errorf("%s is not writeable by the current user", dir)
+		}
+		return fmt.Errorf("unexpected error while checking writeablility of repo root: %s", err)
 	}
-
-	if os.IsPermission(err) {
-		return fmt.Errorf("cannot write to %s, incorrect permissions", err)
-	}
-
-	return err
+	fi.Close()
+	return os.Remove(testfile)
 }
 
-// fileExists return true if the file exists
+// fileExists checks whether the file exists.
 func fileExists(filename string) bool {
 	fi, err := os.Lstat(filename)
-	if fi != nil || (err != nil && !os.IsNotExist(err)) {
-		return true
-	}
-	return false
+	return fi != nil || (err != nil && !errors.Is(err, os.ErrNotExist))
 }

@@ -12,14 +12,14 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// shutdownTimeout is the duration that a graceful shutdown has to complete
+// shutdownTimeout is the duration within which a graceful shutdown has to complete.
 const shutdownTimeout = 5 * time.Second
 
 var log = logging.Logger("command/reference-provider")
 
 var (
 	ErrDaemonStart = errors.New("daemon did not start correctly")
-	ErrDaemonStop  = errors.New("daemon did not stop correctly")
+	ErrDaemonStop  = errors.New("daemon did not stop gracefully")
 )
 
 var DaemonCmd = &cli.Command{
@@ -34,7 +34,7 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		if err == config.ErrNotInitialized {
 			fmt.Fprintln(os.Stderr, "reference provider is not initialized")
-			fmt.Fprintln(os.Stderr, "To initialize, run the command: ./indexer-reference-provider init")
+			fmt.Fprintln(os.Stderr, "To initialize, run the command: ./indexer-reference-provider init") // TODO adjust `./`; see how we can simplify the message here so that it would make sense regardless of OS or where the binary is located
 			os.Exit(1)
 		}
 		return fmt.Errorf("cannot load config file: %w", err)
@@ -42,8 +42,7 @@ func daemonCommand(cctx *cli.Context) error {
 
 	_ = cfg.Identity
 
-	// TODO: Create new libp2p host from identity, and
-	// intialize new provider engine
+	// TODO: Create new libp2p host from identity, and initialize new provider engine
 
 	log.Info("Starting daemon servers")
 	errChan := make(chan error, 3)

@@ -9,7 +9,8 @@ var GitVersion string = "unknown"
 
 var reVersion = regexp.MustCompile(`^(v\d+\.\d+.\d+)(?:-)?(.+)?$`)
 
-// String formats the version in semver format, see semver.org
+// String formats the version in semver format.
+// See: semver.org
 func String() string {
 	matches := reVersion.FindStringSubmatch(GitVersion)
 	if matches == nil || len(matches) < 3 {
