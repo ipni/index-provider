@@ -34,12 +34,12 @@ func CreateIdentity(out io.Writer) (Identity, error) {
 	var sk crypto.PrivKey
 	var pk crypto.PubKey
 
-	fmt.Fprintf(out, "generating ED25519 keypair...")
+	fmt.Fprint(out, "generating ED25519 keypair...")
 	priv, pub, err := crypto.GenerateEd25519Key(rand.Reader)
 	if err != nil {
 		return ident, err
 	}
-	fmt.Fprintf(out, "done\n")
+	fmt.Fprintln(out, "done")
 
 	sk = priv
 	pk = pub

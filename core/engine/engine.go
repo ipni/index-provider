@@ -39,8 +39,7 @@ type Engine struct {
 	pubSubTopic string
 }
 
-// New creates a reference provider engine with the corresponding
-// config
+// New creates a reference provider engine with the corresponding config.
 func New(ctx context.Context, host host.Host, ds datastore.Batching, index indexer.Interface, pubSubTopic string) (*Engine, error) {
 	log.Debugw("Starting new reference provider engine")
 	lsys := mkLinkSystem(ds)

@@ -19,7 +19,7 @@ const (
 	// DefaultPathName is the default config dir name
 	DefaultPathName = ".reference-provider"
 	// DefaultPathRoot is the path to the default config dir location.
-	DefaultPathRoot = "~/" + DefaultPathName
+	DefaultPathRoot = "~/" + DefaultPathName // TODO this won't work on windows. use user home dir instead
 	// DefaultConfigFile is the filename of the configuration file
 	DefaultConfigFile = "config"
 	// EnvDir is the environment variable used to change the path root.
@@ -101,7 +101,7 @@ func (c *Config) Save(filePath string) error {
 		}
 	}
 
-	err = os.MkdirAll(filepath.Dir(filePath), 0755)
+	err = os.MkdirAll(filepath.Dir(filePath), 0o755)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (c *Config) Save(filePath string) error {
 	return err
 }
 
-// String returns a pretty-printed json config
+// String returns a pretty-printed json config.
 func (c *Config) String() string {
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 var DaemonFlags = []cli.Flag{
 	phFlag,
 }
+
 var InitFlags = []cli.Flag{
 	phFlag,
 }

@@ -28,10 +28,10 @@ func main() {
 		case <-interrupt:
 			cancel()
 			fmt.Println("Received interrupt signal, shutting down...")
-			fmt.Println("(Hit ctrl-c again to force-shutdown the daemon.)")
+			fmt.Println("(Hit CTRL-C again to force-shutdown the daemon.)")
 		case <-ctx.Done():
 		}
-		// Allow any forther SIGTERM or SIGING to kill process
+		// Allow any further SIGTERM or SIGING to kill the process
 		signal.Stop(interrupt)
 	}()
 
