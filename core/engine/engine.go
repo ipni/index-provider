@@ -154,7 +154,9 @@ func (e *Engine) PutEvent(ctx context.Context, cids []cid.Cid, metadata []byte) 
 		return err
 	}
 	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID, indexLnk, e.host.ID().String(), graphSupport)
-
+	if err != nil {
+		return err
+	}
 	return e.Publish(ctx, adv)
 }
 
