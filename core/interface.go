@@ -23,6 +23,8 @@ type IndexLink schema.Link_Index
 // Interface for a reference provider
 type Interface interface {
 	// PublishLocal provides a new advertisement locally.
+	// It returns the CID that can be used to uniquely
+	// identify the advertisement.
 	PublishLocal(ctx context.Context, adv Advertisement) (cid.Cid, error)
 
 	// Publish advertisement to indexer pubsub channel
@@ -47,8 +49,8 @@ type Interface interface {
 	NotifyRemoved(ctx context.Context, cids []cid.Cid, metadata []byte) error
 
 	// GetAdv gets an advertisement by CID from local storage.
-	GetAdv(id cid.Cid) (Advertisement, error)
+	GetAdv(ctx context.Context, id cid.Cid) (Advertisement, error)
 
 	// GetLatestAdv gets the latest advertisement published by provider from local storage.
-	GetLatestAdv() (Advertisement, error)
+	GetLatestAdv(ctx context.Context) (Advertisement, error)
 }

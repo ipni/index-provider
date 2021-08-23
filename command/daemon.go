@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p"
 	"github.com/urfave/cli/v2"
 )
 
@@ -40,7 +42,41 @@ func daemonCommand(cctx *cli.Context) error {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
 
-	_ = cfg.Identity
+	// Initialize libp2p host
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	privKey, err := cfg.Identity.DecodePrivateKey("")
+	if err != nil {
+		return err
+	}
+
+	// TODO: Do we want to the libp2p host to listen on any particular
+	// addresss and port?
+	_, err = libp2p.New(ctx,
+		// Use the keypair generated during init
+		libp2p.Identity(privKey),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Initialize datastore
+	if cfg.Datastore.Type != "levelds" {
+		return fmt.Errorf("only levelds datastore type supported, %q not supported", cfg.Datastore.Type)
+	}
+	dataStorePath, err := config.Path("", cfg.Datastore.Dir)
+	if err != nil {
+		return err
+	}
+	err = checkWritable(dataStorePath)
+	if err != nil {
+		return err
+	}
+	_, err = leveldb.NewDatastore(dataStorePath, nil)
+	if err != nil {
+		return err
+	}
 
 	// TODO: Create new libp2p host from identity, and initialize new provider engine
 
@@ -67,9 +103,6 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	log.Infow("Shutting down daemon")
-
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
 
 	go func() {
 		// Wait for context to be canceled.  If timeout, then exit with error.

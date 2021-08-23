@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/filecoin-project/indexer-reference-provider/core"
+	ingestion "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -38,9 +39,14 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	return lsys
 }
 
+// storageKey uses the corresponding prefix in the datastore
+// according to the schema type the link belongs to.
+// see api/v0/ingest/utils.go of filecoin-project/storetheindex
+// to understand how the storer for the schema works.
 func storageKey(lctx ipld.LinkContext, lnk ipld.Link) string {
 	c := lnk.(cidlink.Link).Cid
-	if lctx.Ctx.Value(schema.IsIndexKey).(bool) {
+	val := lctx.Ctx.Value(schema.IsIndexKey)
+	if bool(val.(ingestion.LinkContextValue)) {
 		return indexPrefix + c.String()
 	}
 	return advPrefix + c.String()
@@ -57,19 +63,12 @@ func (e *Engine) putLatestIndex(c cid.Cid) error {
 	return e.ds.Put(datastore.NewKey(latestAdvKey), c.Bytes())
 }
 
-func (e *Engine) getLatestAdv() ([]byte, error) {
-	b, err := e.ds.Get(datastore.NewKey(latestAdvKey))
-	if err != nil {
-		if err == datastore.ErrNotFound {
-			return nil, nil
-		}
-		return nil, err
+func (e *Engine) getLatest(isIndex bool) (cid.Cid, error) {
+	key := latestIndexKey
+	if !isIndex {
+		key = latestAdvKey
 	}
-	return b, nil
-}
-
-func (e *Engine) getLatestIndex() (cid.Cid, error) {
-	b, err := e.ds.Get(datastore.NewKey(latestAdvKey))
+	b, err := e.ds.Get(datastore.NewKey(key))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			return cid.Undef, nil
@@ -81,9 +80,17 @@ func (e *Engine) getLatestIndex() (cid.Cid, error) {
 }
 
 func (e *Engine) getLatestIndexLink() (core.IndexLink, error) {
-	c, err := e.getLatestIndex()
+	c, err := e.getLatest(true)
 	if err != nil {
 		return nil, err
 	}
 	return schema.LinkIndexFromCid(c), nil
+}
+
+func (e *Engine) getLatestAdvLink() (core.AdvLink, error) {
+	c, err := e.getLatest(false)
+	if err != nil {
+		return nil, err
+	}
+	return schema.LinkAdvFromCid(c), nil
 }
