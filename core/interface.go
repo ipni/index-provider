@@ -40,11 +40,11 @@ type Interface interface {
 	Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte)
 
 	// PutEvent notifies that new data has been added to the provider
-	PutEvent(ctx context.Context, cids []cid.Cid, metadata []byte) error
+	NotifyPut(ctx context.Context, cids []cid.Cid, metadata []byte) error
 
 	// RemoveEvent sends an event to the reference provider to notify
 	// that new data has been removed from the provider
-	RemoveEvent(ctx context.Context, cids []cid.Cid, metadata []byte) error
+	NotifyRemoved(ctx context.Context, cids []cid.Cid, metadata []byte) error
 
 	// GetAdv gets an advertisement by CID from local storage.
 	GetAdv(id cid.Cid) (Advertisement, error)
