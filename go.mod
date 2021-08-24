@@ -19,3 +19,5 @@ require (
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/willscott/go-legs v0.0.0-20210819132532-b81c14e0951b
 )
+
+replace github.com/willscott/go-legs => github.com/gammazero/go-legs v0.0.0-20210824213616-600e2d01d968
