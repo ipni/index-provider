@@ -12,7 +12,7 @@ require (
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-leveldb v0.4.2
 	github.com/ipfs/go-log/v2 v2.3.0
-	github.com/ipld/go-ipld-prime v0.11.1-0.20210819131917-d7e93a828c7c
+	github.com/ipld/go-ipld-prime v0.12.0
 	github.com/lib/pq v1.10.2
 	github.com/libp2p/go-libp2p v0.15.0-rc.1
 	github.com/libp2p/go-libp2p-core v0.9.0

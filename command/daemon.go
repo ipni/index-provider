@@ -104,6 +104,9 @@ func daemonCommand(cctx *cli.Context) error {
 
 	log.Infow("Shutting down daemon")
 
+	_, shCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer shCancel()
+
 	go func() {
 		// Wait for context to be canceled.  If timeout, then exit with error.
 		<-ctx.Done()

@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/filecoin-project/indexer-reference-provider/core"
-	ingestion "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -20,7 +18,12 @@ const (
 	latestIndexKey = "sync/index"
 )
 
+/*
 // LinkSystem for the reference provider
+// It checks the linkContext to add a prefix before persisting the DAG
+// into the datastore.
+// NOTE: LinkContext propagation does not currently work with Graphsync,
+// so we can use this approach until we figure out what may be happening.
 func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
@@ -45,12 +48,38 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 // to understand how the storer for the schema works.
 func storageKey(lctx ipld.LinkContext, lnk ipld.Link) string {
 	c := lnk.(cidlink.Link).Cid
+	if lctx.Ctx == nil {
+		return c.String()
+	}
 	val := lctx.Ctx.Value(schema.IsIndexKey)
-	if bool(val.(ingestion.LinkContextValue)) {
+	if bool(val.(schema.LinkContextValue)) {
 		return indexPrefix + c.String()
 	}
 	return advPrefix + c.String()
 
+}
+
+*/
+
+// Standard linksystem. No prefix are added for persistence.
+func mkStdLinkSystem(ds datastore.Batching) ipld.LinkSystem {
+	lsys := cidlink.DefaultLinkSystem()
+	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+		c := lnk.(cidlink.Link).Cid
+		val, err := ds.Get(datastore.NewKey(c.String()))
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewBuffer(val), nil
+	}
+	lsys.StorageWriteOpener = func(_ ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
+		buf := bytes.NewBuffer(nil)
+		return buf, func(lnk ipld.Link) error {
+			c := lnk.(cidlink.Link).Cid
+			return ds.Put(datastore.NewKey(c.String()), buf.Bytes())
+		}, nil
+	}
+	return lsys
 }
 
 func (e *Engine) putLatestAdv(advID []byte) error {
@@ -79,7 +108,7 @@ func (e *Engine) getLatest(isIndex bool) (cid.Cid, error) {
 	return c, err
 }
 
-func (e *Engine) getLatestIndexLink() (core.IndexLink, error) {
+func (e *Engine) getLatestIndexLink() (schema.Link_Index, error) {
 	c, err := e.getLatest(true)
 	if err != nil {
 		return nil, err
@@ -87,10 +116,12 @@ func (e *Engine) getLatestIndexLink() (core.IndexLink, error) {
 	return schema.LinkIndexFromCid(c), nil
 }
 
-func (e *Engine) getLatestAdvLink() (core.AdvLink, error) {
+/*
+func (e *Engine) getLatestAdvLink() (schema.Link_Advertisement, error) {
 	c, err := e.getLatest(false)
 	if err != nil {
 		return nil, err
 	}
 	return schema.LinkAdvFromCid(c), nil
 }
+*/

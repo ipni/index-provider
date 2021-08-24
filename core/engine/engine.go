@@ -50,7 +50,8 @@ func New(ctx context.Context,
 	privKey crypto.PrivKey, host host.Host, ds datastore.Batching,
 	pubSubTopic string) (*Engine, error) {
 
-	lsys := mkLinkSystem(ds)
+	//lsys := mkLinkSystem(ds)
+	lsys := mkStdLinkSystem(ds)
 	lp, err := legs.NewPublisher(ctx, ds, host, pubSubTopic, lsys)
 	if err != nil {
 		return nil, err
@@ -80,7 +81,7 @@ func NewFromConfig(ctx context.Context, cfg config.Config, ds datastore.Batching
 	return New(ctx, privKey, host, ds, cfg.Ingest.PubSubTopic)
 }
 
-func (e *Engine) PublishLocal(ctx context.Context, adv core.Advertisement) (cid.Cid, error) {
+func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	// Advertisement are published in datastore by the linkSystem when links are generated.
 	// The linksystem of the reference provider determines how to persist the advertisement.
 	adLnk, err := schema.AdvertisementLink(e.lsys, adv)
@@ -99,54 +100,66 @@ func (e *Engine) PublishLocal(ctx context.Context, adv core.Advertisement) (cid.
 	return c, nil
 }
 
-func (e *Engine) Publish(ctx context.Context, adv core.Advertisement) error {
+func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	// First publish the advertisement locally.
 	// Advertisements are stored immutably, so it doesn't matter
 	// if we try to publish the same advertisement twice, we will just
 	// propagate the announcement again through the pubsub channel.
 	c, err := e.PublishLocal(ctx, adv)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 
 	// Use legPublisher to publish the advertisement.
-	return e.lp.UpdateRoot(ctx, c)
+	return c, e.lp.UpdateRoot(ctx, c)
 }
 
-func (e *Engine) PushAdv(ctx context.Context, indexer peer.ID, adv core.Advertisement) error {
+func (e *Engine) PushAdv(ctx context.Context, indexer peer.ID, adv schema.Advertisement) error {
+	// TODO: Waiting for libp2p interface for advertisement push.
 	panic("not implemented")
 }
 
 func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) {
+	// TODO: Waiting for libp2p interface for ingestion push.
 	panic("not implemented")
 }
 
-func (e *Engine) NotifyPut(ctx context.Context, cids []cid.Cid, metadata []byte) error {
+func (e *Engine) NotifyPut(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
 	latestAdvID, err := e.getLatest(false)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 	latestIndexLink, err := e.getLatestIndexLink()
 	if err != nil {
-		return err
+		return cid.Undef, err
+	}
+	// Selectors don't like Cid.Undef. The exchange fails if we build
+	// a link with cid.Undef for the genesis index. To avoid this we
+	// check if cid.Undef, and if yes we set to nil.
+	if schema.Link_Index(latestIndexLink).ToCid() == cid.Undef {
+		latestIndexLink = nil
 	}
 	// Lsys will store the index conveniently here.
 	_, indexLnk, err := schema.NewSingleEntryIndex(e.lsys, cids, nil, metadata, latestIndexLink)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
+
+	// TODO: We should probably prevent providers from being able to advertise
+	// the same index several times. It may lead to a lot of duplicate retrievals?
+
 	// Update the latest index
 	iLnk, err := indexLnk.AsLink()
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 	err = e.putLatestIndex(iLnk.(cidlink.Link).Cid)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID.Bytes(), indexLnk, e.host.ID().String(), graphSupport)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 	return e.Publish(ctx, adv)
 }
@@ -155,7 +168,7 @@ func (e *Engine) NotifyRemoved(ctx context.Context, cids []cid.Cid, metadata []b
 	panic("not implemented")
 }
 
-func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (core.Advertisement, error) {
+func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
 	l, err := schema.LinkAdvFromCid(c).AsLink()
 	if err != nil {
 		return nil, err
@@ -173,7 +186,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (core.Advertisement, err
 	return adv, nil
 }
 
-func (e *Engine) GetLatestAdv(ctx context.Context) (core.Advertisement, error) {
+func (e *Engine) GetLatestAdv(ctx context.Context) (schema.Advertisement, error) {
 	latestAdv, err := e.getLatest(false)
 	if err != nil {
 		return nil, err

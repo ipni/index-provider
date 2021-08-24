@@ -20,6 +20,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
+	legs "github.com/willscott/go-legs"
 )
 
 const testTopic = "indexer/test"
@@ -29,6 +30,15 @@ var prefix = cid.Prefix{
 	Codec:    cid.Raw,
 	MhType:   multihash.SHA2_256,
 	MhLength: -1, // default length
+}
+
+func mkMockSubscriber(t *testing.T, h host.Host) legs.LegSubscriber {
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	//lsys := mkLinkSystem(store)
+	lsys := mkStdLinkSystem(store)
+	ls, err := legs.NewSubscriber(context.Background(), store, h, testTopic, lsys, nil)
+	require.NoError(t, err)
+	return ls
 }
 
 func mkTestHost() host.Host {
@@ -44,6 +54,14 @@ func mkEngine(t *testing.T) (*Engine, error) {
 
 	return New(context.Background(), priv, h, store, testTopic)
 
+}
+
+func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
+	srcHost.Peerstore().AddAddrs(dstHost.ID(), dstHost.Addrs(), time.Hour)
+	dstHost.Peerstore().AddAddrs(srcHost.ID(), srcHost.Addrs(), time.Hour)
+	if err := srcHost.Connect(context.Background(), dstHost.Peerstore().PeerInfo(dstHost.ID())); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func RandomCids(n int) ([]cid.Cid, error) {
@@ -99,10 +117,111 @@ func TestPublishLocal(t *testing.T) {
 	latest, err = e.getLatest(false)
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid2, "latest advertisement pointer not updated correctly")
-	// Check that we can fetch the advertisement
+	// Check that we can fetch the latest advertisement
 	fetchAdv2, err := e.GetLatestAdv(ctx)
 	require.NoError(t, err)
 	fAdv2 := schema.Advertisement(fetchAdv2)
 	require.Equal(t, ipld.DeepEqual(fAdv2, adv2), true, "fetched advertisement is not equal to published one")
+	// Check that we can fetch previous ones
+	fetchAdv, err := e.GetAdv(ctx, advCid)
+	require.NoError(t, err)
+	fAdv := schema.Advertisement(fetchAdv)
+	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "fetched advertisement is not equal to published one")
+}
 
+func TestPublish(t *testing.T) {
+	ctx := context.Background()
+	e, err := mkEngine(t)
+	require.NoError(t, err)
+
+	_, _, adv, advLnk := genRandomIndexAndAdv(t, e)
+
+	// Create mockSubscriber
+	lh := mkTestHost()
+	ls := mkMockSubscriber(t, lh)
+	watcher, cncl := ls.OnChange()
+	defer func() {
+		cncl()
+		ls.Close(context.Background())
+	}()
+
+	// Connect subscribe with provider engine.
+	connectHosts(t, e.host, lh)
+
+	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
+	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
+	time.Sleep(time.Second)
+
+	// Publish advertisement
+	_, err = e.Publish(ctx, adv)
+	require.NoError(t, err)
+
+	// Check that the update has been published and can be fetched from subscriber
+	c := advLnk.ToCid()
+	select {
+	case <-time.After(time.Second * 5):
+		t.Fatal("timed out waiting for sync to propogate")
+	case downstream := <-watcher:
+		if !downstream.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+		}
+	}
+
+	// Check that we can fetch the latest advertisement locally
+	fetchAdv, err := e.GetLatestAdv(ctx)
+	require.NoError(t, err)
+	fAdv := schema.Advertisement(fetchAdv)
+	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "latest fetched advertisement is not equal to published one")
+
+}
+
+func TestNotifyPut(t *testing.T) {
+	ctx := context.Background()
+	e, err := mkEngine(t)
+	require.NoError(t, err)
+
+	// Create mockSubscriber
+	lh := mkTestHost()
+	ls := mkMockSubscriber(t, lh)
+	watcher, cncl := ls.OnChange()
+	defer func() {
+		cncl()
+		ls.Close(context.Background())
+	}()
+
+	// Connect subscribe with provider engine.
+	connectHosts(t, e.host, lh)
+
+	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
+	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
+	time.Sleep(time.Second)
+
+	// NotifyPut of cids
+	cids, _ := RandomCids(10)
+	c, err := e.NotifyPut(ctx, cids, []byte("metadata"))
+	require.NoError(t, err)
+
+	// Check that the update has been published and can be fetched from subscriber
+	select {
+	case <-time.After(time.Second * 5):
+		t.Fatal("timed out waiting for sync to propogate")
+	case downstream := <-watcher:
+		if !downstream.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+		}
+	}
+
+	// NotifyPut second time
+	cids, _ = RandomCids(10)
+	c, err = e.NotifyPut(ctx, cids, []byte("metadata"))
+	require.NoError(t, err)
+	// Check that the update has been published and can be fetched from subscriber
+	select {
+	case <-time.After(time.Second * 5):
+		t.Fatal("timed out waiting for sync to propogate")
+	case downstream := <-watcher:
+		if !downstream.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+		}
+	}
 }
