@@ -128,11 +128,10 @@ func TestPublishLocal(t *testing.T) {
 	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "fetched advertisement is not equal to published one")
 }
 
-// TODO: Fix test. The test is flaky, skipping it for now to avoid reds in CI
+// TODO: Fix test. The test is flaky.
 // It seem sto be something deep in the stack, it needs some more work
-// to understand what is happening.
+// to understand what is happening. It works locally but not in CI.
 func TestNotifyPublish(t *testing.T) {
-	t.SkipNow()
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
