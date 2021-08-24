@@ -2,12 +2,9 @@ module github.com/filecoin-project/indexer-reference-provider
 
 go 1.16
 
-// TODO: Remove when https://github.com/filecoin-project/storetheindex/pull/42 is merged.
-replace github.com/filecoin-project/storetheindex => ../storetheindex
-
 require (
 	github.com/filecoin-project/go-indexer-core v0.0.0-20210818063915-4b4227413744
-	github.com/filecoin-project/storetheindex v0.0.0-00010101000000-000000000000
+	github.com/filecoin-project/storetheindex v0.0.0-20210824111721-ba4431fd935d
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-leveldb v0.4.2

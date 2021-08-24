@@ -34,8 +34,7 @@ var prefix = cid.Prefix{
 
 func mkMockSubscriber(t *testing.T, h host.Host) legs.LegSubscriber {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	//lsys := mkLinkSystem(store)
-	lsys := mkStdLinkSystem(store)
+	lsys := mkLinkSystem(store)
 	ls, err := legs.NewSubscriber(context.Background(), store, h, testTopic, lsys, nil)
 	require.NoError(t, err)
 	return ls
@@ -129,15 +128,14 @@ func TestPublishLocal(t *testing.T) {
 	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "fetched advertisement is not equal to published one")
 }
 
-func TestPublish(t *testing.T) {
+func TestNotifyPublish(t *testing.T) {
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
 
-	_, _, adv, advLnk := genRandomIndexAndAdv(t, e)
-
 	// Create mockSubscriber
 	lh := mkTestHost()
+	_, _, adv, advLnk := genRandomIndexAndAdv(t, e)
 	ls := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 	defer func() {
@@ -172,10 +170,9 @@ func TestPublish(t *testing.T) {
 	require.NoError(t, err)
 	fAdv := schema.Advertisement(fetchAdv)
 	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "latest fetched advertisement is not equal to published one")
-
 }
 
-func TestNotifyPut(t *testing.T) {
+func TestNotifyPutCids(t *testing.T) {
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
@@ -198,7 +195,7 @@ func TestNotifyPut(t *testing.T) {
 
 	// NotifyPut of cids
 	cids, _ := RandomCids(10)
-	c, err := e.NotifyPut(ctx, cids, []byte("metadata"))
+	c, err := e.NotifyPutCids(ctx, cids, []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
@@ -213,7 +210,7 @@ func TestNotifyPut(t *testing.T) {
 
 	// NotifyPut second time
 	cids, _ = RandomCids(10)
-	c, err = e.NotifyPut(ctx, cids, []byte("metadata"))
+	c, err = e.NotifyPutCids(ctx, cids, []byte("metadata"))
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
 	select {

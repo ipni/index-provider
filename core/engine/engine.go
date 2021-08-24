@@ -50,8 +50,7 @@ func New(ctx context.Context,
 	privKey crypto.PrivKey, host host.Host, ds datastore.Batching,
 	pubSubTopic string) (*Engine, error) {
 
-	//lsys := mkLinkSystem(ds)
-	lsys := mkStdLinkSystem(ds)
+	lsys := mkLinkSystem(ds)
 	lp, err := legs.NewPublisher(ctx, ds, host, pubSubTopic, lsys)
 	if err != nil {
 		return nil, err
@@ -124,7 +123,7 @@ func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadat
 	panic("not implemented")
 }
 
-func (e *Engine) NotifyPut(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
+func (e *Engine) NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
 	latestAdvID, err := e.getLatest(false)
 	if err != nil {
 		return cid.Undef, err
@@ -164,7 +163,15 @@ func (e *Engine) NotifyPut(ctx context.Context, cids []cid.Cid, metadata []byte)
 	return e.Publish(ctx, adv)
 }
 
-func (e *Engine) NotifyRemoved(ctx context.Context, cids []cid.Cid, metadata []byte) error {
+func (e *Engine) NotifyRemoveCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
+	panic("not implemented")
+}
+
+func (e *Engine) NotifyPutCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error) {
+	panic("not implemented")
+}
+
+func (e *Engine) NotifyRemoveCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error) {
 	panic("not implemented")
 }
 

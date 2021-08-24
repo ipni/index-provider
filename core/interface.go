@@ -15,7 +15,7 @@ type Interface interface {
 	// identify the advertisement.
 	PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error)
 
-	// Publish advertisement to indexer pubsub channel
+	// Publish advertisement to indexer using the indexer pubsub channel
 	// Every advertisement published to the pubsub channel
 	// is also provided locally.
 	Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error)
@@ -29,12 +29,24 @@ type Interface interface {
 	// Indexer may only accept pushes from authenticated providers.
 	Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte)
 
-	// PutEvent notifies that new data has been added to the provider
-	NotifyPut(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error)
+	// NotifyPutCids notifies when a list of CIDs are added to the provided.
+	// It generates the corresponding Index and Advertisement for the update
+	// and published it locally and to the pubsub channel. The function returns
+	// the CID of the advertisement.
+	NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error)
 
-	// RemoveEvent sends an event to the reference provider to notify
-	// that new data has been removed from the provider
-	NotifyRemoved(ctx context.Context, cids []cid.Cid, metadata []byte) error
+	// NotifyPutCar notifies when a new CAR is added to the provider.
+	// The list of CIDs inside the CAR are processed to generate a new advertisement
+	// that points to the updated data.
+	NotifyPutCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error)
+
+	// NotifyRemoveCids notifies that a list of CIDs have been removed from the provider
+	// and generates and publishes the corresponding advertisement.
+	NotifyRemoveCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error)
+
+	// NotifyRemoveCAr notifies that a CAR has been removed from the provider
+	// and generates and publishes the corresponding advertisement.
+	NotifyRemoveCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error)
 
 	// GetAdv gets an advertisement by CID from local storage.
 	GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error)

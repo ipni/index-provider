@@ -43,7 +43,7 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Initialize libp2p host
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(cctx.Context)
 	defer cancel()
 
 	privKey, err := cfg.Identity.DecodePrivateKey("")
