@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	leveldb "github.com/ipfs/go-ds-leveldb"
@@ -13,9 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/urfave/cli/v2"
 )
-
-// shutdownTimeout is the duration within which a graceful shutdown has to complete.
-const shutdownTimeout = 5 * time.Second
 
 var log = logging.Logger("command/reference-provider")
 
@@ -78,34 +74,12 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: Create new libp2p host from identity, and initialize new provider engine
+	log.Infow("Reference provider started")
 
-	log.Info("Starting daemon servers")
-	errChan := make(chan error, 3)
-	/*
-		go func() {
-			errChan <- adminSvr.Start()
-		}()
-		go func() {
-			errChan <- finderSvr.Start()
-		}()
-		go func() {
-			errChan <- ingestSvr.Start()
-		}()
-	*/
-	var finalErr error
-	select {
-	case <-cctx.Done():
-		// Command was canceled (ctrl-c)
-	case err = <-errChan:
-		log.Errorw("Failed to start server", "err", err)
-		finalErr = ErrDaemonStart
-	}
+	// Keep process running.
+	<-cctx.Done()
 
 	log.Infow("Shutting down daemon")
-
-	_, shCancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer shCancel()
 
 	go func() {
 		// Wait for context to be canceled.  If timeout, then exit with error.
@@ -115,32 +89,8 @@ func daemonCommand(cctx *cli.Context) error {
 			os.Exit(-1)
 		}
 	}()
-
-	/*
-		if p2pSvr != nil {
-			cancelP2pFinder()
-		}
-
-		if err = ingestSvr.Shutdown(ctx); err != nil {
-			log.Errorw("Error shutting down ingest server", "err", err)
-			finalErr = ErrDaemonStop
-		}
-		if err = finderSvr.Shutdown(ctx); err != nil {
-			log.Errorw("Error shutting down finder server", "err", err)
-			finalErr = ErrDaemonStop
-		}
-		if err = adminSvr.Shutdown(ctx); err != nil {
-			log.Errorw("Error shutting down admin server", "err", err)
-			finalErr = ErrDaemonStop
-		}
-
-		if err = valueStore.Close(); err != nil {
-			log.Errorw("Error closing value store", "err", err)
-			finalErr = ErrDaemonStop
-		}
-	*/
 	cancel()
 
 	log.Infow("node stopped")
-	return finalErr
+	return nil
 }
