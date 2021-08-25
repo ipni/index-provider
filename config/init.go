@@ -22,6 +22,13 @@ func Init(out io.Writer) (*Config, error) {
 func InitWithIdentity(identity Identity) (*Config, error) {
 	conf := &Config{
 		Identity: identity,
+		Datastore: Datastore{
+			Type: defaultDatastoreType,
+			Dir:  defaultDatastoreDir,
+		},
+		Ingest: Ingest{
+			PubSubTopic: defaultIngestPubSubTopic,
+		},
 	}
 
 	return conf, nil

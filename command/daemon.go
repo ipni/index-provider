@@ -5,15 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p"
 	"github.com/urfave/cli/v2"
 )
-
-// shutdownTimeout is the duration within which a graceful shutdown has to complete.
-const shutdownTimeout = 5 * time.Second
 
 var log = logging.Logger("command/reference-provider")
 
@@ -40,36 +38,48 @@ func daemonCommand(cctx *cli.Context) error {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
 
-	_ = cfg.Identity
+	// Initialize libp2p host
+	ctx, cancel := context.WithCancel(cctx.Context)
+	defer cancel()
 
-	// TODO: Create new libp2p host from identity, and initialize new provider engine
-
-	log.Info("Starting daemon servers")
-	errChan := make(chan error, 3)
-	/*
-		go func() {
-			errChan <- adminSvr.Start()
-		}()
-		go func() {
-			errChan <- finderSvr.Start()
-		}()
-		go func() {
-			errChan <- ingestSvr.Start()
-		}()
-	*/
-	var finalErr error
-	select {
-	case <-cctx.Done():
-		// Command was canceled (ctrl-c)
-	case err = <-errChan:
-		log.Errorw("Failed to start server", "err", err)
-		finalErr = ErrDaemonStart
+	privKey, err := cfg.Identity.DecodePrivateKey("")
+	if err != nil {
+		return err
 	}
 
-	log.Infow("Shutting down daemon")
+	// TODO: Do we want to the libp2p host to listen on any particular
+	// addresss and port?
+	_, err = libp2p.New(ctx,
+		// Use the keypair generated during init
+		libp2p.Identity(privKey),
+	)
+	if err != nil {
+		return err
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
+	// Initialize datastore
+	if cfg.Datastore.Type != "levelds" {
+		return fmt.Errorf("only levelds datastore type supported, %q not supported", cfg.Datastore.Type)
+	}
+	dataStorePath, err := config.Path("", cfg.Datastore.Dir)
+	if err != nil {
+		return err
+	}
+	err = checkWritable(dataStorePath)
+	if err != nil {
+		return err
+	}
+	_, err = leveldb.NewDatastore(dataStorePath, nil)
+	if err != nil {
+		return err
+	}
+
+	log.Infow("Reference provider started")
+
+	// Keep process running.
+	<-cctx.Done()
+
+	log.Infow("Shutting down daemon")
 
 	go func() {
 		// Wait for context to be canceled.  If timeout, then exit with error.
@@ -79,32 +89,8 @@ func daemonCommand(cctx *cli.Context) error {
 			os.Exit(-1)
 		}
 	}()
-
-	/*
-		if p2pSvr != nil {
-			cancelP2pFinder()
-		}
-
-		if err = ingestSvr.Shutdown(ctx); err != nil {
-			log.Errorw("Error shutting down ingest server", "err", err)
-			finalErr = ErrDaemonStop
-		}
-		if err = finderSvr.Shutdown(ctx); err != nil {
-			log.Errorw("Error shutting down finder server", "err", err)
-			finalErr = ErrDaemonStop
-		}
-		if err = adminSvr.Shutdown(ctx); err != nil {
-			log.Errorw("Error shutting down admin server", "err", err)
-			finalErr = ErrDaemonStop
-		}
-
-		if err = valueStore.Close(); err != nil {
-			log.Errorw("Error closing value store", "err", err)
-			finalErr = ErrDaemonStop
-		}
-	*/
 	cancel()
 
 	log.Infow("node stopped")
-	return finalErr
+	return nil
 }
