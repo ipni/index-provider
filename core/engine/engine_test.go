@@ -83,11 +83,11 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (schema.Index, schema.Link_In
 	cids, _ := RandomCids(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	val := indexer.MakeValue(p, 0, cids[0].Bytes())
-	index, indexLnk, err := schema.NewSingleEntryIndex(e.lsys, cids, nil, val.Metadata, nil)
+	index, indexLnk, err := schema.NewIndexFromCids(e.lsys, cids, nil, val.Metadata, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, e.privKey, nil, indexLnk, p.String(), true)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, e.privKey, nil, indexLnk, p.String())
 	if err != nil {
 		t.Fatal(err)
 	}
