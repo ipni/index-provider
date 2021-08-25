@@ -17,7 +17,5 @@ require (
 	github.com/multiformats/go-multihash v0.0.16
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/willscott/go-legs v0.0.0-20210819132532-b81c14e0951b
+	github.com/willscott/go-legs v0.0.0-20210825065056-0d3eb32f1f07
 )
-
-replace github.com/willscott/go-legs => github.com/gammazero/go-legs v0.0.0-20210824213616-600e2d01d968
