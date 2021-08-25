@@ -22,13 +22,6 @@ var log = logging.Logger("reference-provider")
 
 var _ core.Interface = &Engine{}
 
-const (
-	// NOTE: For now this is an IPLD-aware reference provider, wo
-	// we need to force GraphSupport. This may change in the future
-	// and we may pass this as an option.
-	graphSupport = true
-)
-
 // Engine is an implementation of the core reference provider interface.
 type Engine struct {
 	// Provider's privateKey
@@ -139,7 +132,7 @@ func (e *Engine) NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []b
 		latestIndexLink = nil
 	}
 	// Lsys will store the index conveniently here.
-	_, indexLnk, err := schema.NewSingleEntryIndex(e.lsys, cids, nil, metadata, latestIndexLink)
+	_, indexLnk, err := schema.NewIndexFromCids(e.lsys, cids, nil, metadata, latestIndexLink)
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -156,7 +149,7 @@ func (e *Engine) NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []b
 	if err != nil {
 		return cid.Undef, err
 	}
-	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID.Bytes(), indexLnk, e.host.ID().String(), graphSupport)
+	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID.Bytes(), indexLnk, e.host.ID().String())
 	if err != nil {
 		return cid.Undef, err
 	}

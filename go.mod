@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/filecoin-project/go-indexer-core v0.0.0-20210818063915-4b4227413744
-	github.com/filecoin-project/storetheindex v0.0.0-20210824170027-780c0019b028
+	github.com/filecoin-project/storetheindex v0.0.0-20210825092747-289aa545b8b3
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-leveldb v0.4.2
