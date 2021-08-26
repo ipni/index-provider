@@ -159,7 +159,7 @@ func (e *Engine) NotifyPutCar(ctx context.Context, carID cid.Cid, metadata []byt
 	panic("not implemented")
 }
 
-func (e *Engine) NotifyRemoveCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error) {
+func (e *Engine) NotifyRemoveCar(ctx context.Context, carID cid.Cid) (cid.Cid, error) {
 	panic("not implemented")
 }
 
