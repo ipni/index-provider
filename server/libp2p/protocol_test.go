@@ -26,6 +26,7 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 
 	return engine.New(context.Background(), priv, h, store, testTopic)
 }
+
 func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.Host, *engine.Engine) {
 	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
@@ -86,5 +87,4 @@ func TestAdvertisements(t *testing.T) {
 	require.Nil(t, r)
 	require.Error(t, err)
 	require.Equal(t, "datastore: key not found", err.Error())
-
 }

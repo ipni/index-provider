@@ -70,7 +70,6 @@ func New(ctx context.Context,
 
 // NewFromConfig creates a reference provider engine with the corresponding config.
 func NewFromConfig(ctx context.Context, cfg config.Config, ds datastore.Batching, host host.Host) (*Engine, error) {
-
 	log.Debugw("Starting new reference provider engine")
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {

@@ -45,7 +45,6 @@ func mkEngine(t *testing.T) (*Engine, error) {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
 	return New(context.Background(), priv, h, store, testTopic)
-
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -172,7 +171,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 
 	// Check that the update has been published and can be fetched from subscriber
 	select {
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
 	case downstream := <-watcher:
 		if !downstream.Equals(c) {
@@ -186,7 +185,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
 	select {
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
 	case downstream := <-watcher:
 		if !downstream.Equals(c) {
@@ -200,7 +199,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
 	select {
-	case <-time.After(time.Second * 5):
+	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
 	case downstream := <-watcher:
 		if !downstream.Equals(c) {

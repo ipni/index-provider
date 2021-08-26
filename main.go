@@ -35,6 +35,7 @@ func main() {
 		signal.Stop(interrupt)
 	}()
 
+	// TODO parameterize log level
 	if err := logging.SetLogLevel("*", "info"); err != nil {
 		log.Fatal(err)
 	}
