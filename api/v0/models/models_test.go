@@ -11,7 +11,6 @@ import (
 )
 
 func TestMarshal(t *testing.T) {
-
 	// Generate some CIDs and populate indexer
 	cids, _ := utils.RandomCids(2)
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
@@ -39,5 +38,4 @@ func TestMarshal(t *testing.T) {
 	r2, err := UnmarshalResp(b)
 	require.NoError(t, err)
 	require.True(t, ipld.DeepEqual(adv, r2.Ad))
-
 }

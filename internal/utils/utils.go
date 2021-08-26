@@ -22,7 +22,7 @@ import (
 var prefix = schema.Linkproto.Prefix
 
 func RandomCids(n int) ([]cid.Cid, error) {
-	var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	res := make([]cid.Cid, n)
 	for i := 0; i < n; i++ {

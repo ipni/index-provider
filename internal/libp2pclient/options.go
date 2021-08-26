@@ -6,8 +6,7 @@ import (
 
 // TODO: Placeholder to add client options
 
-type clientConfig struct {
-}
+type clientConfig struct{}
 
 // ClientOption type for p2pclient
 type ClientOption func(*clientConfig) error
