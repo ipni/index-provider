@@ -172,7 +172,7 @@ func TestNotifyPublish(t *testing.T) {
 	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "latest fetched advertisement is not equal to published one")
 }
 
-func TestNotifyPutCids(t *testing.T) {
+func TestNotifyPutAndRemoveCids(t *testing.T) {
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
@@ -220,5 +220,20 @@ func TestNotifyPutCids(t *testing.T) {
 		if !downstream.Equals(c) {
 			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
 		}
+		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
+	}
+
+	// NotifyRemove the previous ones
+	c, err = e.NotifyRemoveCids(ctx, cids)
+	require.NoError(t, err)
+	// Check that the update has been published and can be fetched from subscriber
+	select {
+	case <-time.After(time.Second * 5):
+		t.Fatal("timed out waiting for sync to propogate")
+	case downstream := <-watcher:
+		if !downstream.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+		}
+		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
 	}
 }

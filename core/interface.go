@@ -42,11 +42,11 @@ type Interface interface {
 
 	// NotifyRemoveCids notifies that a list of CIDs have been removed from the provider
 	// and generates and publishes the corresponding advertisement.
-	NotifyRemoveCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error)
+	NotifyRemoveCids(ctx context.Context, cids []cid.Cid) (cid.Cid, error)
 
 	// NotifyRemoveCAr notifies that a CAR has been removed from the provider
 	// and generates and publishes the corresponding advertisement.
-	NotifyRemoveCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error)
+	NotifyRemoveCar(ctx context.Context, carID cid.Cid) (cid.Cid, error)
 
 	// GetAdv gets an advertisement by CID from local storage.
 	GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error)
