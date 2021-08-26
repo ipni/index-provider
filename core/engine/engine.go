@@ -117,10 +117,6 @@ func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadat
 }
 
 func (e *Engine) NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
-	latestAdvID, err := e.getLatest(false)
-	if err != nil {
-		return cid.Undef, err
-	}
 	latestIndexLink, err := e.getLatestIndexLink()
 	if err != nil {
 		return cid.Undef, err
@@ -136,28 +132,27 @@ func (e *Engine) NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []b
 	if err != nil {
 		return cid.Undef, err
 	}
-
-	// TODO: We should probably prevent providers from being able to advertise
-	// the same index several times. It may lead to a lot of duplicate retrievals?
-
-	// Update the latest index
-	iLnk, err := indexLnk.AsLink()
-	if err != nil {
-		return cid.Undef, err
-	}
-	err = e.putLatestIndex(iLnk.(cidlink.Link).Cid)
-	if err != nil {
-		return cid.Undef, err
-	}
-	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID.Bytes(), indexLnk, e.host.ID().String())
-	if err != nil {
-		return cid.Undef, err
-	}
-	return e.Publish(ctx, adv)
+	return e.publishAdvForIndex(ctx, indexLnk)
 }
 
-func (e *Engine) NotifyRemoveCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
-	panic("not implemented")
+func (e *Engine) NotifyRemoveCids(ctx context.Context, cids []cid.Cid) (cid.Cid, error) {
+	latestIndexLink, err := e.getLatestIndexLink()
+	if err != nil {
+		return cid.Undef, err
+	}
+	// Selectors don't like Cid.Undef. The exchange fails if we build
+	// a link with cid.Undef for the genesis index. To avoid this we
+	// check if cid.Undef, and if yes we set to nil.
+	if schema.Link_Index(latestIndexLink).ToCid() == cid.Undef {
+		latestIndexLink = nil
+	}
+	// Lsys will store the index conveniently here.
+	_, indexLnk, err := schema.NewIndexFromCids(e.lsys, nil, cids, nil, latestIndexLink)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	return e.publishAdvForIndex(ctx, indexLnk)
 }
 
 func (e *Engine) NotifyPutCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error) {
@@ -192,4 +187,27 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (schema.Advertisement, error)
 		return nil, err
 	}
 	return e.GetAdv(ctx, latestAdv)
+}
+
+func (e *Engine) publishAdvForIndex(ctx context.Context, lnk schema.Link_Index) (cid.Cid, error) {
+	// TODO: We should probably prevent providers from being able to advertise
+	// the same index several times. It may lead to a lot of duplicate retrievals?
+	latestAdvID, err := e.getLatest(false)
+	if err != nil {
+		return cid.Undef, err
+	}
+	// Update the latest index
+	iLnk, err := lnk.AsLink()
+	if err != nil {
+		return cid.Undef, err
+	}
+	err = e.putLatestIndex(iLnk.(cidlink.Link).Cid)
+	if err != nil {
+		return cid.Undef, err
+	}
+	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID.Bytes(), lnk, e.host.ID().String())
+	if err != nil {
+		return cid.Undef, err
+	}
+	return e.Publish(ctx, adv)
 }

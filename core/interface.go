@@ -42,7 +42,7 @@ type Interface interface {
 
 	// NotifyRemoveCids notifies that a list of CIDs have been removed from the provider
 	// and generates and publishes the corresponding advertisement.
-	NotifyRemoveCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error)
+	NotifyRemoveCids(ctx context.Context, cids []cid.Cid) (cid.Cid, error)
 
 	// NotifyRemoveCAr notifies that a CAR has been removed from the provider
 	// and generates and publishes the corresponding advertisement.
