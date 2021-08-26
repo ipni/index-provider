@@ -46,7 +46,7 @@ type Interface interface {
 
 	// NotifyRemoveCAr notifies that a CAR has been removed from the provider
 	// and generates and publishes the corresponding advertisement.
-	NotifyRemoveCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error)
+	NotifyRemoveCar(ctx context.Context, carID cid.Cid) (cid.Cid, error)
 
 	// GetAdv gets an advertisement by CID from local storage.
 	GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error)
