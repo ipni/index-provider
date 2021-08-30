@@ -187,8 +187,8 @@ github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe h
 github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
 github.com/filecoin-project/go-statestore v0.1.0 h1:t56reH59843TwXHkMcwyuayStBIiWBRilQjQ+5IiwdQ=
 github.com/filecoin-project/go-statestore v0.1.0/go.mod h1:LFc9hD+fRxPqiHiaqUEZOinUJB4WARkRfNl10O7kTnI=
-github.com/filecoin-project/storetheindex v0.0.0-20210825092747-289aa545b8b3 h1:bedIhYgkssxpZ9udPDwh/i83cXnzDkTgTjgmj/z8fSQ=
-github.com/filecoin-project/storetheindex v0.0.0-20210825092747-289aa545b8b3/go.mod h1:Lf5gw24LFoXbNwCzmTuKLGKf2qgMd/He4y2Ye4F7O3w=
+github.com/filecoin-project/storetheindex v0.0.0-20210830111234-6fb42350df86 h1:N4VE5RY/cPg7ERFASWWe8dwlB8nd3rm0UOsjfo8eN9A=
+github.com/filecoin-project/storetheindex v0.0.0-20210830111234-6fb42350df86/go.mod h1:PIot9ckg64v/2ehZhHop4N+Qc8rKSZXGoThwpbO/LoQ=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6/go.mod h1:1i71OnUq3iUe1ma7Lr6yG6/rjvM3emb6yoL7xLFzcVQ=
 github.com/flynn/noise v1.0.0 h1:DlTHqmzmvcEiKj+4RYo/imoswx/4r6iBlCMfVtrMXpQ=
@@ -493,7 +493,6 @@ github.com/ipld/go-codec-dagpb v1.2.0/go.mod h1:6nBN7X7h8EOsEejZGqC7tej5drsdBAXb
 github.com/ipld/go-ipld-prime v0.0.2-0.20191108012745-28a82f04c785/go.mod h1:bDDSvVz7vaK12FNvMeRYnpRFkSUPNQOiCYQezMD/P3w=
 github.com/ipld/go-ipld-prime v0.9.0/go.mod h1:KvBLMr4PX1gWptgkzRjVZCrLmSGcZCb/jioOQwCqZN8=
 github.com/ipld/go-ipld-prime v0.9.1-0.20210324083106-dc342a9917db/go.mod h1:KvBLMr4PX1gWptgkzRjVZCrLmSGcZCb/jioOQwCqZN8=
-github.com/ipld/go-ipld-prime v0.11.1-0.20210819131917-d7e93a828c7c/go.mod h1:sz8NBBqxpVaxCXnX+GpCGmCZ4NRczd0TXB9ViYYRFbc=
 github.com/ipld/go-ipld-prime v0.12.0 h1:JapyKWTsJgmhrPI7hfx4V798c/RClr85sXfBZnH1VIw=
 github.com/ipld/go-ipld-prime v0.12.0/go.mod h1:hy8b93WleDMRKumOJnTIrr0MbbFbx9GD6Kzxa53Xppc=
 github.com/ipld/go-ipld-prime-proto v0.0.0-20191113031812-e32bd156a1e5/go.mod h1:gcvzoEDBjwycpXt3LBE061wT9f46szXGHAmj9uoP6fU=
@@ -1159,8 +1158,9 @@ github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 h1:
 github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7/go.mod h1:X2c0RVCI1eSUFI8eLcY3c0423ykwiUdxLJtkDvruhjI=
 github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee h1:lYbXeSvJi5zk5GLKVuid9TVjS9a0OmLIDKTfoZBL6Ow=
 github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee/go.mod h1:m2aV4LZI4Aez7dP5PMyVKEHhUyEJ/RjmPEDOpDvudHg=
-github.com/willscott/go-legs v0.0.0-20210825065056-0d3eb32f1f07 h1:GadBlqHlwaJI8Q1snMArwP3e+rnfzScoUgeaiTlIswo=
-github.com/willscott/go-legs v0.0.0-20210825065056-0d3eb32f1f07/go.mod h1:r51KWmlUGK6TBPbkzLnXLPKsoqvtGK+zMnsO8pf/KM8=
+github.com/willscott/go-legs v0.0.0-20210830091910-b6880983f7b8/go.mod h1:WRUB3nrtydzywGU8Eu+0g7hSUh6Wctlt8IKUMErMKx8=
+github.com/willscott/go-legs v0.0.0-20210830112506-3139ce32c8a3 h1:h7o9uOsb8t6/fJugT35PFAV6HQ72CNRq3lM45+nPWKw=
+github.com/willscott/go-legs v0.0.0-20210830112506-3139ce32c8a3/go.mod h1:WRUB3nrtydzywGU8Eu+0g7hSUh6Wctlt8IKUMErMKx8=
 github.com/x-cray/logrus-prefixed-formatter v0.5.2/go.mod h1:2duySbKsL6M18s5GU7VPsoEPHyzalCE06qoARUCeBBE=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=

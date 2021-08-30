@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
+	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
@@ -49,7 +50,7 @@ func daemonCommand(cctx *cli.Context) error {
 
 	// TODO: Do we want to the libp2p host to listen on any particular
 	// addresss and port?
-	_, err = libp2p.New(ctx,
+	h, err := libp2p.New(ctx,
 		// Use the keypair generated during init
 		libp2p.Identity(privKey),
 	)
@@ -69,13 +70,19 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = leveldb.NewDatastore(dataStorePath, nil)
+	ds, err := leveldb.NewDatastore(dataStorePath, nil)
+	if err != nil {
+		return err
+	}
+	// Starting provider core
+	eng, err := engine.New(ctx, privKey, h, ds, cfg.Ingest.PubSubTopic)
 	if err != nil {
 		return err
 	}
 
 	log.Infow("Reference provider started")
 
+	var finalErr error
 	// Keep process running.
 	<-cctx.Done()
 
@@ -89,8 +96,13 @@ func daemonCommand(cctx *cli.Context) error {
 			os.Exit(-1)
 		}
 	}()
-	cancel()
 
+	if err = eng.Close(ctx); err != nil {
+		log.Errorw("Error closing provider core", "err", err)
+		finalErr = ErrDaemonStop
+	}
+
+	cancel()
 	log.Infow("node stopped")
-	return nil
+	return finalErr
 }

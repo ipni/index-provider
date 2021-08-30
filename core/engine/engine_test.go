@@ -18,26 +18,22 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
-	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 	legs "github.com/willscott/go-legs"
 )
 
 const testTopic = "indexer/test"
 
-var prefix = cid.Prefix{
-	Version:  1,
-	Codec:    cid.Raw,
-	MhType:   multihash.SHA2_256,
-	MhLength: -1, // default length
-}
+var prefix = schema.Linkproto.Prefix
 
-func mkMockSubscriber(t *testing.T, h host.Host) legs.LegSubscriber {
+func mkMockSubscriber(t *testing.T, h host.Host) (legs.LegSubscriber, *legs.LegTransport) {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	lsys := mkLinkSystem(store)
-	ls, err := legs.NewSubscriber(context.Background(), store, h, testTopic, lsys, nil)
+	lt, err := legs.MakeLegTransport(context.Background(), h, store, lsys, testTopic)
 	require.NoError(t, err)
-	return ls
+	ls, err := legs.NewSubscriber(context.Background(), lt, nil)
+	require.NoError(t, err)
+	return ls, lt
 }
 
 func mkTestHost() host.Host {
@@ -136,12 +132,10 @@ func TestNotifyPublish(t *testing.T) {
 	// Create mockSubscriber
 	lh := mkTestHost()
 	_, _, adv, advLnk := genRandomIndexAndAdv(t, e)
-	ls := mkMockSubscriber(t, lh)
+	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
-	defer func() {
-		cncl()
-		ls.Close(context.Background())
-	}()
+
+	defer clean(ls, lt, e, cncl)
 
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
@@ -179,13 +173,10 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 
 	// Create mockSubscriber
 	lh := mkTestHost()
-	ls := mkMockSubscriber(t, lh)
+	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
-	defer func() {
-		cncl()
-		ls.Close(context.Background())
-	}()
 
+	defer clean(ls, lt, e, cncl)
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
 
@@ -236,4 +227,11 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 		}
 		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
 	}
+}
+
+func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) {
+	cncl()
+	ls.Close()
+	lt.Close(context.Background())
+	e.Close(context.Background())
 }
