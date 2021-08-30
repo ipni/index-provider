@@ -135,7 +135,7 @@ func TestNotifyPublish(t *testing.T) {
 	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
-	defer clean(ls, lt, e, cncl)
+	t.Cleanup(clean(ls, lt, e, cncl))
 
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
@@ -176,7 +176,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
-	defer clean(ls, lt, e, cncl)
+	t.Cleanup(clean(ls, lt, e, cncl))
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
 
@@ -229,9 +229,11 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 }
 
-func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) {
-	cncl()
-	ls.Close()
-	lt.Close(context.Background())
-	e.Close(context.Background())
+func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) func() {
+	return func() {
+		cncl()
+		ls.Close()
+		lt.Close(context.Background())
+		e.Close(context.Background())
+	}
 }
