@@ -34,6 +34,7 @@ type Engine struct {
 	// (advertisements, indexed data, etc.).
 	ds datastore.Batching
 	lp legs.LegPublisher
+	lt *legs.LegTransport
 	// pubsubtopic where the provider will push advertisements
 	pubSubTopic string
 }
@@ -44,7 +45,11 @@ func New(ctx context.Context,
 	pubSubTopic string) (*Engine, error) {
 
 	lsys := mkLinkSystem(ds)
-	lp, err := legs.NewPublisher(ctx, ds, host, pubSubTopic, lsys)
+	lt, err := legs.MakeLegTransport(context.Background(), host, ds, lsys, pubSubTopic)
+	if err != nil {
+		return nil, err
+	}
+	lp, err := legs.NewPublisher(ctx, lt)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +62,7 @@ func New(ctx context.Context,
 		ds:          ds,
 		lsys:        lsys,
 		lp:          lp,
+		lt:          lt,
 		privKey:     privKey,
 		pubSubTopic: pubSubTopic,
 	}, nil
@@ -163,6 +169,10 @@ func (e *Engine) NotifyRemoveCar(ctx context.Context, carID cid.Cid) (cid.Cid, e
 	panic("not implemented")
 }
 
+func (e *Engine) Close(ctx context.Context) error {
+	e.lp.Close()
+	return e.lt.Close(ctx)
+}
 func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
 	l, err := schema.LinkAdvFromCid(c).AsLink()
 	if err != nil {
