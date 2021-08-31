@@ -8,6 +8,7 @@ import (
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/libp2p"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
@@ -79,6 +80,10 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// Starting provider p2p server
+	p2pserver.New(ctx, h, eng)
+	log.Infow("libp2p servers initialized", "host_id", h.ID())
 
 	log.Infow("Reference provider started")
 

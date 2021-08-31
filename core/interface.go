@@ -52,7 +52,7 @@ type Interface interface {
 	GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error)
 
 	// GetLatestAdv gets the latest advertisement published by provider from local storage.
-	GetLatestAdv(ctx context.Context) (schema.Advertisement, error)
+	GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error)
 
 	// Close
 	Close(ctx context.Context) error

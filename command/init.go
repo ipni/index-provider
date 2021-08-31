@@ -15,7 +15,7 @@ var InitCmd = &cli.Command{
 }
 
 func initCommand(cctx *cli.Context) error {
-	log.Info("Initializing indexer config file")
+	log.Info("Initializing provider config file")
 
 	// Check that the config root exists and it writable.
 	configRoot, err := config.PathRoot()

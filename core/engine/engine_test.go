@@ -2,13 +2,12 @@ package engine
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/filecoin-project/go-indexer-core"
+	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
@@ -23,8 +22,6 @@ import (
 )
 
 const testTopic = "indexer/test"
-
-var prefix = schema.Linkproto.Prefix
 
 func mkMockSubscriber(t *testing.T, h host.Host) (legs.LegSubscriber, *legs.LegTransport) {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
@@ -59,24 +56,8 @@ func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
 	}
 }
 
-func RandomCids(n int) ([]cid.Cid, error) {
-	var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	res := make([]cid.Cid, n)
-	for i := 0; i < n; i++ {
-		b := make([]byte, 10*n)
-		prng.Read(b)
-		c, err := prefix.Sum(b)
-		if err != nil {
-			return nil, err
-		}
-		res[i] = c
-	}
-	return res, nil
-}
-
 func genRandomIndexAndAdv(t *testing.T, e *Engine) (schema.Index, schema.Link_Index, schema.Advertisement, schema.Link_Advertisement) {
-	cids, _ := RandomCids(10)
+	cids, _ := utils.RandomCids(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	val := indexer.MakeValue(p, 0, cids[0].Bytes())
 	index, indexLnk, err := schema.NewIndexFromCids(e.lsys, cids, nil, val.Metadata, nil)
@@ -113,7 +94,7 @@ func TestPublishLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid2, "latest advertisement pointer not updated correctly")
 	// Check that we can fetch the latest advertisement
-	fetchAdv2, err := e.GetLatestAdv(ctx)
+	_, fetchAdv2, err := e.GetLatestAdv(ctx)
 	require.NoError(t, err)
 	fAdv2 := schema.Advertisement(fetchAdv2)
 	require.Equal(t, ipld.DeepEqual(fAdv2, adv2), true, "fetched advertisement is not equal to published one")
@@ -160,7 +141,7 @@ func TestNotifyPublish(t *testing.T) {
 	}
 
 	// Check that we can fetch the latest advertisement locally
-	fetchAdv, err := e.GetLatestAdv(ctx)
+	_, fetchAdv, err := e.GetLatestAdv(ctx)
 	require.NoError(t, err)
 	fAdv := schema.Advertisement(fetchAdv)
 	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "latest fetched advertisement is not equal to published one")
@@ -185,7 +166,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	cids, _ := RandomCids(10)
+	cids, _ := utils.RandomCids(10)
 	c, err := e.NotifyPutCids(ctx, cids, []byte("metadata"))
 	require.NoError(t, err)
 
@@ -200,7 +181,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 
 	// NotifyPut second time
-	cids, _ = RandomCids(10)
+	cids, _ = utils.RandomCids(10)
 	c, err = e.NotifyPutCids(ctx, cids, []byte("metadata"))
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
