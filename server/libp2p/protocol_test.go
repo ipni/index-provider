@@ -44,9 +44,8 @@ func setupClient(ctx context.Context, t *testing.T) (*p2pclient.Provider, host.H
 }
 
 func connect(ctx context.Context, t *testing.T, h1 host.Host, h2 host.Host) {
-	if err := h1.Connect(ctx, *host.InfoFromHost(h2)); err != nil {
-		t.Fatal(err)
-	}
+	err := h1.Connect(ctx, *host.InfoFromHost(h2))
+	require.NoError(t, err)
 }
 
 func TestAdvertisements(t *testing.T) {

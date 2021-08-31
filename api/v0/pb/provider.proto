@@ -5,14 +5,14 @@
 // `protoc --gogo_out=. --proto_path=../../<path>/pb/ --proto_path=./ --proto_path=/usr/include pb.proto`
 
 syntax = "proto3";
-package reqresp.pb;
 
 message ProviderMessage {
     enum MessageType {
-        ERROR_RESPONSE = 0;
-        GET_LATEST = 1;
-        GET_AD = 2;
-        AD_RESPONSE = 3;
+        UNSET = 0;
+        ERROR_RESPONSE = 1;
+        GET_LATEST = 2;
+        GET_AD = 3;
+        AD_RESPONSE = 4;
     }
 
     // defines what type of message it is.

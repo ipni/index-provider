@@ -8,4 +8,3 @@ all: $(GO)
 
 clean:
 	rm -f *.pb.go
-	rm -f *.go

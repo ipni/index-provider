@@ -7,12 +7,15 @@ import (
 
 	"github.com/filecoin-project/indexer-reference-provider/internal/p2putil"
 	"github.com/gogo/protobuf/proto"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-msgio"
 )
+
+var log = logging.Logger("provider/libp2pserver")
 
 // Idle time before the stream is closed
 const streamIdleTimeout = 1 * time.Minute
@@ -82,12 +85,14 @@ func (s *Server) handleNewMessages(stream network.Stream) bool {
 		resp, err := handler.HandleMessage(ctx, mPeer, msgbytes)
 		r.ReleaseMsg(msgbytes)
 		if err != nil {
+			log.Errorf("Error handling request: %v", err)
 			return true
 		}
 
 		// send out response msg
 		err = p2putil.WriteMsg(stream, resp)
 		if err != nil {
+			log.Errorf("Error writing message: %v", err)
 			return false
 		}
 	}
