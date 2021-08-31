@@ -102,8 +102,7 @@ func (c *Client) peerSender(peerID peer.ID) *peerMessageSender {
 func (c *Client) messageSenderForPeer(ctx context.Context, peerID peer.ID) (*peerMessageSender, error) {
 	ms := c.peerSender(peerID)
 
-	err := ms.prepOrInvalidate(ctx, c.host, c.protocols)
-	if err != nil {
+	if err := ms.prepOrInvalidate(ctx, c.host, c.protocols); err != nil {
 		c.sendersLock.Lock()
 		defer c.sendersLock.Unlock()
 

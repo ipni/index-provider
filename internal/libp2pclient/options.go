@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// NOTE: Placeholder to add client options
+// TODO: Placeholder to add client options
 
 type clientConfig struct {
 }

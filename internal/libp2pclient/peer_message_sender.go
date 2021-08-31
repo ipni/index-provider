@@ -72,8 +72,7 @@ func (ms *peerMessageSender) prep(ctx context.Context, h host.Host, protocols []
 
 // sendMessage to a peer without waiting for any response.
 func (ms *peerMessageSender) sendMessage(ctx context.Context, msg proto.Message, h host.Host, protos []protocol.ID) error {
-	err := ms.ctxLock.Lock(ctx)
-	if err != nil {
+	if err := ms.ctxLock.Lock(ctx); err != nil {
 		return err
 	}
 	defer ms.ctxLock.Unlock()
