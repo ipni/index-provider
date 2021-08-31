@@ -64,7 +64,7 @@ func (cl *Provider) sendRecv(ctx context.Context, p peer.ID, req *pb.ProviderMes
 		return resp.Unmarshal(data)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request to indexer: %s", err)
+		return nil, fmt.Errorf("failed to send request to provider: %s", err)
 	}
 	if resp.GetType() != expectRspType {
 		if resp.GetType() == pb.ProviderMessage_ERROR_RESPONSE {
