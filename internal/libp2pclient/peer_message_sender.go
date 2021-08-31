@@ -77,11 +77,11 @@ func (ms *peerMessageSender) sendMessage(ctx context.Context, msg proto.Message,
 	}
 	defer ms.ctxLock.Unlock()
 
-	if err = ms.prep(ctx, h, protos); err != nil {
+	if err := ms.prep(ctx, h, protos); err != nil {
 		return err
 	}
 
-	if err = p2putil.WriteMsg(ms.stream, msg); err != nil {
+	if err := p2putil.WriteMsg(ms.stream, msg); err != nil {
 		_ = ms.stream.Reset()
 		ms.stream = nil
 
