@@ -84,6 +84,7 @@ func TestAdvertisements(t *testing.T) {
 
 	// Get non-existing advertisement by id
 	r, err = c.GetAdv(ctx, s.ID(), cids[0])
+	require.Nil(t, r)
 	require.Error(t, err)
 	require.Equal(t, "datastore: key not found", err.Error())
 
