@@ -16,8 +16,10 @@ import (
 
 // peerMessageSender is responsible for sending requests and messages to a particular peer
 type peerMessageSender struct {
-	stream  network.Stream
-	r       msgio.ReadCloser
+	stream network.Stream
+	r      msgio.ReadCloser
+	// Manages ctx.Done() signals from
+	// the different streams and prevents races.
 	ctxLock ctxMutex
 	peerID  peer.ID
 

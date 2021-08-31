@@ -18,7 +18,6 @@ var log = logging.Logger("libp2pclient")
 // Client Libp2pclient is responsible for sending
 // requests to other peers.
 type Client struct {
-	ctx  context.Context
 	host host.Host
 	self peer.ID
 
@@ -48,7 +47,6 @@ func NewClient(ctx context.Context, h host.Host, protoID protocol.ID, options ..
 
 	// Start a client
 	return &Client{
-		ctx:         ctx,
 		host:        h,
 		self:        h.ID(),
 		peerSenders: make(map[peer.ID]*peerMessageSender),
