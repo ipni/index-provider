@@ -173,6 +173,7 @@ func (e *Engine) Close(ctx context.Context) error {
 	e.lp.Close()
 	return e.lt.Close(ctx)
 }
+
 func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
 	l, err := schema.LinkAdvFromCid(c).AsLink()
 	if err != nil {
@@ -191,12 +192,16 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 	return adv, nil
 }
 
-func (e *Engine) GetLatestAdv(ctx context.Context) (schema.Advertisement, error) {
+func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
 	latestAdv, err := e.getLatest(false)
 	if err != nil {
-		return nil, err
+		return cid.Undef, nil, err
 	}
-	return e.GetAdv(ctx, latestAdv)
+	ad, err := e.GetAdv(ctx, latestAdv)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+	return latestAdv, ad, nil
 }
 
 func (e *Engine) publishAdvForIndex(ctx context.Context, lnk schema.Link_Index) (cid.Cid, error) {

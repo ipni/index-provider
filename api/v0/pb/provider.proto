@@ -1,0 +1,23 @@
+// In order to re-generate the golang packages for `Message` you will need...
+// 1. Protobuf binary (tested with protoc 3.0.0). - https://github.com/gogo/protobuf/releases
+// 2. Gogo Protobuf (tested with gogo 0.3). - https://github.com/gogo/protobuf
+// Now from `libp2p/<path>/pb` you can run...
+// `protoc --gogo_out=. --proto_path=../../<path>/pb/ --proto_path=./ --proto_path=/usr/include pb.proto`
+
+syntax = "proto3";
+package reqresp.pb;
+
+message ProviderMessage {
+    enum MessageType {
+        ERROR_RESPONSE = 0;
+        GET_LATEST = 1;
+        GET_AD = 2;
+        AD_RESPONSE = 3;
+    }
+
+    // defines what type of message it is.
+    MessageType type = 1;
+
+    // Value for the message
+    bytes data = 2;
+}
