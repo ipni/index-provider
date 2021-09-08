@@ -29,6 +29,10 @@ func InitWithIdentity(identity Identity) (*Config, error) {
 		Ingest: Ingest{
 			PubSubTopic: defaultIngestPubSubTopic,
 		},
+		Addresses: Addresses{
+			Admin:   defaultAdminAddr,
+			P2PAddr: defaultP2PAddr,
+		},
 	}
 
 	return conf, nil

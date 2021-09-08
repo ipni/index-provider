@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func (s *Server) connectHandler(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +24,13 @@ func (s *Server) connectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addrInfo, err := peer.AddrInfoFromP2pAddr(req.Addr)
+	maddr, err := ma.NewMultiaddr(req.Maddr)
+	if err != nil {
+		log.Errorw("failed parsing multiaddr", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	addrInfo, err := peer.AddrInfoFromP2pAddr(maddr)
 	if err != nil {
 		log.Errorw("failed to create addrInfo from multiaddr", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)

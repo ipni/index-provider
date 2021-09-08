@@ -15,6 +15,7 @@ type Config struct {
 	Identity  Identity
 	Datastore Datastore
 	Ingest    Ingest
+	Addresses Addresses
 }
 
 const (
