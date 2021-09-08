@@ -13,7 +13,6 @@ require (
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipld/go-car/v2 v2.0.3-0.20210827150014-1bac13d05359
 	github.com/ipld/go-ipld-prime v0.12.0
-	github.com/lib/pq v1.10.2
 	github.com/libp2p/go-libp2p v0.15.0-rc.1
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/libp2p/go-msgio v0.0.6
