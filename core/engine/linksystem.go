@@ -39,7 +39,10 @@ func (e *Engine) mkLinkSystem(ds datastore.Datastore) ipld.LinkSystem {
 		if !isAdvertisement(n) {
 			// If the callback has been set.
 			if e.cb != nil {
-				cids := e.cb(c)
+				cids, err := e.cb(c)
+				if err != nil {
+					return nil, err
+				}
 				// Wrap cids into a List_String
 				lstr := schema.NewListStringFromCids(cids)
 				buf := bytes.NewBuffer(nil)

@@ -56,4 +56,4 @@ type Interface interface {
 // CidCallback specifies the logic to go from dealID (indexID)
 // to list of CIDs that will be used by the linksystem while
 // traversing the DAG
-type CidCallback func(dealID cid.Cid) []cid.Cid
+type CidCallback func(dealID cid.Cid) ([]cid.Cid, error)
