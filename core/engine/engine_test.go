@@ -79,7 +79,6 @@ func mkEngine(t *testing.T) (*Engine, error) {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
 	return New(context.Background(), priv, h, store, testTopic)
-
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -288,7 +287,6 @@ func TestNotifyPutWithCallback(t *testing.T) {
 			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
 		}
 	}
-
 }
 
 func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) func() {

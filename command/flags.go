@@ -4,13 +4,11 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var DaemonFlags = []cli.Flag{
-	phFlag,
+var daemonFlags = []cli.Flag{
+	carZeroLengthAsEOFFlag,
 }
 
-var InitFlags = []cli.Flag{
-	phFlag,
-}
+var initFlags = []cli.Flag{}
 
 var connectFlags = []cli.Flag{
 	&cli.StringFlag{
@@ -29,10 +27,13 @@ var adminAPIFlag = &cli.StringFlag{
 	Required: false,
 }
 
-var phFlag = &cli.BoolFlag{
-	Name:     "placeholder",
-	Usage:    "Placeholder Flag to run provider",
-	Aliases:  []string{"ph"},
-	Value:    false,
-	Required: false,
-}
+var (
+	carZeroLengthAsEOF     bool
+	carZeroLengthAsEOFFlag = &cli.BoolFlag{
+		Name:        "carZeroLengthAsEOF",
+		Aliases:     []string{"cz"},
+		Usage:       "Specifies whether zero-length blocks in CAR should be consideted as EOF.",
+		Value:       false, // Default to disabled, consistent with go-car/v2 defaults.
+		Destination: &carZeroLengthAsEOF,
+	}
+)
