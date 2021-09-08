@@ -13,7 +13,11 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-const carPathKeyPrefix = "car://"
+const (
+	carSupplierDatastorePrefix = "car_supplier://"
+	carPathDatastoreKeyPrefix  = carSupplierDatastorePrefix + "car_path/"
+	carIdDatastoreKeyPrefix    = carSupplierDatastorePrefix + "car_id/"
+)
 
 var (
 	_ CidIteratorSupplier = (*CarSupplier)(nil)
@@ -74,7 +78,7 @@ func (cs *CarSupplier) PutWithID(id cid.Cid, path string) (cid.Cid, error) {
 }
 
 func toCarIdKey(id cid.Cid) datastore.Key {
-	return datastore.NewKey(id.String())
+	return datastore.NewKey(carIdDatastoreKeyPrefix + id.String())
 }
 
 // Remove removes the CAR at the given path from the list of suppliable CID iterators.
@@ -183,5 +187,5 @@ func toPathKey(path string) datastore.Key {
 	encPathHash := base64.StdEncoding.EncodeToString(pathHash)
 
 	// Prefix the hash with some constant for namespacing and debug readability.
-	return datastore.NewKey(carPathKeyPrefix + encPathHash)
+	return datastore.NewKey(carPathDatastoreKeyPrefix + encPathHash)
 }

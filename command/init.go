@@ -10,7 +10,7 @@ import (
 var InitCmd = &cli.Command{
 	Name:   "init",
 	Usage:  "Initialize reference provider config file and identity",
-	Flags:  InitFlags,
+	Flags:  initFlags,
 	Action: initCommand,
 }
 

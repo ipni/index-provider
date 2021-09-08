@@ -7,6 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
+	"github.com/ipld/go-car/v2"
+
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/http"
@@ -34,7 +37,7 @@ const (
 var DaemonCmd = &cli.Command{
 	Name:   "daemon",
 	Usage:  "Starts a reference provider",
-	Flags:  DaemonFlags,
+	Flags:  daemonFlags,
 	Action: daemonCommand,
 }
 
@@ -95,6 +98,10 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
+	// Instantiate CAR supplier and register it as a callback onto the engine.
+	cs := suppliers.NewCarSupplier(ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOF))
+	eng.RegisterCidCallback(suppliers.ToCidCallback(cs))
+
 	// Starting provider p2p server
 	p2pserver.New(ctx, h, eng)
 	log.Infow("libp2p servers initialized", "host_id", h.ID())
@@ -131,7 +138,7 @@ func daemonCommand(cctx *cli.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	go func() {
-		// Wait for context to be canceled.  If timeout, then exit with error.
+		// Wait for context to be canceled. If timeout, then exit with error.
 		<-ctx.Done()
 		if ctx.Err() == context.DeadlineExceeded {
 			fmt.Println("Timed out on shutdown, terminating...")
@@ -144,7 +151,7 @@ func daemonCommand(cctx *cli.Context) error {
 		finalErr = ErrDaemonStop
 	}
 
-	//cancel libp2p server
+	// cancel libp2p server
 	cancelp2p()
 
 	if err = adminSvr.Shutdown(ctx); err != nil {
