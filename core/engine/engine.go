@@ -2,11 +2,15 @@ package engine
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"sync"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/core"
+	icl "github.com/filecoin-project/storetheindex/api/v0/ingest/client/libp2p"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	sticfg "github.com/filecoin-project/storetheindex/config"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
@@ -15,12 +19,19 @@ import (
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+
 	legs "github.com/willscott/go-legs"
 )
 
 var log = logging.Logger("reference-provider")
 
 var _ core.Interface = &Engine{}
+
+const (
+	// metadataProtocol identifies the protocol used by provider
+	// to encode metadata.
+	metadataProtocol = 0
+)
 
 // Engine is an implementation of the core reference provider interface.
 type Engine struct {
@@ -37,6 +48,10 @@ type Engine struct {
 	lt *legs.LegTransport
 	// pubsubtopic where the provider will push advertisements
 	pubSubTopic string
+
+	// Callback used in the linkSystem
+	cblk sync.Mutex
+	cb   core.CidCallback
 }
 
 // New creates a new engine
@@ -44,28 +59,26 @@ func New(ctx context.Context,
 	privKey crypto.PrivKey, host host.Host, ds datastore.Batching,
 	pubSubTopic string) (*Engine, error) {
 
-	lsys := mkLinkSystem(ds)
-	lt, err := legs.MakeLegTransport(context.Background(), host, ds, lsys, pubSubTopic)
-	if err != nil {
-		return nil, err
-	}
-	lp, err := legs.NewPublisher(ctx, lt)
-	if err != nil {
-		return nil, err
-	}
-
+	var err error
 	// TODO(security): We shouldn't keep the privkey decoded here.
 	// We should probably unlock it and lock it every time we need it.
 	// Once we start encrypting the key locally.
-	return &Engine{
+	e := &Engine{
 		host:        host,
 		ds:          ds,
-		lsys:        lsys,
-		lp:          lp,
-		lt:          lt,
 		privKey:     privKey,
 		pubSubTopic: pubSubTopic,
-	}, nil
+	}
+	e.lsys = e.mkLinkSystem(ds)
+	e.lt, err = legs.MakeLegTransport(context.Background(), host, ds, e.lsys, pubSubTopic)
+	if err != nil {
+		return nil, err
+	}
+	e.lp, err = legs.NewPublisher(ctx, e.lt)
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 // NewFromConfig creates a reference provider engine with the corresponding config.
@@ -116,56 +129,38 @@ func (e *Engine) PushAdv(ctx context.Context, indexer peer.ID, adv schema.Advert
 	panic("not implemented")
 }
 
-func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) {
-	// TODO: Waiting for libp2p interface for ingestion push.
-	panic("not implemented")
+func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) error {
+	cl, err := icl.NewIngest(ctx, e.host, indexer)
+	if err != nil {
+		return err
+	}
+
+	// TODO: We should change the interface in sotretheindex so it doesn't use
+	// its specific config structure here to call the function.
+	skbytes, err := crypto.MarshalPrivateKey(e.privKey)
+	if err != nil {
+		return err
+	}
+	cfg := sticfg.Identity{PeerID: e.host.ID().String(), PrivKey: base64.StdEncoding.EncodeToString(skbytes)}
+	return cl.IndexContent(ctx, cfg, cid, metadataProtocol, metadata)
 }
 
-func (e *Engine) NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error) {
-	latestIndexLink, err := e.getLatestIndexLink()
-	if err != nil {
-		return cid.Undef, err
-	}
-	// Selectors don't like Cid.Undef. The exchange fails if we build
-	// a link with cid.Undef for the genesis index. To avoid this we
-	// check if cid.Undef, and if yes we set to nil.
-	if schema.Link_Index(latestIndexLink).ToCid() == cid.Undef {
-		latestIndexLink = nil
-	}
-	// Lsys will store the index conveniently here.
-	_, indexLnk, err := schema.NewIndexFromCids(e.lsys, cids, nil, metadata, latestIndexLink)
-	if err != nil {
-		return cid.Undef, err
-	}
-	return e.publishAdvForIndex(ctx, indexLnk)
+// Registers new Cid callback to go from deal.ID to list of cids for the linksystem.
+func (e *Engine) RegisterCidCallback(cb core.CidCallback) {
+	e.cblk.Lock()
+	defer e.cblk.Unlock()
+	e.cb = cb
 }
 
-func (e *Engine) NotifyRemoveCids(ctx context.Context, cids []cid.Cid) (cid.Cid, error) {
-	latestIndexLink, err := e.getLatestIndexLink()
-	if err != nil {
-		return cid.Undef, err
-	}
-	// Selectors don't like Cid.Undef. The exchange fails if we build
-	// a link with cid.Undef for the genesis index. To avoid this we
-	// check if cid.Undef, and if yes we set to nil.
-	if schema.Link_Index(latestIndexLink).ToCid() == cid.Undef {
-		latestIndexLink = nil
-	}
-	// Lsys will store the index conveniently here.
-	_, indexLnk, err := schema.NewIndexFromCids(e.lsys, nil, cids, nil, latestIndexLink)
-	if err != nil {
-		return cid.Undef, err
-	}
-
-	return e.publishAdvForIndex(ctx, indexLnk)
+func (e *Engine) NotifyPut(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error) {
+	// Publishes an advertisement into the gossipsub channel. The callback
+	// must have been registered for the linkSystem to know how to go from
+	// dealID to list of CIDs.
+	return e.publishAdvForIndex(ctx, dealID, metadata, false)
 }
 
-func (e *Engine) NotifyPutCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error) {
-	panic("not implemented")
-}
-
-func (e *Engine) NotifyRemoveCar(ctx context.Context, carID cid.Cid) (cid.Cid, error) {
-	panic("not implemented")
+func (e *Engine) NotifyRemove(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error) {
+	return e.publishAdvForIndex(ctx, dealID, metadata, true)
 }
 
 func (e *Engine) Close(ctx context.Context) error {
@@ -179,8 +174,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 		return nil, err
 	}
 
-	var a schema.Advertisement
-	n, err := e.lsys.Load(a.LinkContext(ctx), l, schema.Type.Advertisement)
+	n, err := e.lsys.Load(ipld.LinkContext{}, l, schema.Type.Advertisement)
 	if err != nil {
 		return nil, err
 	}
@@ -203,23 +197,34 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdv, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, lnk schema.Link_Index) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, dealID cid.Cid, metadata []byte, isRm bool) (cid.Cid, error) {
 	// TODO: We should probably prevent providers from being able to advertise
 	// the same index several times. It may lead to a lot of duplicate retrievals?
 	latestAdvID, err := e.getLatest(false)
 	if err != nil {
 		return cid.Undef, err
 	}
-	// Update the latest index
-	iLnk, err := lnk.AsLink()
+	var previousLnk schema.Link_Advertisement
+	// NOTE: We need to check if we are getting cid.Undef for
+	// the previous link, if this is the case we're bump into a
+	// cid too short error in IPLD links serialization.
+	if latestAdvID == cid.Undef {
+		previousLnk = nil
+	} else {
+		nb := schema.Type.Link_Advertisement.NewBuilder()
+		err = nb.AssignLink(cidlink.Link{Cid: latestAdvID})
+		if err != nil {
+			return cid.Undef, err
+		}
+		previousLnk = nb.Build().(schema.Link_Advertisement)
+	}
+
+	err = e.putLatestIndex(dealID)
 	if err != nil {
 		return cid.Undef, err
 	}
-	err = e.putLatestIndex(iLnk.(cidlink.Link).Cid)
-	if err != nil {
-		return cid.Undef, err
-	}
-	adv, err := schema.NewAdvertisement(e.privKey, latestAdvID.Bytes(), lnk, e.host.ID().String())
+	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidlink.Link{Cid: dealID},
+		metadata, isRm, e.host.ID().String())
 	if err != nil {
 		return cid.Undef, err
 	}

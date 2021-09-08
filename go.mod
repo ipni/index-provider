@@ -3,8 +3,8 @@ module github.com/filecoin-project/indexer-reference-provider
 go 1.16
 
 require (
-	github.com/filecoin-project/go-indexer-core v0.0.0-20210818063915-4b4227413744
-	github.com/filecoin-project/storetheindex v0.0.0-20210830111234-6fb42350df86
+	github.com/filecoin-project/go-indexer-core v0.0.0-20210827054504-913aef796c01
+	github.com/filecoin-project/storetheindex v0.0.0-20210908074205-8ff562c1bc9a
 	github.com/gogo/protobuf v1.3.2
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
@@ -21,5 +21,5 @@ require (
 	github.com/multiformats/go-multihash v0.0.16
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
-	github.com/willscott/go-legs v0.0.0-20210830112506-3139ce32c8a3
+	github.com/willscott/go-legs v0.0.0-20210901151650-83e866a4d54a
 )

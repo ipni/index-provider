@@ -37,21 +37,17 @@ func RandomCids(n int) ([]cid.Cid, error) {
 	return res, nil
 }
 
-func GenRandomIndexAndAdv(t *testing.T, lsys ipld.LinkSystem) (schema.Index, schema.Link_Index, schema.Advertisement, schema.Link_Advertisement) {
+func GenRandomIndexAndAdv(t *testing.T, lsys ipld.LinkSystem) (schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	cids, _ := RandomCids(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	val := indexer.MakeValue(p, 0, cids[0].Bytes())
-	index, indexLnk, err := schema.NewIndexFromCids(lsys, cids, nil, val.Metadata, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, indexLnk, p.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return index, indexLnk, adv, advLnk
+	cidsLnk, err := schema.NewListOfCids(lsys, cids)
+	require.NoError(t, err)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
+	require.NoError(t, err)
+	return adv, advLnk
 }
 
 func MkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
