@@ -47,6 +47,7 @@ func main() {
 		Commands: []*cli.Command{
 			command.DaemonCmd,
 			command.InitCmd,
+			command.ConnectCmd,
 		},
 	}
 

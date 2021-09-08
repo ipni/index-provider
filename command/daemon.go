@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	adminserver "github.com/filecoin-project/indexer-reference-provider/server/http"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/libp2p"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
+	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,6 +24,11 @@ var log = logging.Logger("command/reference-provider")
 var (
 	ErrDaemonStart = errors.New("daemon did not start correctly")
 	ErrDaemonStop  = errors.New("daemon did not stop gracefully")
+)
+
+const (
+	// shutdownTimeout is the duration that a graceful shutdown has to complete
+	shutdownTimeout = 5 * time.Second
 )
 
 var DaemonCmd = &cli.Command{
@@ -41,23 +50,28 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Initialize libp2p host
-	ctx, cancel := context.WithCancel(cctx.Context)
-	defer cancel()
+	ctx, cancelp2p := context.WithCancel(cctx.Context)
+	defer cancelp2p()
 
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {
 		return err
 	}
 
-	// TODO: Do we want to the libp2p host to listen on any particular
-	// addresss and port?
+	p2pmaddr, err := multiaddr.NewMultiaddr(cfg.Addresses.P2PAddr)
+	if err != nil {
+		return fmt.Errorf("bad p2p address in config %s: %s", cfg.Addresses.P2PAddr, err)
+	}
 	h, err := libp2p.New(ctx,
 		// Use the keypair generated during init
 		libp2p.Identity(privKey),
+		// Listen to p2p addr specified in config
+		libp2p.ListenAddrs(p2pmaddr),
 	)
 	if err != nil {
 		return err
 	}
+	log.Infow("libp2p host initialized", "host_id", h.ID(), "multiaddr", p2pmaddr)
 
 	// Initialize datastore
 	if cfg.Datastore.Type != "levelds" {
@@ -85,14 +99,37 @@ func daemonCommand(cctx *cli.Context) error {
 	p2pserver.New(ctx, h, eng)
 	log.Infow("libp2p servers initialized", "host_id", h.ID())
 
-	log.Infow("Reference provider started")
+	maddr, err := multiaddr.NewMultiaddr(cfg.Addresses.Admin)
+	if err != nil {
+		return fmt.Errorf("bad admin address in config %s: %s", cfg.Addresses.Admin, err)
+	}
+	adminAddr, err := manet.ToNetAddr(maddr)
+	if err != nil {
+		return err
+	}
+	adminSvr, err := adminserver.New(adminAddr.String(), h, eng)
+	if err != nil {
+		return err
+	}
+	log.Infow("admin server initialized", "address", adminAddr)
 
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- adminSvr.Start()
+	}()
 	var finalErr error
 	// Keep process running.
-	<-cctx.Done()
+	select {
+	case <-cctx.Done():
+	case err = <-errChan:
+		log.Errorw("Failed to start server", "err", err)
+		finalErr = ErrDaemonStart
+	}
 
 	log.Infow("Shutting down daemon")
 
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
 	go func() {
 		// Wait for context to be canceled.  If timeout, then exit with error.
 		<-ctx.Done()
@@ -107,7 +144,13 @@ func daemonCommand(cctx *cli.Context) error {
 		finalErr = ErrDaemonStop
 	}
 
-	cancel()
+	//cancel libp2p server
+	cancelp2p()
+
+	if err = adminSvr.Shutdown(ctx); err != nil {
+		log.Errorw("Error shutting down admin server", "err", err)
+		finalErr = ErrDaemonStop
+	}
 	log.Infow("node stopped")
 	return finalErr
 }

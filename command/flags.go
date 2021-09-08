@@ -1,7 +1,6 @@
 package command
 
 import (
-	_ "github.com/lib/pq"
 	"github.com/urfave/cli/v2"
 )
 
@@ -11,6 +10,23 @@ var DaemonFlags = []cli.Flag{
 
 var InitFlags = []cli.Flag{
 	phFlag,
+}
+
+var connectFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:     "indexermaddr",
+		Usage:    "Indexer multiaddr to connect",
+		Aliases:  []string{"imaddr"},
+		Required: true,
+	},
+	adminAPIFlag,
+}
+
+var adminAPIFlag = &cli.StringFlag{
+	Name:     "listen-admin",
+	Usage:    "Admin HTTP API listen address",
+	EnvVars:  []string{"PROVIDER_LISTEN_ADMIN"},
+	Required: false,
 }
 
 var phFlag = &cli.BoolFlag{

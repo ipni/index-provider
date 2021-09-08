@@ -47,7 +47,7 @@ func New(listen string, h host.Host, e *engine.Engine, options ...ServerOption) 
 }
 
 func (s *Server) Start() error {
-	log.Infow("api listening", "addr", s.l.Addr())
+	log.Infow("admin api listening", "addr", s.l.Addr())
 	return s.server.Serve(s.l)
 }
 
