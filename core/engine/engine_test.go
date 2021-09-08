@@ -67,8 +67,8 @@ func mkTestHost() host.Host {
 // testing purposes. A more complex callback could read
 // feom the CID index and return the list of CIDs.
 func simpleCb(cids []cid.Cid) core.CidCallback {
-	return func(c cid.Cid) []cid.Cid {
-		return cids
+	return func(c cid.Cid) ([]cid.Cid, error) {
+		return cids, nil
 	}
 }
 
