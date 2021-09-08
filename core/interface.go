@@ -27,26 +27,21 @@ type Interface interface {
 	// This can be used to perform updates for a small number of CIDs
 	// When a full advertisement is not worth it (web3.storage case).
 	// Indexer may only accept pushes from authenticated providers.
-	Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte)
+	Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) error
 
-	// NotifyPutCids notifies when a list of CIDs are added to the provided.
-	// It generates the corresponding Index and Advertisement for the update
-	// and published it locally and to the pubsub channel. The function returns
-	// the CID of the advertisement.
-	NotifyPutCids(ctx context.Context, cids []cid.Cid, metadata []byte) (cid.Cid, error)
+	// Registers new Cid callback to go from deal.ID to list of cids for the linksystem.
+	// We currently only support one callback, so registering twice overwrites the
+	// previous callback. In the future we can think of a system that allows the
+	// use of different (or even conditional) callbacks.
+	RegisterCidCallback(cb CidCallback)
 
-	// NotifyPutCar notifies when a new CAR is added to the provider.
-	// The list of CIDs inside the CAR are processed to generate a new advertisement
-	// that points to the updated data.
-	NotifyPutCar(ctx context.Context, carID cid.Cid, metadata []byte) (cid.Cid, error)
+	// NotifyPut notifies the reference provider to generate a new advertisement
+	// including Cids in dealID. It returns the Cid of the generated advertisement.
+	NotifyPut(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error)
 
-	// NotifyRemoveCids notifies that a list of CIDs have been removed from the provider
-	// and generates and publishes the corresponding advertisement.
-	NotifyRemoveCids(ctx context.Context, cids []cid.Cid) (cid.Cid, error)
-
-	// NotifyRemoveCAr notifies that a CAR has been removed from the provider
-	// and generates and publishes the corresponding advertisement.
-	NotifyRemoveCar(ctx context.Context, carID cid.Cid) (cid.Cid, error)
+	// NotifyRemove notifies the reference provider to generate a new advertisement
+	// including Cids in dealID. It returns the Cid of the generated advertisement.
+	NotifyRemove(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error)
 
 	// GetAdv gets an advertisement by CID from local storage.
 	GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error)
@@ -57,3 +52,8 @@ type Interface interface {
 	// Close
 	Close(ctx context.Context) error
 }
+
+// CidCallback specifies the logic to go from dealID (indexID)
+// to list of CIDs that will be used by the linksystem while
+// traversing the DAG
+type CidCallback func(dealID cid.Cid) []cid.Cid

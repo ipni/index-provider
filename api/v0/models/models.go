@@ -34,7 +34,7 @@ func MarshalReq(r *AdRequest) ([]byte, error) {
 // MarshalResp serializes the response.
 func MarshalResp(r *AdResponse) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
-	err := dagjson.Encode(r.Ad, buf)
+	err := dagjson.Encode(r.Ad.Representation(), buf)
 	if err != nil {
 		return nil, err
 	}

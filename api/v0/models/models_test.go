@@ -28,7 +28,7 @@ func TestMarshal(t *testing.T) {
 	// Masrhal response and check e2e
 	t.Log("e2e marshalling response")
 	lsys := utils.MkLinkSystem(ds)
-	_, _, adv, _ := utils.GenRandomIndexAndAdv(t, lsys)
+	adv, _ := utils.GenRandomIndexAndAdv(t, lsys)
 	resp := &AdResponse{
 		ID: cids[1],
 		Ad: adv,
