@@ -25,7 +25,7 @@ func connectCommand(cctx *cli.Context) error {
 		return err
 	}
 	reqURL := adminaddr + "/admin/connect"
-	req, err := http.NewRequestWithContext(cctx.Context, "POST", reqURL, bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(cctx.Context, http.MethodPost, reqURL, bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}

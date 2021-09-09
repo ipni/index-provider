@@ -29,7 +29,7 @@ func Test_importCarHandler(t *testing.T) {
 	jsonReq, err := json.Marshal(icReq)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("POST", "/admin/import/car", bytes.NewReader(jsonReq))
+	req, err := http.NewRequest(http.MethodPost, "/admin/import/car", bytes.NewReader(jsonReq))
 	require.NoError(t, err)
 
 	mc := gomock.NewController(t)

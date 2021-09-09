@@ -99,7 +99,7 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Instantiate CAR supplier and register it as a callback onto the engine.
-	cs := suppliers.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOF))
+	cs := suppliers.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOFFlagValue))
 
 	// Starting provider p2p server
 	p2pserver.New(ctx, h, eng)
