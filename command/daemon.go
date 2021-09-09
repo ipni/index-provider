@@ -99,8 +99,7 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Instantiate CAR supplier and register it as a callback onto the engine.
-	cs := suppliers.NewCarSupplier(ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOF))
-	eng.RegisterCidCallback(suppliers.ToCidCallback(cs))
+	cs := suppliers.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOF))
 
 	// Starting provider p2p server
 	p2pserver.New(ctx, h, eng)
@@ -114,7 +113,7 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	adminSvr, err := adminserver.New(adminAddr.String(), h, eng)
+	adminSvr, err := adminserver.New(adminAddr.String(), h, eng, cs)
 	if err != nil {
 		return err
 	}

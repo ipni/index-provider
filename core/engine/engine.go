@@ -226,7 +226,6 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 	cidsLnk := cidlink.Link{Cid: keyCid}
 
 	if e.cb != nil {
-
 		// If we are not removing, we need to generate the link for the list
 		// of CIDs from the lookup key using the callback, and store the relationship
 		if !isRm {
