@@ -60,9 +60,9 @@ func TestAdvertisements(t *testing.T) {
 
 	// Publish some new advertisements.
 	cids, _ := utils.RandomCids(2)
-	c1, err := e.NotifyPut(ctx, cids[0], []byte("some metadata"))
+	c1, err := e.NotifyPut(ctx, cids[0].Bytes(), []byte("some metadata"))
 	require.NoError(t, err)
-	c2, err := e.NotifyPut(ctx, cids[1], []byte("some metadata"))
+	c2, err := e.NotifyPut(ctx, cids[1].Bytes(), []byte("some metadata"))
 	require.NoError(t, err)
 
 	// Get first advertisement

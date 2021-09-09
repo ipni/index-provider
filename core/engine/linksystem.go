@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 
+	"github.com/filecoin-project/indexer-reference-provider/core"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -14,8 +15,9 @@ import (
 )
 
 const (
-	latestAdvKey   = "sync/adv"
-	latestIndexKey = "sync/index"
+	latestAdvKey      = "sync/adv/"
+	keyToCidMapPrefix = "map/keyCid/"
+	cidToKeyMapPrefix = "map/cidKey/"
 )
 
 // Creates the main engine linksystem.
@@ -39,7 +41,18 @@ func (e *Engine) mkLinkSystem(ds datastore.Datastore) ipld.LinkSystem {
 		if !isAdvertisement(n) {
 			// If the callback has been set.
 			if e.cb != nil {
-				cids, err := e.cb(c)
+				// Get the relationship between cid received
+				// to dealID so the callback knows how to
+				// regenerate the list of CIDs.
+				key, err := e.getCidKeyMap(c)
+				if err != nil {
+					return nil, err
+				}
+				// NOTE: For removals we may not have the
+				// list of CIDs, let's see what selector we end up
+				// using, but we may need additional validation here
+				// in order not to follow the link.
+				cids, err := e.cb(key)
 				if err != nil {
 					return nil, err
 				}
@@ -91,15 +104,44 @@ func (e *Engine) putLatestAdv(advID []byte) error {
 	return e.ds.Put(datastore.NewKey(latestAdvKey), advID)
 }
 
-func (e *Engine) putLatestIndex(c cid.Cid) error {
-	return e.ds.Put(datastore.NewKey(latestAdvKey), c.Bytes())
+func (e *Engine) putKeyCidMap(key core.LookupKey, c cid.Cid) error {
+	// We need to store the map Key-Cid to know what CidLink to put
+	// in advertisement when we notify a removal.
+	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(key)), c.Bytes())
+	if err != nil {
+		return err
+	}
+	// And the other way around when graphsync ios making a request,
+	// so the callback in the linksystem knows to what key we are referring.
+	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), key)
 }
 
-func (e *Engine) getLatest(isIndex bool) (cid.Cid, error) {
-	key := latestIndexKey
-	if !isIndex {
-		key = latestAdvKey
+func (e *Engine) deleteKeyCidMap(key core.LookupKey) error {
+	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(key)))
+}
+
+func (e *Engine) deleteCidKeyMap(c cid.Cid) error {
+	return e.ds.Delete(datastore.NewKey(cidToKeyMapPrefix + c.String()))
+}
+
+func (e *Engine) getCidKeyMap(c cid.Cid) (core.LookupKey, error) {
+	return e.ds.Get(datastore.NewKey(cidToKeyMapPrefix + c.String()))
+}
+
+func (e *Engine) getKeyCidMap(key core.LookupKey) (cid.Cid, error) {
+	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(key)))
+	if err != nil {
+		if err == datastore.ErrNotFound {
+			return cid.Undef, nil
+		}
+		return cid.Undef, err
 	}
+	_, d, err := cid.CidFromBytes(b)
+	return d, err
+}
+
+func (e *Engine) getLatestAdv() (cid.Cid, error) {
+	key := latestAdvKey
 	b, err := e.ds.Get(datastore.NewKey(key))
 	if err != nil {
 		if err == datastore.ErrNotFound {
@@ -110,13 +152,3 @@ func (e *Engine) getLatest(isIndex bool) (cid.Cid, error) {
 	_, c, err := cid.CidFromBytes(b)
 	return c, err
 }
-
-/*
-func (e *Engine) getLatestAdvLink() (schema.Link_Advertisement, error) {
-	c, err := e.getLatest(false)
-	if err != nil {
-		return nil, err
-	}
-	return schema.LinkAdvFromCid(c), nil
-}
-*/

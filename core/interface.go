@@ -8,6 +8,11 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 )
 
+// LookupKey represents the key used by providers to identify unique the list
+// of CIDs being advertised. This can be a dealID, or any other ID providers
+// want to use to identify CIDs.
+type LookupKey []byte
+
 // Interface for a reference provider
 type Interface interface {
 	// PublishLocal provides a new advertisement locally.
@@ -36,12 +41,12 @@ type Interface interface {
 	RegisterCidCallback(cb CidCallback)
 
 	// NotifyPut notifies the reference provider to generate a new advertisement
-	// including Cids in dealID. It returns the Cid of the generated advertisement.
-	NotifyPut(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error)
+	// including Cids in lookupKey. It returns the Cid of the generated advertisement.
+	NotifyPut(ctx context.Context, key LookupKey, metadata []byte) (cid.Cid, error)
 
 	// NotifyRemove notifies the reference provider to generate a new advertisement
-	// including Cids in dealID. It returns the Cid of the generated advertisement.
-	NotifyRemove(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error)
+	// including Cids in key. It returns the Cid of the generated advertisement.
+	NotifyRemove(ctx context.Context, key LookupKey, metadata []byte) (cid.Cid, error)
 
 	// GetAdv gets an advertisement by CID from local storage.
 	GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error)
@@ -53,7 +58,7 @@ type Interface interface {
 	Close(ctx context.Context) error
 }
 
-// CidCallback specifies the logic to go from dealID (indexID)
+// CidCallback specifies the logic to go from lookupKey
 // to list of CIDs that will be used by the linksystem while
 // traversing the DAG
-type CidCallback func(dealID cid.Cid) ([]cid.Cid, error)
+type CidCallback func(key LookupKey) ([]cid.Cid, error)
