@@ -20,7 +20,6 @@ type Server struct {
 	l      net.Listener
 	h      host.Host
 	e      *engine.Engine
-	cs     *suppliers.CarSupplier // TODO Placeholder to implement `import` command
 }
 
 func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier, options ...ServerOption) (*Server, error) {
@@ -41,10 +40,12 @@ func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier
 		WriteTimeout: cfg.apiWriteTimeout,
 		ReadTimeout:  cfg.apiReadTimeout,
 	}
-	s := &Server{server, l, h, e, cs}
+	s := &Server{server, l, h, e}
 
 	// Set protocol handlers
 	r.HandleFunc("/admin/connect", s.connectHandler).Methods("POST")
+	icHandler := &importCarHandler{cs}
+	r.HandleFunc("/admin/import/car", icHandler.handle).Methods("POST")
 
 	return s, nil
 }
