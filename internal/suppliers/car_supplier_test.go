@@ -1,8 +1,15 @@
 package suppliers
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"math/rand"
 	"testing"
+
+	mock_core "github.com/filecoin-project/indexer-reference-provider/core/mock"
+	"github.com/golang/mock/gomock"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -10,6 +17,7 @@ import (
 )
 
 func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
 	tests := []struct {
 		name    string
 		carPath string
@@ -25,18 +33,32 @@ func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mc := gomock.NewController(t)
+			t.Cleanup(mc.Finish)
+
+			ctx := context.Background()
+			mockEng := mock_core.NewMockInterface(mc)
 			ds := datastore.NewMapDatastore()
-			subject := NewCarSupplier(ds)
+			mockEng.EXPECT().RegisterCidCallback(gomock.Any())
+			subject := NewCarSupplier(mockEng, ds)
 			t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
 			wantIterator, err := newCarCidIterator(tt.carPath)
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, wantIterator.Close()) })
 
-			gotCid, err := subject.Put(tt.carPath)
-			require.NoError(t, err)
+			wantCid := generateCidV1(t, rng)
+			mockEng.
+				EXPECT().
+				NotifyPut(ctx, gomock.Any(), gomock.Nil()).
+				Return(wantCid, nil)
 
-			gotIterator, err := subject.Supply(gotCid)
+			gotKey, gotCid, err := subject.Put(ctx, tt.carPath, nil)
+			require.NoError(t, err)
+			require.Equal(t, wantCid, gotCid)
+			require.NotNil(t, gotKey)
+
+			gotIterator, err := subject.Supply(gotKey)
 			require.NoError(t, err)
 
 			for {
@@ -55,27 +77,46 @@ func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
 
 func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	path := "../../testdata/sample-wrapped-v2.car"
+	rng := rand.New(rand.NewSource(1413))
+
+	ctx := context.Background()
+	mc := gomock.NewController(t)
+	t.Cleanup(mc.Finish)
 	ds := datastore.NewMapDatastore()
-	subject := NewCarSupplier(ds)
+
+	mockEng := mock_core.NewMockInterface(mc)
+	mockEng.EXPECT().RegisterCidCallback(gomock.Any())
+	subject := NewCarSupplier(mockEng, ds)
 	t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
-	id, err := subject.Put(path)
-	require.NoError(t, err)
-	require.NotEqual(t, cid.Undef, id)
+	wantCid := generateCidV1(t, rng)
+	mockEng.
+		EXPECT().
+		NotifyPut(ctx, gomock.Any(), gomock.Nil()).
+		Return(wantCid, nil)
 
-	removedId, err := subject.Remove(path)
+	gotKey, id, err := subject.Put(ctx, path, nil)
 	require.NoError(t, err)
-	require.NotEqual(t, cid.Undef, id)
-	require.Equal(t, id, removedId)
+	require.Equal(t, wantCid, id)
+	require.NotNil(t, gotKey)
 
-	_, err = subject.Remove(path)
+	wantCid = generateCidV1(t, rng)
+	mockEng.
+		EXPECT().
+		NotifyRemove(ctx, gotKey, gomock.Nil()).
+		Return(wantCid, nil)
+
+	removedId, err := subject.Remove(ctx, path, nil)
+	require.NoError(t, err)
+	require.Equal(t, wantCid, removedId)
+
+	_, err = subject.Remove(ctx, path, nil)
 	require.EqualError(t, err, "no CID iterator found for given key")
 }
 
-func TestCARsWithSameCidsHaveSameID(t *testing.T) {
-	oneId, err := generateID("../../testdata/sample-v1.car")
+func generateCidV1(t *testing.T, rng *rand.Rand) cid.Cid {
+	data := []byte(fmt.Sprintf("🌊d-%d", rng.Uint64()))
+	mh, err := multihash.Sum(data, multihash.SHA3_256, -1)
 	require.NoError(t, err)
-	anotherId, err := generateID("../../testdata/sample-wrapped-v2.car")
-	require.NoError(t, err)
-	require.Equal(t, oneId, anotherId)
+	return cid.NewCidV1(cid.Raw, mh)
 }

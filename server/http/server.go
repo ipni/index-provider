@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
+
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	"github.com/gorilla/mux"
 	logging "github.com/ipfs/go-log/v2"
@@ -18,9 +20,10 @@ type Server struct {
 	l      net.Listener
 	h      host.Host
 	e      *engine.Engine
+	cs     *suppliers.CarSupplier // TODO Placeholder to implement `import` command
 }
 
-func New(listen string, h host.Host, e *engine.Engine, options ...ServerOption) (*Server, error) {
+func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier, options ...ServerOption) (*Server, error) {
 	var cfg serverConfig
 	if err := cfg.apply(append([]ServerOption{serverDefaults}, options...)...); err != nil {
 		return nil, err
@@ -38,7 +41,7 @@ func New(listen string, h host.Host, e *engine.Engine, options ...ServerOption) 
 		WriteTimeout: cfg.apiWriteTimeout,
 		ReadTimeout:  cfg.apiReadTimeout,
 	}
-	s := &Server{server, l, h, e}
+	s := &Server{server, l, h, e, cs}
 
 	// Set protocol handlers
 	r.HandleFunc("/admin/connect", s.connectHandler).Methods("POST")

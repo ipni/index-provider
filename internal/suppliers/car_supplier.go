@@ -1,16 +1,17 @@
 package suppliers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"io"
 	"path/filepath"
 
+	"github.com/filecoin-project/indexer-reference-provider/core"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
-	"github.com/multiformats/go-multicodec"
-	"github.com/multiformats/go-multihash"
 )
 
 const (
@@ -27,15 +28,19 @@ var (
 )
 
 type CarSupplier struct {
+	eng  core.Interface
 	ds   datastore.Datastore
 	opts []car.ReadOption
 }
 
-func NewCarSupplier(ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
-	return &CarSupplier{
+func NewCarSupplier(eng core.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
+	cs := &CarSupplier{
+		eng:  eng,
 		ds:   ds,
 		opts: opts,
 	}
+	eng.RegisterCidCallback(ToCidCallback(cs))
+	return cs
 }
 
 // Put makes the CAR at given path suppliable by this supplier.
@@ -43,54 +48,59 @@ func NewCarSupplier(ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier
 // The ID is generated based on the content of the CAR.
 // When the CAR ID is already known, PutWithID should be used instead.
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(path string) (cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (core.LookupKey, cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
 	// Generate a CID for the CAR at given path.
-	id, err := generateID(path)
+	id, err := generateLookupKey(path)
 	if err != nil {
-		return cid.Undef, err
+		return nil, cid.Undef, err
 	}
 
-	return cs.PutWithID(id, path)
+	c, err := cs.PutWithID(ctx, id, path, metadata)
+	if err != nil {
+		return nil, cid.Undef, err
+	}
+	return id, c, nil
 }
 
 // PutWithID makes the CAR at given path suppliable by this supplier identified by the given ID.
 // The return CID can then be used via Supply to get an iterator over CIDs that belong to the CAR.
 // When the CAR ID is not known, Put should be used instead.
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) PutWithID(id cid.Cid, path string) (cid.Cid, error) {
+func (cs *CarSupplier) PutWithID(ctx context.Context, key core.LookupKey, path string, metadata []byte) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
 	// Store mapping of CAR ID to path, used to instantiate CID iterator.
-	carIdKey := toCarIdKey(id)
+	carIdKey := toCarIdKey(key)
 	if err := cs.ds.Put(carIdKey, []byte(path)); err != nil {
 		return cid.Undef, err
 	}
 
 	// Store mapping of path to CAR ID, used to lookup the CAR by path when it is removed.
-	if err := cs.ds.Put(toPathKey(path), id.Bytes()); err != nil {
+	if err := cs.ds.Put(toPathKey(path), key); err != nil {
 		return cid.Undef, err
 	}
-	return id, nil
+
+	return cs.eng.NotifyPut(ctx, key, metadata)
 }
 
-func toCarIdKey(id cid.Cid) datastore.Key {
-	return datastore.NewKey(carIdDatastoreKeyPrefix + id.String())
+func toCarIdKey(key core.LookupKey) datastore.Key {
+	return datastore.NewKey(carIdDatastoreKeyPrefix + string(key))
 }
 
 // Remove removes the CAR at the given path from the list of suppliable CID iterators.
 // If the CAR at given path is not known, this function will return an error.
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Remove(path string) (cid.Cid, error) {
+func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte) (cid.Cid, error) {
 	// Clean path.
 	path = filepath.Clean(path)
 
 	// Find the CAR ID that corresponds to the given path
 	pathKey := toPathKey(path)
-	id, err := cs.getCarIDFromPathKey(pathKey)
+	key, err := cs.getLookupKeyFromPathKey(pathKey)
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			err = ErrNotFound
@@ -99,7 +109,7 @@ func (cs *CarSupplier) Remove(path string) (cid.Cid, error) {
 	}
 
 	// Delete mapping of CAR ID to path.
-	carIdKey := toCarIdKey(id)
+	carIdKey := toCarIdKey(key)
 	if err := cs.ds.Delete(carIdKey); err != nil {
 		// TODO improve error handling logic
 		// we shouldn't typically get NotFound error here.
@@ -116,12 +126,12 @@ func (cs *CarSupplier) Remove(path string) (cid.Cid, error) {
 		// See what we can do to opportunistically heal the datastore.
 		return cid.Undef, err
 	}
-	return id, nil
+	return cs.eng.NotifyRemove(ctx, key, metadata)
 }
 
 // Supply supplies an iterator over CIDs of the CAR file that corresponds to the given key.
 // An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) Supply(key cid.Cid) (CidIterator, error) {
+func (cs *CarSupplier) Supply(key core.LookupKey) (CidIterator, error) {
 	b, err := cs.ds.Get(toCarIdKey(key))
 	if err != nil {
 		if err == datastore.ErrNotFound {
@@ -139,46 +149,13 @@ func (cs *CarSupplier) Close() error {
 	return cs.ds.Close()
 }
 
-func (cs *CarSupplier) getCarIDFromPathKey(pathKey datastore.Key) (cid.Cid, error) {
-	carIdBytes, err := cs.ds.Get(pathKey)
-	if err != nil {
-		return cid.Undef, err
-	}
-	_, c, err := cid.CidFromBytes(carIdBytes)
-	return c, err
+func (cs *CarSupplier) getLookupKeyFromPathKey(pathKey datastore.Key) (core.LookupKey, error) {
+	return cs.ds.Get(pathKey)
 }
 
-// generateID generates a unique ID for a CAR at a given path.
-// The ID is in form of a CID, generated by hashing the list of all CIDs inside the CAR payload.
-// This implies that different CARs that have the same CID list appearing in the same order will have the same ID, regardless of version.
-// For example, CARv1 and wrapped CARv2 version of it will have the same CID list.
-// This function accepts both CARv1 and CARv2 payloads
-func generateID(path string, opts ...car.ReadOption) (cid.Cid, error) {
-	// TODO investigate if there is a more efficient and version-agnostic way to generate CID for a CAR file.
-	// HINT it will most likely be more efficient to generate the ID using the index of a CAR if it is an indexed CARv2
-	// and fall back on current approach otherwise. Note, the CAR index has the multihashes of CIDs not full CIDs,
-	// and that should be enough for the purposes of ID generation.
-
-	// Instantiate iterator over CAR CIDs.
-	cri, err := newCarCidIterator(path, opts...)
-	if err != nil {
-		return cid.Undef, err
-	}
-	defer cri.Close()
-	// Instantiate a reader over the CID iterator to turn CIDs into bytes.
-	// Note we use the multihash of CIDs instead of the entire CID.
-	// TODO consider implementing an efficient multihash iterator for cars.
-	reader := NewCidIteratorReadCloser(cri, func(cid cid.Cid) ([]byte, error) { return cid.Hash(), nil })
-
-	// Generate multihash of CAR's CIDs.
-	mh, err := multihash.SumStream(reader, multihash.SHA2_256, -1)
-	if err != nil {
-		return cid.Undef, err
-	}
-	// TODO Figure out what the codec should be.
-	// HINT we could use the root CID codec or the first CID's codec.
-	// Construct the ID for the CAR in form of a CID.
-	return cid.NewCidV1(uint64(multicodec.DagCbor), mh), nil
+func generateLookupKey(path string) (core.LookupKey, error) {
+	// Simply hash the path given as the lookup key.
+	return sha256.New().Sum([]byte(path)), nil
 }
 
 func toPathKey(path string) datastore.Key {

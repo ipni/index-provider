@@ -4,6 +4,8 @@ import (
 	"errors"
 	"io"
 
+	"github.com/filecoin-project/indexer-reference-provider/core"
+
 	"github.com/ipfs/go-cid"
 )
 
@@ -15,7 +17,7 @@ type (
 	CidIteratorSupplier interface {
 		// Supply supplies a CID iterator for a given key.
 		// If no such iterator is found, this function returns ErrNotFound error.
-		Supply(key cid.Cid) (CidIterator, error)
+		Supply(key core.LookupKey) (CidIterator, error)
 	}
 
 	// CidIterator provides an iterator over a list of CIDs.
