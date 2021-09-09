@@ -9,13 +9,16 @@ import (
 
 // ToCidCallback converts the given cidIter to core.CidCallback.
 func ToCidCallback(cidIterSup CidIteratorSupplier) core.CidCallback {
-	return func(key cid.Cid) ([]cid.Cid, error) {
-		ci, err := cidIterSup.Supply(key)
-		if err != nil {
-			return nil, err
+	/*
+		return func(key core.LookupKey) ([]cid.Cid, error) {
+			ci, err := cidIterSup.Supply(key)
+			if err != nil {
+				return nil, err
+			}
+			return drain(ci)
 		}
-		return drain(ci)
-	}
+	*/
+	return nil
 }
 
 func drain(ci CidIterator) ([]cid.Cid, error) {
