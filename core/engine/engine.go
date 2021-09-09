@@ -1,9 +1,11 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
+	"io"
 	"sync"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
@@ -30,6 +32,8 @@ var _ core.Interface = &Engine{}
 const (
 	// metadataProtocol identifies the protocol used by provider
 	// to encode metadata.
+	// NOTE: Consider including this in a config or an option
+	// once we have different protocols.
 	metadataProtocol = 0
 )
 
@@ -152,15 +156,15 @@ func (e *Engine) RegisterCidCallback(cb core.CidCallback) {
 	e.cb = cb
 }
 
-func (e *Engine) NotifyPut(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error) {
+func (e *Engine) NotifyPut(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
 	// Publishes an advertisement into the gossipsub channel. The callback
 	// must have been registered for the linkSystem to know how to go from
-	// dealID to list of CIDs.
-	return e.publishAdvForIndex(ctx, dealID, metadata, false)
+	// lookupKey to list of CIDs.
+	return e.publishAdvForIndex(ctx, key, metadata, false)
 }
 
-func (e *Engine) NotifyRemove(ctx context.Context, dealID cid.Cid, metadata []byte) (cid.Cid, error) {
-	return e.publishAdvForIndex(ctx, dealID, metadata, true)
+func (e *Engine) NotifyRemove(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
+	return e.publishAdvForIndex(ctx, key, metadata, true)
 }
 
 func (e *Engine) Close(ctx context.Context) error {
@@ -186,7 +190,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 }
 
 func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
-	latestAdv, err := e.getLatest(false)
+	latestAdv, err := e.getLatestAdv()
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -197,10 +201,79 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdv, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, dealID cid.Cid, metadata []byte, isRm bool) (cid.Cid, error) {
-	// TODO: We should probably prevent providers from being able to advertise
-	// the same index several times. It may lead to a lot of duplicate retrievals?
-	latestAdvID, err := e.getLatest(false)
+// Linksystem used to generate links from a list of cids without
+// persisting anything in the process.
+func noStoreLinkSystem() ipld.LinkSystem {
+	lsys := cidlink.DefaultLinkSystem()
+	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
+		buf := bytes.NewBuffer(nil)
+		return buf, func(lnk ipld.Link) error {
+			return nil
+		}, nil
+	}
+	return lsys
+}
+
+func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
+	var err error
+	// If there is no callback, by default we set the cidLink to the cid of the lookupKey
+	// because the linksystem storer by default will check if the CIDs are
+	// stored in the datastore. If this is not a Cid it fail (we can't know how to hanndle it)
+	keyCid, err := cid.Cast(key)
+	if err != nil {
+		return cid.Undef, err
+	}
+	cidsLnk := cidlink.Link{Cid: keyCid}
+
+	if e.cb != nil {
+
+		// If we are not removing, we need to generate the link for the list
+		// of CIDs from the lookup key using the callback, and store the relationship
+		if !isRm {
+			cids, err := e.cb(key)
+			if err != nil {
+				return cid.Undef, err
+			}
+			// NOTE: This creates a link from a List_String model. Once we change to
+			// the wire format we use we'll have to change to the corresponding IPLD node
+			// representation for the list of CIDs.
+			lnk, err := schema.NewListOfCids(noStoreLinkSystem(), cids)
+			if err != nil {
+				return cid.Undef, err
+			}
+			cidsLnk = lnk.(cidlink.Link)
+
+			// Store the relationship between lookupKey and CID
+			// of the advertised list of Cids.
+			err = e.putKeyCidMap(key, cidsLnk.Cid)
+			if err != nil {
+				return cid.Undef, err
+			}
+		} else {
+			// If we are removing, we already know the relationship
+			// key-cid of the list, so we can add it right away in
+			// the advertisement.
+			c, err := e.getKeyCidMap(key)
+			if err != nil {
+				return cid.Undef, err
+			}
+			cidsLnk = cidlink.Link{Cid: c}
+			// And if we are removing it means we probably don't
+			// have the list of CIDs anymore, so we can remove the
+			// entry from the datastore.
+			err = e.deleteKeyCidMap(key)
+			if err != nil {
+				return cid.Undef, err
+			}
+			err = e.deleteCidKeyMap(c)
+			if err != nil {
+				return cid.Undef, err
+			}
+		}
+	}
+
+	// Get the latest advertisement that we generated.
+	latestAdvID, err := e.getLatestAdv()
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -219,11 +292,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, dealID cid.Cid, metadat
 		previousLnk = nb.Build().(schema.Link_Advertisement)
 	}
 
-	err = e.putLatestIndex(dealID)
-	if err != nil {
-		return cid.Undef, err
-	}
-	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidlink.Link{Cid: dealID},
+	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidsLnk,
 		metadata, isRm, e.host.ID().String())
 	if err != nil {
 		return cid.Undef, err
