@@ -48,6 +48,7 @@ func main() {
 			command.DaemonCmd,
 			command.InitCmd,
 			command.ConnectCmd,
+			command.ImportCmd,
 		},
 	}
 

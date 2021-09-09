@@ -20,20 +20,64 @@ var connectFlags = []cli.Flag{
 	adminAPIFlag,
 }
 
-var adminAPIFlag = &cli.StringFlag{
-	Name:     "listen-admin",
-	Usage:    "Admin HTTP API listen address",
-	EnvVars:  []string{"PROVIDER_LISTEN_ADMIN"},
-	Required: false,
+var importCarFlags = []cli.Flag{
+	adminAPIFlag,
+	carPathFlag,
+	metadataFlag,
+	keyFlag,
 }
 
 var (
-	carZeroLengthAsEOF     bool
-	carZeroLengthAsEOFFlag = &cli.BoolFlag{
+	metadataFlagValue string
+	metadataFlag      = &cli.StringFlag{
+		Name:        "metadata",
+		Usage:       "Base64 encoded metadata bytes.",
+		Aliases:     []string{"m"},
+		Required:    false,
+		Destination: &metadataFlagValue,
+	}
+)
+
+var (
+	keyFlagValue string
+	keyFlag      = &cli.StringFlag{
+		Name:        "key",
+		Usage:       "Base64 encoded lookup key to associate with imported CAR.",
+		Aliases:     []string{"k"},
+		Required:    false,
+		Destination: &keyFlagValue,
+	}
+)
+
+var (
+	carPathFlagValue string
+	carPathFlag      = &cli.StringFlag{
+		Name:        "input",
+		Aliases:     []string{"i"},
+		Usage:       "Path to the CAR file to import",
+		Destination: &carPathFlagValue,
+		Required:    true,
+	}
+)
+
+var (
+	adminAPIFlagValue string
+	adminAPIFlag      = &cli.StringFlag{
+		Name:        "listen-admin",
+		Usage:       "Admin HTTP API listen address",
+		EnvVars:     []string{"PROVIDER_LISTEN_ADMIN"},
+		Destination: &adminAPIFlagValue,
+		Required:    true,
+	}
+)
+
+var (
+	carZeroLengthAsEOFFlagValue bool
+	carZeroLengthAsEOFFlag      = &cli.BoolFlag{
 		Name:        "carZeroLengthAsEOF",
 		Aliases:     []string{"cz"},
 		Usage:       "Specifies whether zero-length blocks in CAR should be consideted as EOF.",
 		Value:       false, // Default to disabled, consistent with go-car/v2 defaults.
-		Destination: &carZeroLengthAsEOF,
+		Destination: &carZeroLengthAsEOFFlagValue,
 	}
 )

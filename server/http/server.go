@@ -43,9 +43,9 @@ func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier
 	s := &Server{server, l, h, e}
 
 	// Set protocol handlers
-	r.HandleFunc("/admin/connect", s.connectHandler).Methods("POST")
+	r.HandleFunc("/admin/connect", s.connectHandler).Methods(http.MethodPost)
 	icHandler := &importCarHandler{cs}
-	r.HandleFunc("/admin/import/car", icHandler.handle).Methods("POST")
+	r.HandleFunc("/admin/import/car", icHandler.handle).Methods(http.MethodPost)
 
 	return s, nil
 }
