@@ -67,7 +67,7 @@ func mkTestHost() host.Host {
 // testing purposes. A more complex callback could read
 // feom the CID index and return the list of CIDs.
 func simpleCb(cids []cid.Cid) core.CidCallback {
-	return func(c cid.Cid) ([]cid.Cid, error) {
+	return func(k core.LookupKey) ([]cid.Cid, error) {
 		return cids, nil
 	}
 }
@@ -113,7 +113,7 @@ func TestPublishLocal(t *testing.T) {
 	// Check that the Cid has been generated successfully
 	require.Equal(t, advCid, advLnk.ToCid(), "advertisement CID from link and published CID not equal")
 	// Check that latest advertisement is set correctly
-	latest, err := e.getLatest(false)
+	latest, err := e.getLatestAdv()
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid, "latest advertisement pointer not updated correctly")
 	// Publish new advertisement.
@@ -121,7 +121,7 @@ func TestPublishLocal(t *testing.T) {
 	advCid2, err := e.PublishLocal(ctx, adv2)
 	require.NoError(t, err)
 	// Latest advertisement should be updates and we are able to still fetch the previous one.
-	latest, err = e.getLatest(false)
+	latest, err = e.getLatestAdv()
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid2, "latest advertisement pointer not updated correctly")
 	// Check that we can fetch the latest advertisement
@@ -200,7 +200,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	cids, _ := utils.RandomCids(10)
 	cidsLnk, err := schema.NewListOfCids(e.lsys, cids)
 	require.NoError(t, err)
-	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid, []byte("metadata"))
+	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
@@ -217,7 +217,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	cids, _ = utils.RandomCids(10)
 	cidsLnk, err = schema.NewListOfCids(e.lsys, cids)
 	require.NoError(t, err)
-	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid, []byte("metadata"))
+	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
 	select {
@@ -231,7 +231,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 
 	// NotifyRemove the previous ones
-	c, err = e.NotifyRemove(ctx, cidsLnk.(cidlink.Link).Cid, []byte("metadata"))
+	c, err = e.NotifyRemove(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
 	select {
@@ -275,7 +275,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	e.RegisterCidCallback(simpleCb(cids))
 	cidsLnk, err := schema.NewListOfCids(e.lsys, cids)
 	require.NoError(t, err)
-	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid, []byte("metadata"))
+	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
