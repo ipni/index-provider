@@ -29,10 +29,10 @@ func connectCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	return sendRequest(req)
+	return sendRequest(cctx, req)
 }
 
-func sendRequest(req *http.Request) error {
+func sendRequest(cctx *cli.Context, req *http.Request) error {
 	cl := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := cl.Do(req)
@@ -41,8 +41,21 @@ func sendRequest(req *http.Request) error {
 	}
 	// Handle failed requests
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("connecting to peer failed: %v", http.StatusText(resp.StatusCode))
+		statusText := http.StatusText(resp.StatusCode)
+		var errRes adminserver.ErrorRes
+		if _, err := errRes.ReadFrom(resp.Body); err != nil {
+			return fmt.Errorf(
+				"failed to connect to peer with response %s. cannot decode error response: %v",
+				http.StatusText(resp.StatusCode), err)
+		}
+		return fmt.Errorf("%s %s", statusText, errRes.Message)
 	}
+
 	log.Infof("Successfully connected to peer")
-	return nil
+	var res adminserver.ConnectRes
+	if _, err := res.ReadFrom(resp.Body); err != nil {
+		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
+	}
+	_, err = cctx.App.Writer.Write([]byte("Successfully connected to Peer"))
+	return err
 }

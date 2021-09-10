@@ -1,8 +1,6 @@
 package adminserver
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -10,38 +8,41 @@ import (
 )
 
 func (s *Server) connectHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Errorw("failed reading body for connect request", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	req := &ConnectReq{}
-	err = json.Unmarshal(body, req)
-	if err != nil {
-		log.Errorw("failed unmarshalling connect request", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+	// Decode request
+	var req ConnectReq
+	if _, err := req.ReadFrom(r.Body); err != nil {
+		log.Errorw("cannot unmarshal request", "err", err)
+		errRes := newErrorResponse("failed to unmarshal request. %v", err)
+		respond(w, http.StatusBadRequest, errRes)
 		return
 	}
 
 	maddr, err := ma.NewMultiaddr(req.Maddr)
 	if err != nil {
 		log.Errorw("failed parsing multiaddr", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		errRes := newErrorResponse("failed to parse multiaddr. %v", err)
+		respond(w, http.StatusBadRequest, errRes)
 		return
 	}
 	addrInfo, err := peer.AddrInfoFromP2pAddr(maddr)
 	if err != nil {
 		log.Errorw("failed to create addrInfo from multiaddr", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		errRes := newErrorResponse("failed to create addrInfo from multiaddr. %v", err)
+		respond(w, http.StatusBadRequest, errRes)
 		return
 	}
+
+	// Attempt connect.
 	err = s.h.Connect(r.Context(), *addrInfo)
 	if err != nil {
-		log.Errorw("couldn't connect to server", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Errorw("could not connect to server", "err", err)
+		errRes := newErrorResponse("could not connect to server. %v", err)
+		respond(w, http.StatusInternalServerError, errRes)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	// Respond success case.
 	log.Info("Connected successfully to peer")
+	var resp ConnectRes
+	respond(w, http.StatusOK, &resp)
 }

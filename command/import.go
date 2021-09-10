@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/http"
@@ -75,24 +74,23 @@ func doImportCar(cctx *cli.Context) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to import car, due to failure response from Admin server: %v", http.StatusText(resp.StatusCode))
-	}
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	var icRes adminserver.ImportCarRes
-	if err := json.Unmarshal(respBody, &icRes); err != nil {
-		return err
+		statusText := http.StatusText(resp.StatusCode)
+		var errRes adminserver.ErrorRes
+		if _, err := errRes.ReadFrom(resp.Body); err != nil {
+			return fmt.Errorf(
+				"failed to import car, server responsed with %s. cannot decode error response: %v",
+				http.StatusText(resp.StatusCode), err)
+		}
+		return fmt.Errorf("%s %s", statusText, errRes.Message)
 	}
 
 	log.Infof("Successfully imported car")
-
+	var res adminserver.ImportCarRes
+	if _, err := res.ReadFrom(resp.Body); err != nil {
+		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
+	}
 	msg := fmt.Sprintf("Successfully imported CAR.\n"+
-		"\t Advertisement ID: %v\n", icRes.AdvId)
-
+		"\t Advertisement ID: %v\n", res.AdvId)
 	_, err = cctx.App.Writer.Write([]byte(msg))
 	return err
 }

@@ -2,7 +2,6 @@ package adminserver
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/filecoin-project/indexer-reference-provider/core"
@@ -15,13 +14,16 @@ type importCarHandler struct {
 }
 
 func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
+	// Decode request.
 	var req ImportCarReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if _, err := req.ReadFrom(r.Body); err != nil {
 		log.Errorw("cannot unmarshal request", "err", err)
-		w.WriteHeader(http.StatusBadRequest)
+		errRes := newErrorResponse("failed to unmarshal request. %v", err)
+		respond(w, http.StatusBadRequest, errRes)
 		return
 	}
 
+	// Supply CAR.
 	var key core.LookupKey
 	var advId cid.Cid
 	var err error
@@ -33,24 +35,17 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 		key, advId, err = h.cs.Put(ctx, req.Path, req.Metadata)
 	}
 
+	// Respond with cause of failure.
 	if err != nil {
 		log.Errorw("failed to put CAR", "err", err, "path", req.Path)
-		w.WriteHeader(http.StatusInternalServerError)
+		errRes := newErrorResponse("failed to supply CAR. %v", err)
+		respond(w, http.StatusInternalServerError, errRes)
 		return
 	}
 
+	// Respond with successful import results.
 	resp := &ImportCarRes{key, advId}
-	respBytes, err := json.Marshal(resp)
-	if err != nil {
-		log.Errorw("failed to serialized response for imported CAR", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-	if _, err = w.Write(respBytes); err != nil {
-		log.Errorw("failed to write response body", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	respond(w, http.StatusOK, resp)
 }
 
 func (req *ImportCarReq) hasId() bool {
