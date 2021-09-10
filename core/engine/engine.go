@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
@@ -231,12 +230,10 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 			// And generate the linked list ipld.Link that will be added
 			// to the advertisement and used for ingestion.
 			// We don't want to store anything here, thus the noStoreLsys.
-			fmt.Println("generateChunks")
 			lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 			if err != nil {
 				return cid.Undef, err
 			}
-			fmt.Println(lnk, err)
 			cidsLnk = lnk.(cidlink.Link)
 
 			// Store the relationship between lookupKey and CID
