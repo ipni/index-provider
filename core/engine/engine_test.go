@@ -281,6 +281,7 @@ func TestRegisterCallback(t *testing.T) {
 }
 
 func TestNotifyPutWithCallback(t *testing.T) {
+	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
