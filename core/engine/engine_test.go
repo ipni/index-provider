@@ -89,8 +89,8 @@ func toCallback(cids []cid.Cid) core.CidCallback {
 		chcid := make(chan cid.Cid, 1)
 		err := make(chan error, 1)
 		go func() {
-			defer close(err)
 			defer close(chcid)
+			defer close(err)
 			for _, c := range cids {
 				chcid <- c
 			}

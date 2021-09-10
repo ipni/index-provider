@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/filecoin-project/indexer-reference-provider/core"
@@ -101,6 +102,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 					// Store the linked list entries in cache as we generate them.
 					// We use the cache linksystem here to entries are stored in an
 					// in-memory datastore.
+
 					_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
 					if err != nil {
 						return nil, err
@@ -143,6 +145,7 @@ func generateChunks(lsys ipld.LinkSystem, chcids chan cid.Cid, cherr chan error,
 		select {
 		// If something in error channel return error
 		case e := <-cherr:
+			fmt.Println("error", e)
 			return nil, e
 		// If not, start aggregating cids into chunks
 		default:
@@ -151,9 +154,11 @@ func generateChunks(lsys ipld.LinkSystem, chcids chan cid.Cid, cherr chan error,
 				cs = append(cs, ec)
 				i++
 			} else {
+				fmt.Println(cs)
 				// Create the chunk and restart variables
 				cs = append(cs, ec)
 				chunkLnk, _, err = schema.NewLinkedListOfCids(lsys, cs, chunkLnk)
+				fmt.Println(chunkLnk, err)
 				if err != nil {
 					return nil, err
 				}
@@ -169,6 +174,8 @@ func generateChunks(lsys ipld.LinkSystem, chcids chan cid.Cid, cherr chan error,
 	// with them
 	if len(cs) > 0 {
 		chunkLnk, _, err = schema.NewLinkedListOfCids(lsys, cs, chunkLnk)
+		fmt.Println(cs)
+		fmt.Println("last", chunkLnk, err)
 		if err != nil {
 			return nil, err
 		}
