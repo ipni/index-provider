@@ -183,6 +183,7 @@ github.com/filecoin-project/go-data-transfer v1.6.1-0.20210608092034-e4f40bc3a68
 github.com/filecoin-project/go-data-transfer v1.6.1-0.20210608092034-e4f40bc3a685/go.mod h1:We59IRN/nAgBSzgm3enBz4UeWNlsdqvTaJdvSbuOfL8=
 github.com/filecoin-project/go-ds-versioning v0.1.0 h1:y/X6UksYTsK8TLCI7rttCKEvl8btmWxyFMEeeWGUxIQ=
 github.com/filecoin-project/go-ds-versioning v0.1.0/go.mod h1:mp16rb4i2QPmxBnmanUx8i/XANp+PFCCJWiAb+VW4/s=
+github.com/filecoin-project/go-indexer-core v0.0.0-20210816132949-bbccdebb905f/go.mod h1:oGmf25CxT/ph4bzskRF2kE5zs/tyGKUQOlZPocKwJqA=
 github.com/filecoin-project/go-indexer-core v0.0.0-20210818063915-4b4227413744/go.mod h1:J/Qxt2ea2GHIcXXcBTvhGe89hwAJCbA2r7fXVM2L4Dc=
 github.com/filecoin-project/go-indexer-core v0.0.0-20210827054504-913aef796c01 h1:CRHkb51yR6VPrSbpfzNBhhkURuwGjHH2FPzsPvVqMps=
 github.com/filecoin-project/go-indexer-core v0.0.0-20210827054504-913aef796c01/go.mod h1:pQtfDvBF4gIA1/j7phod4Iv1Ao1n5CNNUdkSg0dyApE=
@@ -191,6 +192,9 @@ github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe/g
 github.com/filecoin-project/go-statestore v0.1.0 h1:t56reH59843TwXHkMcwyuayStBIiWBRilQjQ+5IiwdQ=
 github.com/filecoin-project/go-statestore v0.1.0/go.mod h1:LFc9hD+fRxPqiHiaqUEZOinUJB4WARkRfNl10O7kTnI=
 github.com/filecoin-project/indexer-reference-provider v0.0.0-20210831125455-79faed24a362/go.mod h1:41tVG/dpuUSy8VE+v8oMlfGBeO4qda/ZUn3MmWvSlK4=
+github.com/filecoin-project/storetheindex v0.0.0-20210830111234-6fb42350df86/go.mod h1:PIot9ckg64v/2ehZhHop4N+Qc8rKSZXGoThwpbO/LoQ=
+github.com/filecoin-project/storetheindex v0.0.0-20210909114857-94c90bbf80e1 h1:hgjI5w8WhD5jBDSLBbaHq3wC2j5YTZV7qSZWVLnbxmQ=
+github.com/filecoin-project/storetheindex v0.0.0-20210909114857-94c90bbf80e1/go.mod h1:JNsdKw+Ll1NW7BIM+AVRilrZOjyoMkmsrJl/JBuiqSY=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6/go.mod h1:1i71OnUq3iUe1ma7Lr6yG6/rjvM3emb6yoL7xLFzcVQ=
 github.com/flynn/noise v1.0.0 h1:DlTHqmzmvcEiKj+4RYo/imoswx/4r6iBlCMfVtrMXpQ=
@@ -1184,6 +1188,7 @@ github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 h1:
 github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7/go.mod h1:X2c0RVCI1eSUFI8eLcY3c0423ykwiUdxLJtkDvruhjI=
 github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee h1:lYbXeSvJi5zk5GLKVuid9TVjS9a0OmLIDKTfoZBL6Ow=
 github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee/go.mod h1:m2aV4LZI4Aez7dP5PMyVKEHhUyEJ/RjmPEDOpDvudHg=
+github.com/willscott/go-legs v0.0.0-20210830091910-b6880983f7b8/go.mod h1:WRUB3nrtydzywGU8Eu+0g7hSUh6Wctlt8IKUMErMKx8=
 github.com/willscott/go-legs v0.0.0-20210830112506-3139ce32c8a3/go.mod h1:WRUB3nrtydzywGU8Eu+0g7hSUh6Wctlt8IKUMErMKx8=
 github.com/willscott/go-legs v0.0.0-20210901151650-83e866a4d54a h1:ZoSDLLbgfd4PDLiepSXORnYEUAR2Me3aqUIktGrT1/c=
 github.com/willscott/go-legs v0.0.0-20210901151650-83e866a4d54a/go.mod h1:WRUB3nrtydzywGU8Eu+0g7hSUh6Wctlt8IKUMErMKx8=
