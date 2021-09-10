@@ -324,7 +324,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 // Tests and end-to-end flow of the main linksystem
 func TestLinkedStructure(t *testing.T) {
-	t.SkipNow()
+	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
 	e, err := mkEngine(t)
 	require.NoError(t, err)
 	cids, _ := utils.RandomCids(200)
