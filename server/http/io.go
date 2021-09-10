@@ -62,21 +62,12 @@ func (er *ConnectRes) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func respond(w http.ResponseWriter, statusCode int, body io.WriterTo) {
+	w.WriteHeader(statusCode)
 	// Attempt to serialize body as JSON
 	if _, err := body.WriteTo(w); err != nil {
 		log.Errorw("faild to write response ", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
-
-		// Attemt to write fallback error response as body.
-		if _, err := w.Write(errResponseFailedToMarshalAsJson); err != nil {
-			// Nothing we can do; log and move on.
-			log.Errorw("faild to write fallback error response", "err", err)
-		}
 		return
 	}
-
-	// Write requested status code now that body is successfully written.
-	w.WriteHeader(statusCode)
 }
 
 func unmarshalAsJson(r io.Reader, dst interface{}) (int64, error) {
