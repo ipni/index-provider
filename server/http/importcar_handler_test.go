@@ -3,10 +3,13 @@ package adminserver
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/ipfs/go-cid"
 
 	mock_core "github.com/filecoin-project/indexer-reference-provider/core/mock"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
@@ -63,4 +66,48 @@ func Test_importCarHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, wantKey, resp.Key)
 	require.Equal(t, wantCid, resp.AdvId)
+}
+
+func Test_importCarHandlerFail(t *testing.T) {
+	wantKey := []byte("lobster")
+	wantMetadata := []byte("munch")
+	icReq := &ImportCarReq{
+		Path:     "fish",
+		Key:      wantKey,
+		Metadata: wantMetadata,
+	}
+
+	jsonReq, err := json.Marshal(icReq)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, "/admin/import/car", bytes.NewReader(jsonReq))
+	require.NoError(t, err)
+
+	mc := gomock.NewController(t)
+	mockEng := mock_core.NewMockInterface(mc)
+	mockEng.EXPECT().RegisterCidCallback(gomock.Any())
+	ds := dssync.MutexWrap(datastore.NewMapDatastore())
+	cs := suppliers.NewCarSupplier(mockEng, ds)
+
+	subject := importCarHandler{cs}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(subject.handle)
+
+	mockEng.
+		EXPECT().
+		NotifyPut(gomock.Any(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
+		Return(cid.Undef, errors.New("fish"))
+
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	respBytes, err := ioutil.ReadAll(rr.Body)
+	require.NoError(t, err)
+
+	var resp ErrorRes
+	err = json.Unmarshal(respBytes, &resp)
+	require.NoError(t, err)
+	require.Equal(t, "failed to supply CAR. fish", resp.Message)
 }
