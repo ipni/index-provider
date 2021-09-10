@@ -85,7 +85,7 @@ func TestToCallback(t *testing.T) {
 // testing purposes. A more complex callback could read
 // from the CID index and return the list of CIDs.
 func toCallback(cids []cid.Cid) core.CidCallback {
-	return func(k core.LookupKey) (chan cid.Cid, chan error) {
+	return func(k core.LookupKey) (<-chan cid.Cid, <-chan error) {
 		chcid := make(chan cid.Cid, 1)
 		err := make(chan error, 1)
 		go func() {
@@ -281,6 +281,7 @@ func TestRegisterCallback(t *testing.T) {
 }
 
 func TestNotifyPutWithCallback(t *testing.T) {
+	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
@@ -343,7 +344,6 @@ func TestLinkedStructure(t *testing.T) {
 	n, err := e.lsys.Load(ipld.LinkContext{}, lnk, basicnode.Prototype.Any)
 	require.NotNil(t, n)
 	require.NoError(t, err)
-
 }
 
 func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) func() {
