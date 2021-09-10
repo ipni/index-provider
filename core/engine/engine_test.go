@@ -299,7 +299,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	cids, _ := utils.RandomCids(200)
+	cids, _ := utils.RandomCids(20)
 	e.RegisterCidCallback(toCallback(cids))
 	cidsLnk, _, err := schema.NewLinkedListOfCids(e.lsys, cids, nil)
 	require.NoError(t, err)
