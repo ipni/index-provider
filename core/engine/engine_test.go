@@ -17,6 +17,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -67,8 +68,17 @@ func mkTestHost() host.Host {
 // testing purposes. A more complex callback could read
 // feom the CID index and return the list of CIDs.
 func simpleCb(cids []cid.Cid) core.CidCallback {
-	return func(k core.LookupKey) ([]cid.Cid, error) {
-		return cids, nil
+	return func(k core.LookupKey) (chan cid.Cid, chan error) {
+		chcid := make(chan cid.Cid)
+		err := make(chan error)
+		go func() {
+			for _, c := range cids {
+				chcid <- c
+			}
+			// close(chcid)
+			// close(err)
+		}()
+		return chcid, err
 	}
 }
 
@@ -179,7 +189,7 @@ func TestNotifyPublish(t *testing.T) {
 }
 
 func TestNotifyPutAndRemoveCids(t *testing.T) {
-	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
+	// t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
@@ -272,9 +282,9 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	cids, _ := utils.RandomCids(10)
+	cids, _ := utils.RandomCids(200)
 	e.RegisterCidCallback(simpleCb(cids))
-	cidsLnk, err := schema.NewListOfCids(e.lsys, cids)
+	cidsLnk, _, err := schema.NewLinkedListOfCids(e.lsys, cids, nil)
 	require.NoError(t, err)
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
@@ -288,6 +298,29 @@ func TestNotifyPutWithCallback(t *testing.T) {
 			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
 		}
 	}
+}
+
+// Tests and end-to-end flow of the main linksystem
+func TestLinkedStructure(t *testing.T) {
+	e, err := mkEngine(t)
+	require.NoError(t, err)
+	cids, _ := utils.RandomCids(200)
+	// Register simple callback.
+	e.RegisterCidCallback(simpleCb(cids))
+	// Sample lookup key
+	k := []byte("a")
+
+	// Generate the linked list
+	chcids, cherr := e.cb(k)
+	lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
+	require.NoError(t, err)
+	e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	// Check if the linksystem is able to load it. Demonstrating and e2e
+	// flow, from generation and storage to lsys loading.
+	n, err := e.lsys.Load(ipld.LinkContext{}, lnk, basicnode.Prototype.Any)
+	require.NotNil(t, n)
+	require.NoError(t, err)
+
 }
 
 func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) func() {
