@@ -308,7 +308,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 	// Check that the update has been published and can be fetched from subscriber
 	select {
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 20):
 		t.Fatal("timed out waiting for sync to propogate")
 	case downstream := <-watcher:
 		if !downstream.Equals(c) {
