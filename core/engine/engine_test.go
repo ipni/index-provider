@@ -315,6 +315,11 @@ func TestNotifyPutWithCallback(t *testing.T) {
 			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
 		}
 	}
+
+	// TODO: Add a test that generates more than one chunk of links (changing the number
+	// of CIDs to include so its over 100, the default maxNum of entries)
+	// We had to remove this test because it was making the CI unhappy,
+	// the sleep was not enough for the list link to propagate. I am deferring
 }
 
 // Tests and end-to-end flow of the main linksystem
