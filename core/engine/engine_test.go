@@ -10,7 +10,7 @@ import (
 	"github.com/filecoin-project/go-indexer-core"
 	"github.com/filecoin-project/indexer-reference-provider/core"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -64,19 +64,36 @@ func mkTestHost() host.Host {
 	return h
 }
 
-// simpleCb simply returns back the list of CIDs for
+func TestToCallback(t *testing.T) {
+	wantCids, err := utils.RandomCids(10)
+	require.NoError(t, err)
+
+	subject := toCallback(wantCids)
+	cidChan, errChan := subject([]byte("fish"))
+	var i int
+	for gotCid := range cidChan {
+		require.Equal(t, wantCids[i], gotCid)
+		i++
+	}
+
+	gotErr, isOpen := <-errChan
+	require.False(t, isOpen)
+	require.Nil(t, gotErr)
+}
+
+// toCallback simply returns the list of CIDs for
 // testing purposes. A more complex callback could read
-// feom the CID index and return the list of CIDs.
-func simpleCb(cids []cid.Cid) core.CidCallback {
+// from the CID index and return the list of CIDs.
+func toCallback(cids []cid.Cid) core.CidCallback {
 	return func(k core.LookupKey) (chan cid.Cid, chan error) {
-		chcid := make(chan cid.Cid)
-		err := make(chan error)
+		chcid := make(chan cid.Cid, 1)
+		err := make(chan error, 1)
 		go func() {
+			defer close(err)
+			defer close(chcid)
 			for _, c := range cids {
 				chcid <- c
 			}
-			// close(chcid)
-			// close(err)
 		}()
 		return chcid, err
 	}
@@ -259,7 +276,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 func TestRegisterCallback(t *testing.T) {
 	e, err := mkEngine(t)
 	require.NoError(t, err)
-	e.RegisterCidCallback(simpleCb([]cid.Cid{}))
+	e.RegisterCidCallback(toCallback([]cid.Cid{}))
 	require.NotNil(t, e.cb)
 }
 
@@ -283,7 +300,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 	// NotifyPut of cids
 	cids, _ := utils.RandomCids(200)
-	e.RegisterCidCallback(simpleCb(cids))
+	e.RegisterCidCallback(toCallback(cids))
 	cidsLnk, _, err := schema.NewLinkedListOfCids(e.lsys, cids, nil)
 	require.NoError(t, err)
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
@@ -306,7 +323,7 @@ func TestLinkedStructure(t *testing.T) {
 	require.NoError(t, err)
 	cids, _ := utils.RandomCids(200)
 	// Register simple callback.
-	e.RegisterCidCallback(simpleCb(cids))
+	e.RegisterCidCallback(toCallback(cids))
 	// Sample lookup key
 	k := []byte("a")
 
