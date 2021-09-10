@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -206,7 +207,7 @@ func TestNotifyPublish(t *testing.T) {
 }
 
 func TestNotifyPutAndRemoveCids(t *testing.T) {
-	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
+	skipFlaky(t)
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
@@ -281,7 +282,7 @@ func TestRegisterCallback(t *testing.T) {
 }
 
 func TestNotifyPutWithCallback(t *testing.T) {
-	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
+	skipFlaky(t)
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)
@@ -325,7 +326,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 // Tests and end-to-end flow of the main linksystem
 func TestLinkedStructure(t *testing.T) {
-	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
+	skipFlaky(t)
 	e, err := mkEngine(t)
 	require.NoError(t, err)
 	cids, _ := utils.RandomCids(200)
@@ -352,5 +353,11 @@ func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context
 		ls.Close()
 		lt.Close(context.Background())
 		e.Close(context.Background())
+	}
+}
+
+func skipFlaky(t *testing.T) {
+	if os.Getenv("DONT_SKIP") == "" {
+		t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
 	}
 }

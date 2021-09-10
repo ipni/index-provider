@@ -212,16 +212,19 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 
 func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
 	var err error
-	// If there is no callback, by default we set the cidLink to the cid of the lookupKey
-	// because the linksystem storer by default will check if the CIDs are
-	// stored in the datastore. If this is not a Cid it fail (we can't know how to hanndle it)
-	keyCid, err := cid.Cast(key)
-	if err != nil {
-		return cid.Undef, err
-	}
-	cidsLnk := cidlink.Link{Cid: keyCid}
+	var cidsLnk cidlink.Link
+	// TODO: Add a default callback and avoid expecting a CID here.
+	if e.cb == nil {
+		// If there is no callback, by default we set the cidLink to the cid of the lookupKey
+		// because the linksystem storer by default will check if the CIDs are
+		// stored in the datastore. If this is not a Cid it fail (we can't know how to hanndle it)
+		keyCid, err := cid.Cast(key)
+		if err != nil {
+			return cid.Undef, err
+		}
+		cidsLnk = cidlink.Link{Cid: keyCid}
 
-	if e.cb != nil {
+	} else {
 		// If we are not removing, we need to generate the link for the list
 		// of CIDs from the lookup key using the callback, and store the relationship
 		if !isRm {
