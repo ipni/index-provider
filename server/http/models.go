@@ -14,8 +14,7 @@ type (
 		Maddr string `json:"maddr"`
 	}
 	// ConnectRes represents successful response to ConnectReq request.
-	ConnectRes struct {
-		// Empty placeholder used to return an empty JSON object in body.
+	ConnectRes struct { // Empty placeholder used to return an empty JSON object in body.
 	}
 )
 

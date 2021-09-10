@@ -139,7 +139,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 // This function takes a linksystem for persistence along with the channels
 // from a callback, and generates the linked list structure. It also supports
 // configuring the number of entries per chunk in the list.
-func generateChunks(lsys ipld.LinkSystem, chcids chan cid.Cid, cherr chan error, numEntries int) (ipld.Link, error) {
+func generateChunks(lsys ipld.LinkSystem, chcids <-chan cid.Cid, cherr <-chan error, numEntries int) (ipld.Link, error) {
 	i := 1
 	cs := []cid.Cid{}
 	var chunkLnk ipld.Link

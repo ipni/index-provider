@@ -9,29 +9,36 @@ import (
 
 // ToCidCallback converts the given cidIter to core.CidCallback.
 func ToCidCallback(cidIterSup CidIteratorSupplier) core.CidCallback {
-	return func(key core.LookupKey) (chan cid.Cid, chan error) {
-		/*
-			ci, err := cidIterSup.Supply(key)
-			if err != nil {
-				return nil, err
-			}
-			return drain(ci)
-		*/
-		return nil, nil
+	return func(key core.LookupKey) (<-chan cid.Cid, <-chan error) {
+		ci, err := cidIterSup.Supply(key)
+		if err != nil {
+			errChan := make(chan error, 1)
+			defer close(errChan)
+			errChan <- err
+			return nil, errChan
+		}
+		return toChan(ci)
 	}
 }
 
-func drain(ci CidIterator) ([]cid.Cid, error) {
-	cidList := make([]cid.Cid, 0)
-	for {
-		c, err := ci.Next()
-		if err == io.EOF {
-			break
+func toChan(ci CidIterator) (<-chan cid.Cid, <-chan error) {
+	cidChan := make(chan cid.Cid, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		defer func() {
+			close(cidChan)
+			close(errChan)
+		}()
+		for {
+			c, err := ci.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				errChan <- err
+			}
+			cidChan <- c
 		}
-		if err != nil {
-			return nil, err
-		}
-		cidList = append(cidList, c)
-	}
-	return cidList, nil
+	}()
+	return cidChan, errChan
 }

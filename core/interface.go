@@ -61,4 +61,4 @@ type Interface interface {
 // CidCallback specifies the logic to go from lookupKey
 // to list of CIDs that will be used by the linksystem while
 // traversing the DAG
-type CidCallback func(key LookupKey) (chan cid.Cid, chan error)
+type CidCallback func(key LookupKey) (<-chan cid.Cid, <-chan error)

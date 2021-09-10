@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_drain(t *testing.T) {
+func Test_toChan(t *testing.T) {
 	tests := []struct {
 		name    string
 		carPath string
@@ -46,16 +46,26 @@ func Test_drain(t *testing.T) {
 			keysChan, err := want.AllKeysChan(ctx)
 			require.NoError(t, err)
 
-			gotCids, err := drain(cidIter)
-			require.NoError(t, err)
+			gotCidChan, gotErrChan := toChan(cidIter)
 
 			// Assert CIDs are consistent with the drained iterator
-			var i int
 			for wantCid := range keysChan {
-				gotCid := gotCids[i]
+				gotCid, ok := <-gotCidChan
+				require.True(t, ok)
 				require.Equal(t, wantCid, gotCid)
-				i++
+
+				select {
+				case gotErr := <-gotErrChan:
+					require.Nil(t, gotErr)
+				default:
+				}
 			}
+
+			// Assert channels are closed
+			_, ok := <-gotCidChan
+			require.False(t, ok)
+			_, ok = <-gotErrChan
+			require.False(t, ok)
 
 			// Assert drain has fully drained the iterator
 			gotCid, gotErr := cidIter.Next()
