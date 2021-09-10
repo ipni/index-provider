@@ -59,7 +59,7 @@ func TestAdvertisements(t *testing.T) {
 	connect(ctx, t, ch, sh)
 
 	// Publish some new advertisements.
-	cids, _ := utils.RandomCids(2)
+	cids, _ := utils.RandomCids(3)
 	c1, err := e.NotifyPut(ctx, cids[0].Bytes(), []byte("some metadata"))
 	require.NoError(t, err)
 	c2, err := e.NotifyPut(ctx, cids[1].Bytes(), []byte("some metadata"))
@@ -82,7 +82,7 @@ func TestAdvertisements(t *testing.T) {
 	require.True(t, ipld.DeepEqual(r.Ad, ad))
 
 	// Get non-existing advertisement by id
-	r, err = c.GetAdv(ctx, s.ID(), cids[0])
+	r, err = c.GetAdv(ctx, s.ID(), cids[2])
 	require.Nil(t, r)
 	require.Error(t, err)
 	require.Equal(t, "datastore: key not found", err.Error())

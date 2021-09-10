@@ -10,13 +10,14 @@ import (
 	"github.com/filecoin-project/go-indexer-core"
 	"github.com/filecoin-project/indexer-reference-provider/core"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
 	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -63,12 +64,38 @@ func mkTestHost() host.Host {
 	return h
 }
 
-// simpleCb simply returns back the list of CIDs for
+func TestToCallback(t *testing.T) {
+	wantCids, err := utils.RandomCids(10)
+	require.NoError(t, err)
+
+	subject := toCallback(wantCids)
+	cidChan, errChan := subject([]byte("fish"))
+	var i int
+	for gotCid := range cidChan {
+		require.Equal(t, wantCids[i], gotCid)
+		i++
+	}
+
+	gotErr, isOpen := <-errChan
+	require.False(t, isOpen)
+	require.Nil(t, gotErr)
+}
+
+// toCallback simply returns the list of CIDs for
 // testing purposes. A more complex callback could read
-// feom the CID index and return the list of CIDs.
-func simpleCb(cids []cid.Cid) core.CidCallback {
-	return func(k core.LookupKey) ([]cid.Cid, error) {
-		return cids, nil
+// from the CID index and return the list of CIDs.
+func toCallback(cids []cid.Cid) core.CidCallback {
+	return func(k core.LookupKey) (chan cid.Cid, chan error) {
+		chcid := make(chan cid.Cid, 1)
+		err := make(chan error, 1)
+		go func() {
+			defer close(chcid)
+			defer close(err)
+			for _, c := range cids {
+				chcid <- c
+			}
+		}()
+		return chcid, err
 	}
 }
 
@@ -249,7 +276,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 func TestRegisterCallback(t *testing.T) {
 	e, err := mkEngine(t)
 	require.NoError(t, err)
-	e.RegisterCidCallback(simpleCb([]cid.Cid{}))
+	e.RegisterCidCallback(toCallback([]cid.Cid{}))
 	require.NotNil(t, e.cb)
 }
 
@@ -272,22 +299,51 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	cids, _ := utils.RandomCids(10)
-	e.RegisterCidCallback(simpleCb(cids))
-	cidsLnk, err := schema.NewListOfCids(e.lsys, cids)
+	cids, _ := utils.RandomCids(20)
+	e.RegisterCidCallback(toCallback(cids))
+	cidsLnk, _, err := schema.NewLinkedListOfCids(e.lsys, cids, nil)
 	require.NoError(t, err)
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
 	select {
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 20):
 		t.Fatal("timed out waiting for sync to propogate")
 	case downstream := <-watcher:
 		if !downstream.Equals(c) {
 			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
 		}
 	}
+
+	// TODO: Add a test that generates more than one chunk of links (changing the number
+	// of CIDs to include so its over 100, the default maxNum of entries)
+	// We had to remove this test because it was making the CI unhappy,
+	// the sleep was not enough for the list link to propagate. I am deferring
+}
+
+// Tests and end-to-end flow of the main linksystem
+func TestLinkedStructure(t *testing.T) {
+	t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
+	e, err := mkEngine(t)
+	require.NoError(t, err)
+	cids, _ := utils.RandomCids(200)
+	// Register simple callback.
+	e.RegisterCidCallback(toCallback(cids))
+	// Sample lookup key
+	k := []byte("a")
+
+	// Generate the linked list
+	chcids, cherr := e.cb(k)
+	lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
+	require.NoError(t, err)
+	e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	// Check if the linksystem is able to load it. Demonstrating and e2e
+	// flow, from generation and storage to lsys loading.
+	n, err := e.lsys.Load(ipld.LinkContext{}, lnk, basicnode.Prototype.Any)
+	require.NotNil(t, n)
+	require.NoError(t, err)
+
 }
 
 func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) func() {

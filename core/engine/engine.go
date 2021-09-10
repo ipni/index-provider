@@ -1,11 +1,9 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
-	"io"
 	"sync"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
@@ -15,6 +13,7 @@ import (
 	sticfg "github.com/filecoin-project/storetheindex/config"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	dssync "github.com/ipfs/go-datastore/sync"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -29,12 +28,15 @@ var log = logging.Logger("reference-provider")
 
 var _ core.Interface = &Engine{}
 
+// NOTE: Consider including this constant as config or options
+// in provider so they are conigurable.
 const (
 	// metadataProtocol identifies the protocol used by provider
 	// to encode metadata.
-	// NOTE: Consider including this in a config or an option
-	// once we have different protocols.
 	metadataProtocol = 0
+	// MaxCidsInChunk number of entries to include in each chunk
+	// of ingestion linked list.
+	MaxCidsInChunk = 100
 )
 
 // Engine is an implementation of the core reference provider interface.
@@ -43,8 +45,12 @@ type Engine struct {
 	privKey crypto.PrivKey
 	// Host running the provider process.
 	host host.Host
-	// Linksystem used for reference provider.
+	// Main linksystem used for reference provider.
 	lsys ipld.LinkSystem
+	// Cache used to track the linked lists through
+	// ingestion.
+	cachelsys ipld.LinkSystem
+	cache     datastore.Batching
 	// Datastore used for persistence of different assets
 	// (advertisements, indexed data, etc.).
 	ds datastore.Batching
@@ -72,8 +78,11 @@ func New(ctx context.Context,
 		ds:          ds,
 		privKey:     privKey,
 		pubSubTopic: pubSubTopic,
+		cache:       dssync.MutexWrap(datastore.NewMapDatastore()),
 	}
-	e.lsys = e.mkLinkSystem(ds)
+
+	e.cachelsys = e.cacheLinkSystem()
+	e.lsys = e.mkLinkSystem()
 	e.lt, err = legs.MakeLegTransport(context.Background(), host, ds, e.lsys, pubSubTopic)
 	if err != nil {
 		return nil, err
@@ -201,19 +210,6 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdv, ad, nil
 }
 
-// Linksystem used to generate links from a list of cids without
-// persisting anything in the process.
-func noStoreLinkSystem() ipld.LinkSystem {
-	lsys := cidlink.DefaultLinkSystem()
-	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
-		buf := bytes.NewBuffer(nil)
-		return buf, func(lnk ipld.Link) error {
-			return nil
-		}, nil
-	}
-	return lsys
-}
-
 func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
 	var err error
 	// If there is no callback, by default we set the cidLink to the cid of the lookupKey
@@ -229,14 +225,12 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		// If we are not removing, we need to generate the link for the list
 		// of CIDs from the lookup key using the callback, and store the relationship
 		if !isRm {
-			cids, err := e.cb(key)
-			if err != nil {
-				return cid.Undef, err
-			}
-			// NOTE: This creates a link from a List_String model. Once we change to
-			// the wire format we use we'll have to change to the corresponding IPLD node
-			// representation for the list of CIDs.
-			lnk, err := schema.NewListOfCids(noStoreLinkSystem(), cids)
+			// Call the callback
+			chcids, cherr := e.cb(key)
+			// And generate the linked list ipld.Link that will be added
+			// to the advertisement and used for ingestion.
+			// We don't want to store anything here, thus the noStoreLsys.
+			lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 			if err != nil {
 				return cid.Undef, err
 			}
