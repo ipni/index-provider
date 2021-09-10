@@ -129,7 +129,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	return lsys
 }
 
-// Generate chunnks of the linked list.
+// Generate chunks of the linked list.
 //
 // This function takes a linksystem for persistence along with the channels
 // from a callback, and generates the linked list structure. It also supports
@@ -144,7 +144,10 @@ func generateChunks(lsys ipld.LinkSystem, chcids chan cid.Cid, cherr chan error,
 	for ec := range chcids {
 		select {
 		// If something in error channel return error
-		case e := <-cherr:
+		case e, ok := <-cherr:
+			if !ok {
+				break
+			}
 			fmt.Println("error", e)
 			return nil, e
 		// If not, start aggregating cids into chunks
@@ -166,9 +169,7 @@ func generateChunks(lsys ipld.LinkSystem, chcids chan cid.Cid, cherr chan error,
 				i = 1
 				cs = []cid.Cid{}
 			}
-
 		}
-
 	}
 	// If at the end there are outstanding cids, create a chunk
 	// with them
