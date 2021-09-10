@@ -116,6 +116,12 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 			}
 		}
+
+		// If no value was populated it means that nothing was found
+		// in the multiple datastores.
+		if len(val) == 0 {
+			return nil, datastore.ErrNotFound
+		}
 		return bytes.NewBuffer(val), nil
 	}
 	lsys.StorageWriteOpener = func(_ ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
