@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	v0 "github.com/filecoin-project/indexer-reference-provider/api/v0"
-	"github.com/filecoin-project/indexer-reference-provider/api/v0/models"
-	pb "github.com/filecoin-project/indexer-reference-provider/api/v0/pb"
+	"github.com/filecoin-project/indexer-reference-provider/api/v0/provider/models"
+	pb "github.com/filecoin-project/indexer-reference-provider/api/v0/provider/pb"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	"github.com/gogo/protobuf/proto"
 	logging "github.com/ipfs/go-log/v2"

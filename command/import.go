@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	adminserver "github.com/filecoin-project/indexer-reference-provider/server/http"
+	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
 	"github.com/urfave/cli/v2"
 )
 

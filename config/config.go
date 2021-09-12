@@ -12,17 +12,18 @@ import (
 
 // Config is used to load config files
 type Config struct {
-	Identity  Identity
-	Datastore Datastore
-	Ingest    Ingest
-	Addresses Addresses
+	Identity       Identity
+	Datastore      Datastore
+	Ingest         Ingest
+	ProviderServer ProviderServer
+	AdminServer    AdminServer
 }
 
 const (
 	// DefaultPathName is the default config dir name
 	DefaultPathName = ".reference-provider"
 	// DefaultPathRoot is the path to the default config dir location.
-	DefaultPathRoot = "~/" + DefaultPathName // TODO this won't work on windows. use user home dir instead
+	DefaultPathRoot = "~/" + DefaultPathName
 	// DefaultConfigFile is the filename of the configuration file
 	DefaultConfigFile = "config"
 	// EnvDir is the environment variable used to change the path root.

@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	"github.com/filecoin-project/indexer-reference-provider/api/v0/models"
+	"github.com/filecoin-project/indexer-reference-provider/api/v0/provider/models"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
