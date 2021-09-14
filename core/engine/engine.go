@@ -192,7 +192,8 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 		return nil, err
 	}
 
-	n, err := e.lsys.Load(ipld.LinkContext{}, l, schema.Type.Advertisement)
+	lsys := e.vanillaLinkSystem()
+	n, err := lsys.Load(ipld.LinkContext{}, l, schema.Type.Advertisement)
 	if err != nil {
 		return nil, err
 	}

@@ -207,6 +207,31 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 	return lsys
 }
 
+// vanillaLinkSystem plainly loads and stores from engine datastore.
+//
+// This is used to plainly load and store links without the complex
+// logic of the main linksystem. This is mainly used to retrieve
+// stored advertisements through the link from the main blockstore.
+func (e *Engine) vanillaLinkSystem() ipld.LinkSystem {
+	lsys := cidlink.DefaultLinkSystem()
+	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+		c := lnk.(cidlink.Link).Cid
+		val, err := e.ds.Get(datastore.NewKey(c.String()))
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewBuffer(val), nil
+	}
+	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
+		buf := bytes.NewBuffer(nil)
+		return buf, func(lnk ipld.Link) error {
+			c := lnk.(cidlink.Link).Cid
+			return e.cache.Put(datastore.NewKey(c.String()), buf.Bytes())
+		}, nil
+	}
+	return lsys
+}
+
 // Linksystem used to generate links from a list of cids without
 // persisting anything in the process.
 func noStoreLinkSystem() ipld.LinkSystem {
