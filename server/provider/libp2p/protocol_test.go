@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	p2pclient "github.com/filecoin-project/indexer-reference-provider/api/v0/client/libp2p"
+	p2pclient "github.com/filecoin-project/indexer-reference-provider/api/v0/provider/client/libp2p"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/libp2p"
+	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"

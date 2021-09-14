@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	v0 "github.com/filecoin-project/indexer-reference-provider/api/v0"
-	"github.com/filecoin-project/indexer-reference-provider/api/v0/models"
-	pb "github.com/filecoin-project/indexer-reference-provider/api/v0/pb"
+	"github.com/filecoin-project/indexer-reference-provider/api/v0/provider/models"
+	pb "github.com/filecoin-project/indexer-reference-provider/api/v0/provider/pb"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pclient"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/host"

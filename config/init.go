@@ -15,12 +15,11 @@ func Init(out io.Writer) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return InitWithIdentity(identity)
 }
 
 func InitWithIdentity(identity Identity) (*Config, error) {
-	conf := &Config{
+	return &Config{
 		Identity: identity,
 		Datastore: Datastore{
 			Type: defaultDatastoreType,
@@ -29,13 +28,15 @@ func InitWithIdentity(identity Identity) (*Config, error) {
 		Ingest: Ingest{
 			PubSubTopic: defaultIngestPubSubTopic,
 		},
-		Addresses: Addresses{
-			Admin:   defaultAdminAddr,
-			P2PAddr: defaultP2PAddr,
+		ProviderServer: ProviderServer{
+			ListenMultiaddr: defaultNodeMultiaddr,
 		},
-	}
-
-	return conf, nil
+		AdminServer: AdminServer{
+			ListenMultiaddr: defaultAdminServerAddr,
+			ReadTimeout:     defaultReadTimeout,
+			WriteTimeout:    defaultWriteTimeout,
+		},
+	}, nil
 }
 
 // CreateIdentity initializes a new identity.

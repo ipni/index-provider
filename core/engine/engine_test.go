@@ -165,6 +165,7 @@ func TestPublishLocal(t *testing.T) {
 }
 
 func TestNotifyPublish(t *testing.T) {
+	skipFlaky(t)
 	ctx := context.Background()
 	e, err := mkEngine(t)
 	require.NoError(t, err)

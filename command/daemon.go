@@ -12,8 +12,8 @@ import (
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
-	adminserver "github.com/filecoin-project/indexer-reference-provider/server/http"
-	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/libp2p"
+	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
+	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
@@ -61,9 +61,9 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	p2pmaddr, err := multiaddr.NewMultiaddr(cfg.Addresses.P2PAddr)
+	p2pmaddr, err := multiaddr.NewMultiaddr(cfg.ProviderServer.ListenMultiaddr)
 	if err != nil {
-		return fmt.Errorf("bad p2p address in config %s: %s", cfg.Addresses.P2PAddr, err)
+		return fmt.Errorf("bad p2p address in config %s: %s", cfg.ProviderServer.ListenMultiaddr, err)
 	}
 	h, err := libp2p.New(ctx,
 		// Use the keypair generated during init
@@ -105,15 +105,21 @@ func daemonCommand(cctx *cli.Context) error {
 	p2pserver.New(ctx, h, eng)
 	log.Infow("libp2p servers initialized", "host_id", h.ID())
 
-	maddr, err := multiaddr.NewMultiaddr(cfg.Addresses.Admin)
+	maddr, err := multiaddr.NewMultiaddr(cfg.AdminServer.ListenMultiaddr)
 	if err != nil {
-		return fmt.Errorf("bad admin address in config %s: %s", cfg.Addresses.Admin, err)
+		return fmt.Errorf("bad admin address in config %s: %s", cfg.AdminServer.ListenMultiaddr, err)
 	}
 	adminAddr, err := manet.ToNetAddr(maddr)
 	if err != nil {
 		return err
 	}
-	adminSvr, err := adminserver.New(adminAddr.String(), h, eng, cs)
+	adminSvr, err := adminserver.New(
+		adminAddr.String(),
+		h,
+		eng,
+		cs,
+		adminserver.ReadTimeout(cfg.AdminServer.ReadTimeout),
+		adminserver.WriteTimeout(cfg.AdminServer.WriteTimeout))
 	if err != nil {
 		return err
 	}
