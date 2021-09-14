@@ -39,6 +39,11 @@ const (
 	MaxCidsInChunk = 100
 )
 
+var (
+	// ErrNoCallback is thrown when no callback has been defined.
+	ErrNoCallback = errors.New("no callback was registered in indexer")
+)
+
 // Engine is an implementation of the core reference provider interface.
 type Engine struct {
 	// Provider's privateKey
@@ -213,58 +218,51 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
-	// TODO: Add a default callback and avoid expecting a CID here.
+
+	// If no callback registered return error
 	if e.cb == nil {
-		// If there is no callback, by default we set the cidLink to the cid of the lookupKey
-		// because the linksystem storer by default will check if the CIDs are
-		// stored in the datastore. If this is not a Cid it fail (we can't know how to hanndle it)
-		keyCid, err := cid.Cast(key)
+		return cid.Undef, ErrNoCallback
+	}
+
+	// If we are not removing, we need to generate the link for the list
+	// of CIDs from the lookup key using the callback, and store the relationship
+	if !isRm {
+		// Call the callback
+		chcids, cherr := e.cb(key)
+		// And generate the linked list ipld.Link that will be added
+		// to the advertisement and used for ingestion.
+		// We don't want to store anything here, thus the noStoreLsys.
+		lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 		if err != nil {
 			return cid.Undef, err
 		}
-		cidsLnk = cidlink.Link{Cid: keyCid}
+		cidsLnk = lnk.(cidlink.Link)
 
+		// Store the relationship between lookupKey and CID
+		// of the advertised list of Cids.
+		err = e.putKeyCidMap(key, cidsLnk.Cid)
+		if err != nil {
+			return cid.Undef, err
+		}
 	} else {
-		// If we are not removing, we need to generate the link for the list
-		// of CIDs from the lookup key using the callback, and store the relationship
-		if !isRm {
-			// Call the callback
-			chcids, cherr := e.cb(key)
-			// And generate the linked list ipld.Link that will be added
-			// to the advertisement and used for ingestion.
-			// We don't want to store anything here, thus the noStoreLsys.
-			lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
-			if err != nil {
-				return cid.Undef, err
-			}
-			cidsLnk = lnk.(cidlink.Link)
-
-			// Store the relationship between lookupKey and CID
-			// of the advertised list of Cids.
-			err = e.putKeyCidMap(key, cidsLnk.Cid)
-			if err != nil {
-				return cid.Undef, err
-			}
-		} else {
-			// If we are removing, we already know the relationship
-			// key-cid of the list, so we can add it right away in
-			// the advertisement.
-			c, err := e.getKeyCidMap(key)
-			if err != nil {
-				return cid.Undef, err
-			}
-			cidsLnk = cidlink.Link{Cid: c}
-			// And if we are removing it means we probably don't
-			// have the list of CIDs anymore, so we can remove the
-			// entry from the datastore.
-			err = e.deleteKeyCidMap(key)
-			if err != nil {
-				return cid.Undef, err
-			}
-			err = e.deleteCidKeyMap(c)
-			if err != nil {
-				return cid.Undef, err
-			}
+		// If we are removing, we already know the relationship
+		// key-cid of the list, so we can add it right away in
+		// the advertisement.
+		c, err := e.getKeyCidMap(key)
+		if err != nil {
+			return cid.Undef, err
+		}
+		cidsLnk = cidlink.Link{Cid: c}
+		// And if we are removing it means we probably don't
+		// have the list of CIDs anymore, so we can remove the
+		// entry from the datastore.
+		err = e.deleteKeyCidMap(key)
+		if err != nil {
+			return cid.Undef, err
+		}
+		err = e.deleteCidKeyMap(c)
+		if err != nil {
+			return cid.Undef, err
 		}
 	}
 

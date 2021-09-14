@@ -52,67 +52,68 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		// If not an advertisement it means we are receiving
 		// ingestion data.
 		if !isAd {
-			// If the callback has been set.
-			if e.cb != nil {
+			// If no callback registered return error
+			if e.cb == nil {
+				return nil, ErrNoCallback
+			}
 
-				// Check if the key it's already cached.
-				b, err := e.getCacheEntry(c)
+			// Check if the key it's already cached.
+			b, err := e.getCacheEntry(c)
+			if err != nil {
+				return nil, err
+			}
+
+			// If we don't have the link, generate the linked list in cache
+			// so it's ready to be served for this (and future) ingestions.
+			// TODO: This process may take a lot of time,
+			// we should do it asynchronously to
+			// parallelize it. We could implement a cache manager that keeps
+			// the state of what has been generated, what has been requested but
+			// not available and requires reading from a CAR,
+			// and what is ready for ingestion. This manager will
+			// also have to handle garbage collecting the cache.
+			// The reason for caching this?
+			// When we build the ingestion linked lists and we are serving back the structure
+			// to an indexer, we will be receiving requests for a chunkEntry, as we can't read
+			// a specific subset of CIDs from the CAR index, we need some intermediate storage
+			// to map link of the chunk in the linked list with the list of CIDs it corresponds
+			// to.
+			if b == nil {
+				// If the link is not found, it means that the root link of the list has
+				// not been generated and we need to get the relationship between the cid
+				// received and the lookupKey so the callback knows how to
+				// regenerate the list of CIDs.
+				key, err := e.getCidKeyMap(c)
 				if err != nil {
+					log.Errorf("Error fetching relationship between Cid and lookup key: %v", err)
 					return nil, err
 				}
 
-				// If we don't have the link, generate the linked list in cache
-				// so it's ready to be served for this (and future) ingestions.
-				// TODO: This process may take a lot of time,
-				// we should do it asynchronously to
-				// parallelize it. We could implement a cache manager that keeps
-				// the state of what has been generated, what has been requested but
-				// not available and requires reading from a CAR,
-				// and what is ready for ingestion. This manager will
-				// also have to handle garbage collecting the cache.
-				// The reason for caching this?
-				// When we build the ingestion linked lists and we are serving back the structure
-				// to an indexer, we will be receiving requests for a chunkEntry, as we can't read
-				// a specific subset of CIDs from the CAR index, we need some intermediate storage
-				// to map link of the chunk in the linked list with the list of CIDs it corresponds
-				// to.
-				if b == nil {
-					// If the link is not found, it means that the root link of the list has
-					// not been generated and we need to get the relationship between the cid
-					// received and the lookupKey so the callback knows how to
-					// regenerate the list of CIDs.
-					key, err := e.getCidKeyMap(c)
-					if err != nil {
-						log.Errorf("Error fetching relationship between Cid and lookup key: %v", err)
-						return nil, err
-					}
+				// TODO: For removals we may not have the
+				// list of CIDs, let's see what selector we end up
+				// using, but we may need additional validation here
+				// in order not to follow the link. If we do step-by-step
+				// syncs, this would mean that when the subscribers sees an
+				// advertisement of remove type, it doesn't follow the Entries link,
+				// if just gets the cid, and uses its local map cid to lookupKey
+				// to trigger the removal of all entries for that lookupKey
+				// in its index.
+				chcids, cherr := e.cb(key)
 
-					// TODO: For removals we may not have the
-					// list of CIDs, let's see what selector we end up
-					// using, but we may need additional validation here
-					// in order not to follow the link. If we do step-by-step
-					// syncs, this would mean that when the subscribers sees an
-					// advertisement of remove type, it doesn't follow the Entries link,
-					// if just gets the cid, and uses its local map cid to lookupKey
-					// to trigger the removal of all entries for that lookupKey
-					// in its index.
-					chcids, cherr := e.cb(key)
+				// Store the linked list entries in cache as we generate them.
+				// We use the cache linksystem here to entries are stored in an
+				// in-memory datastore.
 
-					// Store the linked list entries in cache as we generate them.
-					// We use the cache linksystem here to entries are stored in an
-					// in-memory datastore.
-
-					_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
-					if err != nil {
-						return nil, err
-					}
-				}
-
-				// Return the linked list node.
-				val, err = e.getCacheEntry(c)
+				_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
 				if err != nil {
 					return nil, err
 				}
+			}
+
+			// Return the linked list node.
+			val, err = e.getCacheEntry(c)
+			if err != nil {
+				return nil, err
 
 			}
 		}
@@ -122,6 +123,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		if len(val) == 0 {
 			return nil, datastore.ErrNotFound
 		}
+
 		return bytes.NewBuffer(val), nil
 	}
 	lsys.StorageWriteOpener = func(_ ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {

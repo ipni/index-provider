@@ -117,14 +117,33 @@ func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
 	}
 }
 
+// Prepares list of CIDs so it can be used in callback and conveniently registered
+// in the engine.
+func prepareCidsForCallback(t *testing.T, e *Engine, cids []cid.Cid) ipld.Link {
+	// Register a callback that returns the randomly generated
+	// list of cids.
+	e.RegisterCidCallback(toCallback(cids))
+	// Use a random key for the list of cids.
+	key := cids[0].Bytes()
+	chcids, cherr := e.cb(key)
+	cidsLnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
+	require.NoError(t, err)
+	// Store the relationship between lookupKey and CID
+	// of the advertised list of Cids so it is available
+	// for the engine.
+	err = e.putKeyCidMap(key, cidsLnk.(cidlink.Link).Cid)
+	require.NoError(t, err)
+	return cidsLnk
+}
+
 func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	cids, _ := utils.RandomCids(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	val := indexer.MakeValue(p, 0, cids[0].Bytes())
-	cidsLnk, err := schema.NewListOfCids(e.lsys, cids)
-	require.NoError(t, err)
+	cidsLnk := prepareCidsForCallback(t, e, cids)
+	// Generate the advertisement.
 	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
 	require.NoError(t, err)
 	return cidsLnk, adv, advLnk
@@ -226,11 +245,15 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
 	time.Sleep(time.Second)
 
-	// NotifyPut of cids
+	// Fail if not callback has been registered.
 	cids, _ := utils.RandomCids(10)
-	cidsLnk, err := schema.NewListOfCids(e.lsys, cids)
-	require.NoError(t, err)
-	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
+	c, err := e.NotifyPut(ctx, cids[0].Bytes(), []byte("metadata"))
+	require.Error(t, err, ErrNoCallback)
+
+	// NotifyPut of cids
+	cids, _ = utils.RandomCids(10)
+	cidsLnk := prepareCidsForCallback(t, e, cids)
+	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
@@ -245,7 +268,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 
 	// NotifyPut second time
 	cids, _ = utils.RandomCids(10)
-	cidsLnk, err = schema.NewListOfCids(e.lsys, cids)
+	cidsLnk = prepareCidsForCallback(t, e, cids)
 	require.NoError(t, err)
 	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
