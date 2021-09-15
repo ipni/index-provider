@@ -52,7 +52,7 @@ func Test_toChan(t *testing.T) {
 			for wantCid := range keysChan {
 				gotCid, ok := <-gotCidChan
 				require.True(t, ok)
-				require.Equal(t, wantCid, gotCid)
+				require.Equal(t, wantCid.Hash(), gotCid)
 
 				select {
 				case gotErr := <-gotErrChan:

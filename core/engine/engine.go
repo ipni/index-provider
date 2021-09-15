@@ -16,10 +16,12 @@ import (
 	dssync "github.com/ipfs/go-datastore/sync"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
+
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	mh "github.com/multiformats/go-multihash"
 
 	legs "github.com/willscott/go-legs"
 )
@@ -155,8 +157,8 @@ func (e *Engine) PushAdv(ctx context.Context, indexer peer.ID, adv schema.Advert
 	panic("not implemented")
 }
 
-func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) error {
-	log.Debugf("Pushing metadata for cid (%s) to indexer", cid)
+func (e *Engine) Push(ctx context.Context, indexer peer.ID, h mh.Multihash, metadata []byte) error {
+	log.Debugf("Pushing metadata for multihash (%s) to indexer", h)
 	cl, err := icl.NewIngest(ctx, e.host, indexer)
 	if err != nil {
 		log.Errorf("Ingest client to indexer could not be initialized: %w", err)
@@ -170,7 +172,7 @@ func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadat
 		return err
 	}
 	cfg := sticfg.Identity{PeerID: e.host.ID().String(), PrivKey: base64.StdEncoding.EncodeToString(skbytes)}
-	return cl.IndexContent(ctx, cfg, cid, metadataProtocol, metadata)
+	return cl.IndexContent(ctx, cfg, h, metadataProtocol, metadata)
 }
 
 // Registers new Cid callback to go from deal.ID to list of cids for the linksystem.
@@ -250,11 +252,11 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 	// of CIDs from the lookup key using the callback, and store the relationship
 	if !isRm {
 		// Call the callback
-		chcids, cherr := e.cb(key)
+		chmhs, cherr := e.cb(key)
 		// And generate the linked list ipld.Link that will be added
 		// to the advertisement and used for ingestion.
 		// We don't want to store anything here, thus the noStoreLsys.
-		lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
+		lnk, err := generateChunks(noStoreLinkSystem(), chmhs, cherr, MaxCidsInChunk)
 		if err != nil {
 			log.Errorf("Error generating link for linked list structure from list of CIDs for key (%s): %w", string(key), err)
 			return cid.Undef, err

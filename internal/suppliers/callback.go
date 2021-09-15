@@ -4,12 +4,12 @@ import (
 	"io"
 
 	"github.com/filecoin-project/indexer-reference-provider/core"
-	"github.com/ipfs/go-cid"
+	mh "github.com/multiformats/go-multihash"
 )
 
 // ToCidCallback converts the given cidIter to core.CidCallback.
 func ToCidCallback(cidIterSup CidIteratorSupplier) core.CidCallback {
-	return func(key core.LookupKey) (<-chan cid.Cid, <-chan error) {
+	return func(key core.LookupKey) (<-chan mh.Multihash, <-chan error) {
 		ci, err := cidIterSup.Supply(key)
 		if err != nil {
 			errChan := make(chan error, 1)
@@ -21,8 +21,8 @@ func ToCidCallback(cidIterSup CidIteratorSupplier) core.CidCallback {
 	}
 }
 
-func toChan(ci CidIterator) (<-chan cid.Cid, <-chan error) {
-	cidChan := make(chan cid.Cid, 1)
+func toChan(ci CidIterator) (<-chan mh.Multihash, <-chan error) {
+	cidChan := make(chan mh.Multihash, 1)
 	errChan := make(chan error, 1)
 	go func() {
 		defer func() {
@@ -37,7 +37,7 @@ func toChan(ci CidIterator) (<-chan cid.Cid, <-chan error) {
 			if err != nil {
 				errChan <- err
 			}
-			cidChan <- c
+			cidChan <- c.Hash()
 		}
 	}()
 	return cidChan, errChan

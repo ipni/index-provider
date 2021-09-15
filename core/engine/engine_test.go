@@ -11,7 +11,6 @@ import (
 	"github.com/filecoin-project/go-indexer-core"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
@@ -23,6 +22,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
+	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 	legs "github.com/willscott/go-legs"
 )
@@ -65,14 +65,14 @@ func mkTestHost() host.Host {
 }
 
 func TestToCallback(t *testing.T) {
-	wantCids, err := utils.RandomCids(10)
+	wantMhs, err := utils.RandomMultihashes(10)
 	require.NoError(t, err)
 
-	subject := utils.ToCallback(wantCids)
+	subject := utils.ToCallback(wantMhs)
 	cidChan, errChan := subject([]byte("fish"))
 	var i int
 	for gotCid := range cidChan {
-		require.Equal(t, wantCids[i], gotCid)
+		require.Equal(t, wantMhs[i], gotCid)
 		i++
 	}
 
@@ -98,14 +98,14 @@ func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
 	}
 }
 
-// Prepares list of CIDs so it can be used in callback and conveniently registered
+// Prepares list of multihashes so it can be used in callback and conveniently registered
 // in the engine.
-func prepareCidsForCallback(t *testing.T, e *Engine, cids []cid.Cid) ipld.Link {
+func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Link {
 	// Register a callback that returns the randomly generated
 	// list of cids.
-	e.RegisterCidCallback(utils.ToCallback(cids))
+	e.RegisterCidCallback(utils.ToCallback(mhs))
 	// Use a random key for the list of cids.
-	key := cids[0].Bytes()
+	key := []byte(mhs[0])
 	chcids, cherr := e.cb(key)
 	cidsLnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 	require.NoError(t, err)
@@ -120,10 +120,10 @@ func prepareCidsForCallback(t *testing.T, e *Engine, cids []cid.Cid) ipld.Link {
 func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
-	cids, _ := utils.RandomCids(10)
+	mhs, _ := utils.RandomMultihashes(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
-	val := indexer.MakeValue(p, 0, cids[0].Bytes())
-	cidsLnk := prepareCidsForCallback(t, e, cids)
+	val := indexer.MakeValue(p, 0, mhs[0])
+	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	// Generate the advertisement.
 	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
 	require.NoError(t, err)
@@ -227,13 +227,13 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Fail if not callback has been registered.
-	cids, _ := utils.RandomCids(10)
-	c, err := e.NotifyPut(ctx, cids[0].Bytes(), []byte("metadata"))
+	mhs, _ := utils.RandomMultihashes(10)
+	c, err := e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
 	require.Error(t, err, ErrNoCallback)
 
 	// NotifyPut of cids
-	cids, _ = utils.RandomCids(10)
-	cidsLnk := prepareCidsForCallback(t, e, cids)
+	mhs, _ = utils.RandomMultihashes(10)
+	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
@@ -248,8 +248,8 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 
 	// NotifyPut second time
-	cids, _ = utils.RandomCids(10)
-	cidsLnk = prepareCidsForCallback(t, e, cids)
+	mhs, _ = utils.RandomMultihashes(10)
+	cidsLnk = prepareMhsForCallback(t, e, mhs)
 	require.NoError(t, err)
 	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 func TestRegisterCallback(t *testing.T) {
 	e, err := mkEngine(t)
 	require.NoError(t, err)
-	e.RegisterCidCallback(utils.ToCallback([]cid.Cid{}))
+	e.RegisterCidCallback(utils.ToCallback([]mh.Multihash{}))
 	require.NotNil(t, e.cb)
 }
 
@@ -306,9 +306,9 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	cids, _ := utils.RandomCids(20)
-	e.RegisterCidCallback(utils.ToCallback(cids))
-	cidsLnk, _, err := schema.NewLinkedListOfCids(e.lsys, cids, nil)
+	mhs, _ := utils.RandomMultihashes(20)
+	e.RegisterCidCallback(utils.ToCallback(mhs))
+	cidsLnk, _, err := schema.NewLinkedListOfMhs(e.lsys, mhs, nil)
 	require.NoError(t, err)
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
@@ -334,9 +334,9 @@ func TestLinkedStructure(t *testing.T) {
 	skipFlaky(t)
 	e, err := mkEngine(t)
 	require.NoError(t, err)
-	cids, _ := utils.RandomCids(200)
+	mhs, _ := utils.RandomMultihashes(200)
 	// Register simple callback.
-	e.RegisterCidCallback(utils.ToCallback(cids))
+	e.RegisterCidCallback(utils.ToCallback(mhs))
 	// Sample lookup key
 	k := []byte("a")
 
