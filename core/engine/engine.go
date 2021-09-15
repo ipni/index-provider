@@ -24,7 +24,7 @@ import (
 	legs "github.com/willscott/go-legs"
 )
 
-var log = logging.Logger("reference-provider/engine")
+var log = logging.Logger("provider/engine")
 
 var _ core.Interface = &Engine{}
 
