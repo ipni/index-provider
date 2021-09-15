@@ -60,6 +60,7 @@ func (h *handler) HandleMessage(ctx context.Context, msgPeer peer.ID, msgbytes [
 
 	data, err := handle(ctx, msgPeer, &req)
 	if err != nil {
+		log.Errorf("Error handling message: %w", err)
 		rspType = pb.ProviderMessage_ERROR_RESPONSE
 		data = v0.EncodeError(err)
 	}

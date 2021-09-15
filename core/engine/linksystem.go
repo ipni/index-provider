@@ -27,6 +27,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
 		c := lnk.(cidlink.Link).Cid
 		isAd := true
+		log.Debugf("Triggered ReadOpener from engine's linksystem with cid (%s)", c)
 
 		// Get the node from main datastore. If it is in the
 		// main datastore it means it is an advertisement.
@@ -35,15 +36,18 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			if err == datastore.ErrNotFound {
 				isAd = false
 			} else {
+				log.Errorf("Error getting object from datastore in linksystem: %w", err)
 				return nil, err
 			}
 		}
+		log.Debugf("Checking if IPLD node is of advertisement type")
 
 		if isAd {
 			// Decode the node to check its type.
 			// Double-checking that is of type Advertisement.
 			n, err := decodeIPLDNode(bytes.NewBuffer(val))
 			if err != nil {
+				log.Errorf("IPLD node for potential advertisement couldn't be decoded: %w", err)
 				return nil, err
 			}
 			isAd = isAdvertisement(n)
@@ -52,14 +56,17 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		// If not an advertisement it means we are receiving
 		// ingestion data.
 		if !isAd {
+			log.Debugf("Not an advertisement, let's start ingesting data!")
 			// If no callback registered return error
 			if e.cb == nil {
+				log.Errorf("No callback has been registered in engine")
 				return nil, ErrNoCallback
 			}
 
 			// Check if the key it's already cached.
 			b, err := e.getCacheEntry(c)
 			if err != nil {
+				log.Errorf("Error fetching cached list for Cid (%s): %w", c, err)
 				return nil, err
 			}
 
@@ -85,7 +92,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 				// regenerate the list of CIDs.
 				key, err := e.getCidKeyMap(c)
 				if err != nil {
-					log.Errorf("Error fetching relationship between Cid and lookup key: %v", err)
+					log.Errorf("Error fetching relationship between Cid and lookup key: %w", err)
 					return nil, err
 				}
 
@@ -106,6 +113,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 				_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
 				if err != nil {
+					log.Errorf("Error generating linked list from callback: %w", err)
 					return nil, err
 				}
 			}
@@ -113,6 +121,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Return the linked list node.
 			val, err = e.getCacheEntry(c)
 			if err != nil {
+				log.Errorf("Error fetching cached list for Cid (%s): %w", c, err)
 				return nil, err
 
 			}
@@ -121,6 +130,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		// If no value was populated it means that nothing was found
 		// in the multiple datastores.
 		if len(val) == 0 {
+			log.Errorf("No object has been found in linksystem for Cid (%s)", c)
 			return nil, datastore.ErrNotFound
 		}
 
