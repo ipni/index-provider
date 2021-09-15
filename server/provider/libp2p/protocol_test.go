@@ -24,7 +24,10 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 	require.NoError(t, err)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	return engine.New(context.Background(), priv, h, store, testTopic)
+	cids, _ := utils.RandomCids(10)
+	e, err := engine.New(context.Background(), priv, h, store, testTopic)
+	e.RegisterCidCallback(utils.ToCallback(cids))
+	return e, err
 }
 
 func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.Host, *engine.Engine) {

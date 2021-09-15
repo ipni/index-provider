@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-indexer-core"
+	"github.com/filecoin-project/indexer-reference-provider/core"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -20,6 +21,24 @@ import (
 )
 
 var prefix = schema.Linkproto.Prefix
+
+// ToCallback simply returns the list of CIDs for
+// testing purposes. A more complex callback could read
+// from the CID index and return the list of CIDs.
+func ToCallback(cids []cid.Cid) core.CidCallback {
+	return func(k core.LookupKey) (<-chan cid.Cid, <-chan error) {
+		chcid := make(chan cid.Cid, 1)
+		err := make(chan error, 1)
+		go func() {
+			defer close(chcid)
+			defer close(err)
+			for _, c := range cids {
+				chcid <- c
+			}
+		}()
+		return chcid, err
+	}
+}
 
 func RandomCids(n int) ([]cid.Cid, error) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
