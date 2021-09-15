@@ -24,7 +24,7 @@ import (
 	legs "github.com/willscott/go-legs"
 )
 
-var log = logging.Logger("reference-provider")
+var log = logging.Logger("reference-provider/engine")
 
 var _ core.Interface = &Engine{}
 
@@ -90,10 +90,12 @@ func New(ctx context.Context,
 	e.lsys = e.mkLinkSystem()
 	e.lt, err = legs.MakeLegTransport(context.Background(), host, ds, e.lsys, pubSubTopic)
 	if err != nil {
+		log.Errorf("Error initializing leg transport: %w", err)
 		return nil, err
 	}
 	e.lp, err = legs.NewPublisher(ctx, e.lt)
 	if err != nil {
+		log.Errorf("Error initializing publisher in engine: %w", err)
 		return nil, err
 	}
 	return e, nil
@@ -104,16 +106,19 @@ func NewFromConfig(ctx context.Context, cfg config.Config, ds datastore.Batching
 	log.Debugw("Starting new reference provider engine")
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {
+		log.Errorf("Error decoding private key from provider: %w", err)
 		return nil, err
 	}
 	return New(ctx, privKey, host, ds, cfg.Ingest.PubSubTopic)
 }
 
 func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
+	log.Debugf("Publishing advertisement locally")
 	// Advertisement are published in datastore by the linkSystem when links are generated.
 	// The linksystem of the reference provider determines how to persist the advertisement.
 	adLnk, err := schema.AdvertisementLink(e.lsys, adv)
 	if err != nil {
+		log.Errorf("Error generating advertisement link: %w", err)
 		return cid.Undef, err
 	}
 
@@ -123,6 +128,7 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	// we need a lock to protect races on this value.
 	err = e.putLatestAdv(c.Bytes())
 	if err != nil {
+		log.Errorf("Error storing latest advertisement in blockstore: %w", err)
 		return cid.Undef, err
 	}
 	return c, nil
@@ -135,9 +141,11 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	// propagate the announcement again through the pubsub channel.
 	c, err := e.PublishLocal(ctx, adv)
 	if err != nil {
+		log.Errorf("Failed to publish advertisement locally: %w", err)
 		return cid.Undef, err
 	}
 
+	log.Debugf("Publishing advertisement with Cid (%s) in pubsub channel", c)
 	// Use legPublisher to publish the advertisement.
 	return c, e.lp.UpdateRoot(ctx, c)
 }
@@ -148,8 +156,10 @@ func (e *Engine) PushAdv(ctx context.Context, indexer peer.ID, adv schema.Advert
 }
 
 func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) error {
+	log.Debugf("Pushing metadata for cid (%s) to indexer", cid)
 	cl, err := icl.NewIngest(ctx, e.host, indexer)
 	if err != nil {
+		log.Errorf("Ingest client to indexer could not be initialized: %w", err)
 		return err
 	}
 
@@ -165,12 +175,14 @@ func (e *Engine) Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadat
 
 // Registers new Cid callback to go from deal.ID to list of cids for the linksystem.
 func (e *Engine) RegisterCidCallback(cb core.CidCallback) {
+	log.Debugf("Registering callback in engine")
 	e.cblk.Lock()
 	defer e.cblk.Unlock()
 	e.cb = cb
 }
 
 func (e *Engine) NotifyPut(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
+	log.Debugf("NotifyPut for lookup key %s", string(key))
 	// Publishes an advertisement into the gossipsub channel. The callback
 	// must have been registered for the linkSystem to know how to go from
 	// lookupKey to list of CIDs.
@@ -178,6 +190,7 @@ func (e *Engine) NotifyPut(ctx context.Context, key core.LookupKey, metadata []b
 }
 
 func (e *Engine) NotifyRemove(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
+	log.Debugf("NotifyRemove for lookup key %s", string(key))
 	return e.publishAdvForIndex(ctx, key, metadata, true)
 }
 
@@ -187,30 +200,37 @@ func (e *Engine) Close(ctx context.Context) error {
 }
 
 func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
+	log.Debugf("Getting advertisement with cid %s", c)
 	l, err := schema.LinkAdvFromCid(c).AsLink()
 	if err != nil {
+		log.Errorf("Error getting Advertisement link from its CID (%s): %w", c, err)
 		return nil, err
 	}
 
 	lsys := e.vanillaLinkSystem()
 	n, err := lsys.Load(ipld.LinkContext{}, l, schema.Type.Advertisement)
 	if err != nil {
+		log.Errorf("Error loading advertisement from blockstore with vanilla lsys: %w", err)
 		return nil, err
 	}
 	adv, ok := n.(schema.Advertisement)
 	if !ok {
+		log.Errorf("stored IPLD node for cid (%s) not of type advertisement", c)
 		return nil, errors.New("stored IPLD node not of advertisement type")
 	}
 	return adv, nil
 }
 
 func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
+	log.Debugf("Getting latest advertisement with cid %s")
 	latestAdv, err := e.getLatestAdv()
 	if err != nil {
+		log.Errorf("Failed to fetch latest advertisement from blockstore: %w", err)
 		return cid.Undef, nil, err
 	}
 	ad, err := e.GetAdv(ctx, latestAdv)
 	if err != nil {
+		log.Errorf("Latest advertisement couldn't be retrieved from blockstore using its CID: %w", err)
 		return cid.Undef, nil, err
 	}
 	return latestAdv, ad, nil
@@ -222,6 +242,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 
 	// If no callback registered return error
 	if e.cb == nil {
+		log.Errorf("No callback defined in engine")
 		return cid.Undef, ErrNoCallback
 	}
 
@@ -235,6 +256,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		// We don't want to store anything here, thus the noStoreLsys.
 		lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 		if err != nil {
+			log.Errorf("Error generating link for linked list structure from list of CIDs for key (%s): %w", string(key), err)
 			return cid.Undef, err
 		}
 		cidsLnk = lnk.(cidlink.Link)
@@ -243,6 +265,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		// of the advertised list of Cids.
 		err = e.putKeyCidMap(key, cidsLnk.Cid)
 		if err != nil {
+			log.Errorf("Couldn't set mapping between lookup key and CID of linked list (%s): %w", string(key), err)
 			return cid.Undef, err
 		}
 	} else {
@@ -251,6 +274,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		// the advertisement.
 		c, err := e.getKeyCidMap(key)
 		if err != nil {
+			log.Errorf("Couldn't get mapping between lookup key and CID of linked list (%s): %w", string(key), err)
 			return cid.Undef, err
 		}
 		cidsLnk = cidlink.Link{Cid: c}
@@ -259,10 +283,12 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		// entry from the datastore.
 		err = e.deleteKeyCidMap(key)
 		if err != nil {
+			log.Errorf("Failed deleting Key-Cid map for lookup key (%s): %w", string(key), err)
 			return cid.Undef, err
 		}
 		err = e.deleteCidKeyMap(c)
 		if err != nil {
+			log.Errorf("Failed deleting Cid-Key map for lookup cid (%s): %w", c, err)
 			return cid.Undef, err
 		}
 	}
@@ -270,6 +296,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 	// Get the latest advertisement that we generated.
 	latestAdvID, err := e.getLatestAdv()
 	if err != nil {
+		log.Errorf("Couldn't get latest advertisement: %w", err)
 		return cid.Undef, err
 	}
 	var previousLnk schema.Link_Advertisement
@@ -282,6 +309,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		nb := schema.Type.Link_Advertisement.NewBuilder()
 		err = nb.AssignLink(cidlink.Link{Cid: latestAdvID})
 		if err != nil {
+			log.Errorf("Error generating link from latest advertisement: %w", err)
 			return cid.Undef, err
 		}
 		previousLnk = nb.Build().(schema.Link_Advertisement)
@@ -290,6 +318,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidsLnk,
 		metadata, isRm, e.host.ID().String())
 	if err != nil {
+		log.Errorf("Error generating new advertisement: %w", err)
 		return cid.Undef, err
 	}
 	return e.Publish(ctx, adv)
