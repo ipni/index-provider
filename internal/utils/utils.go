@@ -17,26 +17,27 @@ import (
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
+	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
 var prefix = schema.Linkproto.Prefix
 
-// ToCallback simply returns the list of CIDs for
+// ToCallback simply returns the list of multihashes for
 // testing purposes. A more complex callback could read
-// from the CID index and return the list of CIDs.
-func ToCallback(cids []cid.Cid) core.CidCallback {
-	return func(k core.LookupKey) (<-chan cid.Cid, <-chan error) {
-		chcid := make(chan cid.Cid, 1)
+// from the CID index and return the list of multihashes.
+func ToCallback(mhs []mh.Multihash) core.CidCallback {
+	return func(k core.LookupKey) (<-chan mh.Multihash, <-chan error) {
+		chmhs := make(chan mh.Multihash, 1)
 		err := make(chan error, 1)
 		go func() {
-			defer close(chcid)
+			defer close(chmhs)
 			defer close(err)
-			for _, c := range cids {
-				chcid <- c
+			for _, c := range mhs {
+				chmhs <- c
 			}
 		}()
-		return chcid, err
+		return chmhs, err
 	}
 }
 
@@ -56,13 +57,29 @@ func RandomCids(n int) ([]cid.Cid, error) {
 	return res, nil
 }
 
+func RandomMultihashes(n int) ([]mh.Multihash, error) {
+	var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	mhashes := make([]mh.Multihash, n)
+	for i := 0; i < n; i++ {
+		b := make([]byte, 10*n)
+		prng.Read(b)
+		c, err := prefix.Sum(b)
+		if err != nil {
+			return nil, err
+		}
+		mhashes[i] = c.Hash()
+	}
+	return mhashes, nil
+}
+
 func GenRandomIndexAndAdv(t *testing.T, lsys ipld.LinkSystem) (schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
-	cids, _ := RandomCids(10)
+	mhs, _ := RandomMultihashes(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
-	val := indexer.MakeValue(p, 0, cids[0].Bytes())
-	cidsLnk, err := schema.NewListOfCids(lsys, cids)
+	val := indexer.MakeValue(p, 0, mhs[0])
+	cidsLnk, err := schema.NewListOfMhs(lsys, mhs)
 	require.NoError(t, err)
 	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
 	require.NoError(t, err)

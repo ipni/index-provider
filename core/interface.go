@@ -6,6 +6,7 @@ import (
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	mh "github.com/multiformats/go-multihash"
 )
 
 // LookupKey represents the key used by providers to identify unique the list
@@ -32,7 +33,7 @@ type Interface interface {
 	// This can be used to perform updates for a small number of CIDs
 	// When a full advertisement is not worth it (web3.storage case).
 	// Indexer may only accept pushes from authenticated providers.
-	Push(ctx context.Context, indexer peer.ID, cid cid.Cid, metadata []byte) error
+	Push(ctx context.Context, indexer peer.ID, h mh.Multihash, metadata []byte) error
 
 	// Registers new Cid callback to go from deal.ID to list of cids for the linksystem.
 	// We currently only support one callback, so registering twice overwrites the
@@ -59,6 +60,6 @@ type Interface interface {
 }
 
 // CidCallback specifies the logic to go from lookupKey
-// to list of CIDs that will be used by the linksystem while
+// to list of multihashes that will be used by the linksystem while
 // traversing the DAG
-type CidCallback func(key LookupKey) (<-chan cid.Cid, <-chan error)
+type CidCallback func(key LookupKey) (<-chan mh.Multihash, <-chan error)

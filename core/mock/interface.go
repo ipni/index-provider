@@ -11,8 +11,9 @@ import (
 	core "github.com/filecoin-project/indexer-reference-provider/core"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
-	go_cid "github.com/ipfs/go-cid"
+	cid "github.com/ipfs/go-cid"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	multihash "github.com/multiformats/go-multihash"
 )
 
 // MockInterface is a mock of Interface interface.
@@ -53,7 +54,7 @@ func (mr *MockInterfaceMockRecorder) Close(ctx interface{}) *gomock.Call {
 }
 
 // GetAdv mocks base method.
-func (m *MockInterface) GetAdv(ctx context.Context, id go_cid.Cid) (schema.Advertisement, error) {
+func (m *MockInterface) GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAdv", ctx, id)
 	ret0, _ := ret[0].(schema.Advertisement)
@@ -68,10 +69,10 @@ func (mr *MockInterfaceMockRecorder) GetAdv(ctx, id interface{}) *gomock.Call {
 }
 
 // GetLatestAdv mocks base method.
-func (m *MockInterface) GetLatestAdv(ctx context.Context) (go_cid.Cid, schema.Advertisement, error) {
+func (m *MockInterface) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLatestAdv", ctx)
-	ret0, _ := ret[0].(go_cid.Cid)
+	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(schema.Advertisement)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -84,10 +85,10 @@ func (mr *MockInterfaceMockRecorder) GetLatestAdv(ctx interface{}) *gomock.Call 
 }
 
 // NotifyPut mocks base method.
-func (m *MockInterface) NotifyPut(ctx context.Context, key core.LookupKey, metadata []byte) (go_cid.Cid, error) {
+func (m *MockInterface) NotifyPut(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NotifyPut", ctx, key, metadata)
-	ret0, _ := ret[0].(go_cid.Cid)
+	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -99,10 +100,10 @@ func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, key, metadata interface{}) *
 }
 
 // NotifyRemove mocks base method.
-func (m *MockInterface) NotifyRemove(ctx context.Context, key core.LookupKey, metadata []byte) (go_cid.Cid, error) {
+func (m *MockInterface) NotifyRemove(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NotifyRemove", ctx, key, metadata)
-	ret0, _ := ret[0].(go_cid.Cid)
+	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -114,10 +115,10 @@ func (mr *MockInterfaceMockRecorder) NotifyRemove(ctx, key, metadata interface{}
 }
 
 // Publish mocks base method.
-func (m *MockInterface) Publish(ctx context.Context, adv schema.Advertisement) (go_cid.Cid, error) {
+func (m *MockInterface) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Publish", ctx, adv)
-	ret0, _ := ret[0].(go_cid.Cid)
+	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -129,10 +130,10 @@ func (mr *MockInterfaceMockRecorder) Publish(ctx, adv interface{}) *gomock.Call 
 }
 
 // PublishLocal mocks base method.
-func (m *MockInterface) PublishLocal(ctx context.Context, adv schema.Advertisement) (go_cid.Cid, error) {
+func (m *MockInterface) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PublishLocal", ctx, adv)
-	ret0, _ := ret[0].(go_cid.Cid)
+	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -144,17 +145,17 @@ func (mr *MockInterfaceMockRecorder) PublishLocal(ctx, adv interface{}) *gomock.
 }
 
 // Push mocks base method.
-func (m *MockInterface) Push(ctx context.Context, indexer peer.ID, cid go_cid.Cid, metadata []byte) error {
+func (m *MockInterface) Push(ctx context.Context, indexer peer.ID, h multihash.Multihash, metadata []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Push", ctx, indexer, cid, metadata)
+	ret := m.ctrl.Call(m, "Push", ctx, indexer, h, metadata)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Push indicates an expected call of Push.
-func (mr *MockInterfaceMockRecorder) Push(ctx, indexer, cid, metadata interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) Push(ctx, indexer, h, metadata interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockInterface)(nil).Push), ctx, indexer, cid, metadata)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockInterface)(nil).Push), ctx, indexer, h, metadata)
 }
 
 // PushAdv mocks base method.

@@ -3,8 +3,8 @@ module github.com/filecoin-project/indexer-reference-provider
 go 1.16
 
 require (
-	github.com/filecoin-project/go-indexer-core v0.0.0-20210827054504-913aef796c01
-	github.com/filecoin-project/storetheindex v0.0.0-20210909114857-94c90bbf80e1
+	github.com/filecoin-project/go-indexer-core v0.1.1
+	github.com/filecoin-project/storetheindex v0.0.0-20210915162319-debd751919d2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.7.4

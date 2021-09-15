@@ -12,6 +12,7 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	mh "github.com/multiformats/go-multihash"
 )
 
 const (
@@ -151,14 +152,14 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 // This function takes a linksystem for persistence along with the channels
 // from a callback, and generates the linked list structure. It also supports
 // configuring the number of entries per chunk in the list.
-func generateChunks(lsys ipld.LinkSystem, chcids <-chan cid.Cid, cherr <-chan error, numEntries int) (ipld.Link, error) {
+func generateChunks(lsys ipld.LinkSystem, chmhs <-chan mh.Multihash, cherr <-chan error, numEntries int) (ipld.Link, error) {
 	i := 1
-	cs := []cid.Cid{}
+	mhs := []mh.Multihash{}
 	var chunkLnk ipld.Link
 	var err error
 
 	// For each Cid from callback.
-	for ec := range chcids {
+	for ec := range chmhs {
 		select {
 		// If something in error channel return error
 		case e, ok := <-cherr:
@@ -170,25 +171,25 @@ func generateChunks(lsys ipld.LinkSystem, chcids <-chan cid.Cid, cherr <-chan er
 		default:
 			if i < numEntries {
 				// Start aggregating CIDs
-				cs = append(cs, ec)
+				mhs = append(mhs, ec)
 				i++
 			} else {
 				// Create the chunk and restart variables
-				cs = append(cs, ec)
-				chunkLnk, _, err = schema.NewLinkedListOfCids(lsys, cs, chunkLnk)
+				mhs = append(mhs, ec)
+				chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
 				if err != nil {
 					return nil, err
 				}
 				// Restart the list
 				i = 1
-				cs = []cid.Cid{}
+				mhs = []mh.Multihash{}
 			}
 		}
 	}
 	// If at the end there are outstanding cids, create a chunk
 	// with them
-	if len(cs) > 0 {
-		chunkLnk, _, err = schema.NewLinkedListOfCids(lsys, cs, chunkLnk)
+	if len(mhs) > 0 {
+		chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
 		if err != nil {
 			return nil, err
 		}
