@@ -4,17 +4,18 @@ import (
 	"context"
 	"testing"
 
-	p2pclient "github.com/filecoin-project/indexer-reference-provider/api/v0/provider/client/libp2p"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
+	p2pclient "github.com/filecoin-project/storetheindex/providerclient/libp2p"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/require"
 )
@@ -39,10 +40,10 @@ func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.
 	return s, h, e
 }
 
-func setupClient(ctx context.Context, t *testing.T) (*p2pclient.Provider, host.Host) {
+func setupClient(ctx context.Context, p peer.ID, t *testing.T) (*p2pclient.Provider, host.Host) {
 	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
-	c, err := p2pclient.NewProvider(ctx, h)
+	c, err := p2pclient.NewProvider(ctx, h, p)
 	require.NoError(t, err)
 	return c, h
 }
@@ -58,7 +59,7 @@ func TestAdvertisements(t *testing.T) {
 
 	// Initialize everything
 	s, sh, e := setupServer(ctx, t)
-	c, ch := setupClient(ctx, t)
+	c, ch := setupClient(ctx, s.ID(), t)
 	connect(ctx, t, ch, sh)
 
 	// Publish some new advertisements.
@@ -69,14 +70,14 @@ func TestAdvertisements(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get first advertisement
-	r, err := c.GetAdv(ctx, s.ID(), c1)
+	r, err := c.GetAdv(ctx, c1)
 	require.NoError(t, err)
 	ad, err := e.GetAdv(ctx, c1)
 	require.NoError(t, err)
 	require.True(t, ipld.DeepEqual(r.Ad, ad))
 
 	// Get latest advertisement
-	r, err = c.GetLatestAdv(ctx, s.ID())
+	r, err = c.GetLatestAdv(ctx)
 	require.NoError(t, err)
 	id, ad, err := e.GetLatestAdv(ctx)
 	require.NoError(t, err)
@@ -85,7 +86,7 @@ func TestAdvertisements(t *testing.T) {
 	require.True(t, ipld.DeepEqual(r.Ad, ad))
 
 	// Get non-existing advertisement by id
-	r, err = c.GetAdv(ctx, s.ID(), cids[2])
+	r, err = c.GetAdv(ctx, cids[2])
 	require.Nil(t, r)
 	require.Error(t, err)
 	require.Equal(t, "datastore: key not found", err.Error())
