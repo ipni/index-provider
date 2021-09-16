@@ -37,7 +37,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			if err == datastore.ErrNotFound {
 				isAd = false
 			} else {
-				log.Errorf("Error getting object from datastore in linksystem: %w", err)
+				log.Errorf("Error getting object from datastore in linksystem: %s", err)
 				return nil, err
 			}
 		}
@@ -48,7 +48,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Double-checking that is of type Advertisement.
 			n, err := decodeIPLDNode(bytes.NewBuffer(val))
 			if err != nil {
-				log.Errorf("IPLD node for potential advertisement couldn't be decoded: %w", err)
+				log.Errorf("IPLD node for potential advertisement couldn't be decoded: %s", err)
 				return nil, err
 			}
 			isAd = isAdvertisement(n)
@@ -67,7 +67,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Check if the key it's already cached.
 			b, err := e.getCacheEntry(c)
 			if err != nil {
-				log.Errorf("Error fetching cached list for Cid (%s): %w", c, err)
+				log.Errorf("Error fetching cached list for Cid (%s): %s", c, err)
 				return nil, err
 			}
 
@@ -93,7 +93,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 				// regenerate the list of CIDs.
 				key, err := e.getCidKeyMap(c)
 				if err != nil {
-					log.Errorf("Error fetching relationship between Cid and lookup key: %w", err)
+					log.Errorf("Error fetching relationship between Cid and lookup key: %s", err)
 					return nil, err
 				}
 
@@ -114,7 +114,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 				_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
 				if err != nil {
-					log.Errorf("Error generating linked list from callback: %w", err)
+					log.Errorf("Error generating linked list from callback: %s", err)
 					return nil, err
 				}
 			}
@@ -122,7 +122,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Return the linked list node.
 			val, err = e.getCacheEntry(c)
 			if err != nil {
-				log.Errorf("Error fetching cached list for Cid (%s): %w", c, err)
+				log.Errorf("Error fetching cached list for Cid (%s): %s", c, err)
 				return nil, err
 
 			}

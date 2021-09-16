@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	v0 "github.com/filecoin-project/indexer-reference-provider/api/v0"
-	"github.com/filecoin-project/indexer-reference-provider/api/v0/provider/models"
-	pb "github.com/filecoin-project/indexer-reference-provider/api/v0/provider/pb"
 	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	pclient "github.com/filecoin-project/storetheindex/providerclient"
+	pb "github.com/filecoin-project/storetheindex/providerclient/libp2p/pb"
 	"github.com/gogo/protobuf/proto"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -31,7 +30,7 @@ func newHandler(e *engine.Engine) *handler {
 }
 
 func (h *handler) ProtocolID() protocol.ID {
-	return v0.ProviderProtocolID
+	return pclient.ProviderProtocolID
 }
 
 func (h *handler) HandleMessage(ctx context.Context, msgPeer peer.ID, msgbytes []byte) (proto.Message, error) {
@@ -60,9 +59,9 @@ func (h *handler) HandleMessage(ctx context.Context, msgPeer peer.ID, msgbytes [
 
 	data, err := handle(ctx, msgPeer, &req)
 	if err != nil {
-		log.Errorf("Error handling message: %w", err)
+		log.Errorf("Error handling message: %s", err)
 		rspType = pb.ProviderMessage_ERROR_RESPONSE
-		data = v0.EncodeError(err)
+		data = []byte(err.Error())
 	}
 
 	return &pb.ProviderMessage{
@@ -77,12 +76,12 @@ func (h *handler) getLatest(ctx context.Context, p peer.ID, msg *pb.ProviderMess
 	if err != nil {
 		return nil, err
 	}
-	r := &models.AdResponse{ID: id, Ad: ad}
-	return models.MarshalResp(r)
+	r := &pclient.AdResponse{ID: id, Ad: ad}
+	return pclient.MarshalAdResponse(r)
 }
 
 func (h *handler) getAd(ctx context.Context, p peer.ID, msg *pb.ProviderMessage) ([]byte, error) {
-	req, err := models.UnmarshalReq(msg.GetData())
+	req, err := pclient.UnmarshalAdRequest(msg.GetData())
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +91,6 @@ func (h *handler) getAd(ctx context.Context, p peer.ID, msg *pb.ProviderMessage)
 	if err != nil {
 		return nil, err
 	}
-	r := &models.AdResponse{ID: req.ID, Ad: ad}
-	return models.MarshalResp(r)
+	r := &pclient.AdResponse{ID: req.ID, Ad: ad}
+	return pclient.MarshalAdResponse(r)
 }
