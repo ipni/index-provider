@@ -59,8 +59,9 @@ func mkMockSubscriber(t *testing.T, h host.Host) (legs.LegSubscriber, *legs.LegT
 	return ls, lt
 }
 
-func mkTestHost() host.Host {
-	h, _ := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+func mkTestHost(t *testing.T) host.Host {
+	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	require.NoError(t, err)
 	return h
 }
 
@@ -84,7 +85,7 @@ func TestToCallback(t *testing.T) {
 func mkEngine(t *testing.T) (*Engine, error) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
-	h := mkTestHost()
+	h := mkTestHost(t)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
 	return New(context.Background(), priv, h, store, testTopic)
@@ -93,9 +94,8 @@ func mkEngine(t *testing.T) (*Engine, error) {
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
 	srcHost.Peerstore().AddAddrs(dstHost.ID(), dstHost.Addrs(), time.Hour)
 	dstHost.Peerstore().AddAddrs(srcHost.ID(), srcHost.Addrs(), time.Hour)
-	if err := srcHost.Connect(context.Background(), dstHost.Peerstore().PeerInfo(dstHost.ID())); err != nil {
-		t.Fatal(err)
-	}
+	err := srcHost.Connect(context.Background(), dstHost.Peerstore().PeerInfo(dstHost.ID()))
+	require.NoError(t, err)
 }
 
 // Prepares list of multihashes so it can be used in callback and conveniently registered
@@ -120,8 +120,10 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
-	mhs, _ := utils.RandomMultihashes(10)
-	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
+	mhs, err := utils.RandomMultihashes(10)
+	require.NoError(t, err)
+	p, err := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
+	require.NoError(t, err)
 	val := indexer.MakeValue(p, 0, mhs[0])
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	// Generate the advertisement.
@@ -171,7 +173,7 @@ func TestNotifyPublish(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mockSubscriber
-	lh := mkTestHost()
+	lh := mkTestHost(t)
 	_, adv, advLnk := genRandomIndexAndAdv(t, e)
 	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
@@ -214,7 +216,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mockSubscriber
-	lh := mkTestHost()
+	lh := mkTestHost(t)
 	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
@@ -227,12 +229,14 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Fail if not callback has been registered.
-	mhs, _ := utils.RandomMultihashes(10)
+	mhs, err := utils.RandomMultihashes(10)
+	require.NoError(t, err)
 	c, err := e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
 	require.Error(t, err, ErrNoCallback)
 
 	// NotifyPut of cids
-	mhs, _ = utils.RandomMultihashes(10)
+	mhs, err = utils.RandomMultihashes(10)
+	require.NoError(t, err)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
@@ -248,7 +252,8 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 
 	// NotifyPut second time
-	mhs, _ = utils.RandomMultihashes(10)
+	mhs, err = utils.RandomMultihashes(10)
+	require.NoError(t, err)
 	cidsLnk = prepareMhsForCallback(t, e, mhs)
 	require.NoError(t, err)
 	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
@@ -293,7 +298,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mockSubscriber
-	lh := mkTestHost()
+	lh := mkTestHost(t)
 	ls, lt := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
@@ -306,7 +311,8 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	mhs, _ := utils.RandomMultihashes(20)
+	mhs, err := utils.RandomMultihashes(20)
+	require.NoError(t, err)
 	e.RegisterCidCallback(utils.ToCallback(mhs))
 	cidsLnk, _, err := schema.NewLinkedListOfMhs(e.lsys, mhs, nil)
 	require.NoError(t, err)
@@ -334,7 +340,8 @@ func TestLinkedStructure(t *testing.T) {
 	skipFlaky(t)
 	e, err := mkEngine(t)
 	require.NoError(t, err)
-	mhs, _ := utils.RandomMultihashes(200)
+	mhs, err := utils.RandomMultihashes(200)
+	require.NoError(t, err)
 	// Register simple callback.
 	e.RegisterCidCallback(utils.ToCallback(mhs))
 	// Sample lookup key
