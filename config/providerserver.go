@@ -5,6 +5,8 @@ const (
 )
 
 type ProviderServer struct {
-	// ListenMultiaddr captures the (string) multiaddr addresses for the node.
+	// ListenMultiaddr is the multiaddr string for the node's listen address
 	ListenMultiaddr string
+	// RetrievalMultiaddrs are the addresses to advertise for data retrieval
+	RetrievalMultiaddrs []string
 }

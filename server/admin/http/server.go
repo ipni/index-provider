@@ -56,10 +56,11 @@ func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier
 }
 
 func (s *Server) Start() error {
-	log.Infow("admin api listening", "addr", s.l.Addr())
+	log.Infow("admin http server listening", "addr", s.l.Addr())
 	return s.server.Serve(s.l)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	log.Info("admin http server shutdown")
 	return s.server.Shutdown(ctx)
 }

@@ -88,7 +88,7 @@ func mkEngine(t *testing.T) (*Engine, error) {
 	h := mkTestHost(t)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	return New(context.Background(), priv, h, store, testTopic)
+	return New(context.Background(), priv, h, store, testTopic, nil)
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -126,8 +126,9 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisem
 	require.NoError(t, err)
 	val := indexer.MakeValue(p, 0, mhs[0])
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
+	addrs := []string{"/ip4/127.0.0.1/tcp/3103"}
 	// Generate the advertisement.
-	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
+	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return cidsLnk, adv, advLnk
 }

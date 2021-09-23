@@ -89,8 +89,11 @@ func doImportCar(cctx *cli.Context) error {
 	if _, err := res.ReadFrom(resp.Body); err != nil {
 		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
 	}
-	msg := fmt.Sprintf("Successfully imported CAR.\n"+
-		"\t Advertisement ID: %v\n", res.AdvId)
-	_, err = cctx.App.Writer.Write([]byte(msg))
+	var b bytes.Buffer
+	b.WriteString("Successfully imported CAR.\n")
+	b.WriteString("\t Advertisement ID: ")
+	b.WriteString(res.AdvId.String())
+	b.WriteString("\n")
+	_, err = cctx.App.Writer.Write(b.Bytes())
 	return err
 }

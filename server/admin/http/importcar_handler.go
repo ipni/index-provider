@@ -14,6 +14,8 @@ type importCarHandler struct {
 }
 
 func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
+	log.Info("Received import CAR request")
+
 	// Decode request.
 	var req ImportCarReq
 	if _, err := req.ReadFrom(r.Body); err != nil {
@@ -30,8 +32,10 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	if req.hasId() {
 		key = req.Key
+		log.Info("Storing car with specified key")
 		advId, err = h.cs.PutWithID(ctx, req.Key, req.Path, req.Metadata)
 	} else {
+		log.Info("Storing CAR and generating key")
 		key, advId, err = h.cs.Put(ctx, req.Path, req.Metadata)
 	}
 
@@ -42,6 +46,8 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 		respond(w, http.StatusInternalServerError, errRes)
 		return
 	}
+
+	log.Infow("Stored CAR", "path", req.Path, "key", key)
 
 	// Respond with successful import results.
 	resp := &ImportCarRes{key, advId}

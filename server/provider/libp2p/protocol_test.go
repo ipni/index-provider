@@ -26,7 +26,7 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
 	mhs, _ := utils.RandomMultihashes(10)
-	e, err := engine.New(context.Background(), priv, h, store, testTopic)
+	e, err := engine.New(context.Background(), priv, h, store, testTopic, nil)
 	e.RegisterCidCallback(utils.ToCallback(mhs))
 	return e, err
 }
