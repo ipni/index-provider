@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-indexer-core"
+	legs "github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
@@ -24,7 +25,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/test"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
-	legs "github.com/willscott/go-legs"
 )
 
 const testTopic = "indexer/test"
