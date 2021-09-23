@@ -23,7 +23,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	mh "github.com/multiformats/go-multihash"
 
-	legs "github.com/willscott/go-legs"
+	legs "github.com/filecoin-project/go-legs"
 )
 
 var log = logging.Logger("provider/engine")
