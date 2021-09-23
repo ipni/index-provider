@@ -81,7 +81,8 @@ func GenRandomIndexAndAdv(t *testing.T, lsys ipld.LinkSystem) (schema.Advertisem
 	val := indexer.MakeValue(p, 0, mhs[0])
 	cidsLnk, err := schema.NewListOfMhs(lsys, mhs)
 	require.NoError(t, err)
-	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
+	addrs := []string{"/ip4/0.0.0.0/tcp/3103"}
+	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, val.Metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return adv, advLnk
 }

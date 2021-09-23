@@ -9,11 +9,8 @@ import (
 
 	"github.com/filecoin-project/indexer-reference-provider/command"
 	"github.com/filecoin-project/indexer-reference-provider/internal/version"
-	logging "github.com/ipfs/go-log/v2"
 	"github.com/urfave/cli/v2"
 )
-
-var log = logging.Logger("reference-provider")
 
 func main() {
 	// Set up a context that is canceled when the command is interrupted
@@ -35,24 +32,23 @@ func main() {
 		signal.Stop(interrupt)
 	}()
 
-	// TODO parameterize log level
-	if err := logging.SetLogLevel("*", "info"); err != nil {
-		log.Fatal(err)
-	}
-
 	app := &cli.App{
 		Name:    "provider",
 		Usage:   "Indexer Reference Provider Implementation",
 		Version: version.String(),
 		Commands: []*cli.Command{
 			command.DaemonCmd,
+			command.FindCmd,
+			command.IndexCmd,
 			command.InitCmd,
 			command.ConnectCmd,
 			command.ImportCmd,
+			command.RegisterCmd,
 		},
 	}
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

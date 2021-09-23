@@ -20,6 +20,65 @@ var connectFlags = []cli.Flag{
 	adminAPIFlag,
 }
 
+var indexerFlag = &cli.StringFlag{
+	Name:     "indexer",
+	Usage:    "Host or host:port of indexer to use",
+	Aliases:  []string{"i"},
+	Required: true,
+}
+
+var addrFlag = &cli.StringSliceFlag{
+	Name:     "addr",
+	Usage:    "Provider address as multiaddr string, example: \"/ip4/127.0.0.1/tcp/3103\"",
+	Aliases:  []string{"a"},
+	Required: true,
+}
+
+var findFlags = []cli.Flag{
+	indexerFlag,
+	&cli.StringSliceFlag{
+		Name:     "mh",
+		Usage:    "Specify multihash to use as indexer key, multiple OK",
+		Required: false,
+	},
+	&cli.StringSliceFlag{
+		Name:     "cid",
+		Usage:    "Specify CID to use as indexer key, multiple OK",
+		Required: false,
+	},
+}
+
+var indexFlags = []cli.Flag{
+	indexerFlag,
+	addrFlag,
+	&cli.StringFlag{
+		Name:     "mh",
+		Usage:    "Specify multihash to use as indexer key",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name:     "cid",
+		Usage:    "Specify CID to use as indexer key",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name:     "meta",
+		Usage:    "Metadata bytes.",
+		Aliases:  []string{"m"},
+		Required: false,
+	},
+	&cli.IntFlag{
+		Name:     "proto",
+		Usage:    "Specify retrieval protocol ID",
+		Required: false,
+	},
+}
+
+var registerFlags = []cli.Flag{
+	indexerFlag,
+	addrFlag,
+}
+
 var importCarFlags = []cli.Flag{
 	adminAPIFlag,
 	carPathFlag,

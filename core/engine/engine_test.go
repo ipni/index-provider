@@ -88,7 +88,7 @@ func mkEngine(t *testing.T) (*Engine, error) {
 	h := mkTestHost(t)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	return New(context.Background(), priv, h, store, testTopic)
+	return New(context.Background(), priv, h, store, testTopic, nil)
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -126,8 +126,9 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisem
 	require.NoError(t, err)
 	val := indexer.MakeValue(p, 0, mhs[0])
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
+	addrs := []string{"/ip4/127.0.0.1/tcp/3103"}
 	// Generate the advertisement.
-	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String())
+	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return cidsLnk, adv, advLnk
 }
@@ -231,14 +232,14 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	// Fail if not callback has been registered.
 	mhs, err := utils.RandomMultihashes(10)
 	require.NoError(t, err)
-	c, err := e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
+	_, err = e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
 	require.Error(t, err, ErrNoCallback)
 
 	// NotifyPut of cids
 	mhs, err = utils.RandomMultihashes(10)
 	require.NoError(t, err)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
-	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
+	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
@@ -351,7 +352,8 @@ func TestLinkedStructure(t *testing.T) {
 	chcids, cherr := e.cb(k)
 	lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 	require.NoError(t, err)
-	e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	require.NoError(t, err)
 	// Check if the linksystem is able to load it. Demonstrating and e2e
 	// flow, from generation and storage to lsys loading.
 	n, err := e.lsys.Load(ipld.LinkContext{}, lnk, basicnode.Prototype.Any)

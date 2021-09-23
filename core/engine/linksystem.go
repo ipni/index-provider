@@ -27,111 +27,110 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
 		c := lnk.(cidlink.Link).Cid
-		isAd := true
 		log.Debugf("Triggered ReadOpener from engine's linksystem with cid (%s)", c)
 
 		// Get the node from main datastore. If it is in the
 		// main datastore it means it is an advertisement.
 		val, err := e.ds.Get(datastore.NewKey(c.String()))
-		if err != nil {
-			if err == datastore.ErrNotFound {
-				isAd = false
-			} else {
-				log.Errorf("Error getting object from datastore in linksystem: %s", err)
-				return nil, err
-			}
+		if err != nil && err != datastore.ErrNotFound {
+			log.Errorf("Error getting object from datastore in linksystem: %s", err)
+			return nil, err
 		}
-		log.Debugf("Checking if IPLD node is of advertisement type")
 
-		if isAd {
-			// Decode the node to check its type.
-			// Double-checking that is of type Advertisement.
+		// If data was retrieved from the datastore, this may be an advertisement.
+		if len(val) != 0 {
+			// Decode the node to check its type to see if it is an Advertisement.
 			n, err := decodeIPLDNode(bytes.NewBuffer(val))
 			if err != nil {
-				log.Errorf("IPLD node for potential advertisement couldn't be decoded: %s", err)
+				log.Errorf("Could not decode IPLD node for potential advertisement: %s", err)
 				return nil, err
 			}
-			isAd = isAdvertisement(n)
+			// If this was an advertisement, then return it.
+			if isAdvertisement(n) {
+				log.Infow("Retrieved advertisement from datastore", "cid", c, "size", len(val))
+				return bytes.NewBuffer(val), nil
+			}
+			log.Infow("Retrieved non-advertisement object from datastore", "cid", c, "size", len(val))
 		}
 
-		// If not an advertisement it means we are receiving
-		// ingestion data.
-		if !isAd {
-			log.Debugf("Not an advertisement, let's start ingesting data!")
-			// If no callback registered return error
-			if e.cb == nil {
-				log.Errorf("No callback has been registered in engine")
-				return nil, ErrNoCallback
-			}
+		// Not an advertisement, so this means we are receiving ingestion data.
 
-			// Check if the key it's already cached.
-			b, err := e.getCacheEntry(c)
+		// If no callback registered return error
+		if e.cb == nil {
+			log.Error("No callback has been registered in engine")
+			return nil, ErrNoCallback
+		}
+
+		log.Debugw("Checking cache for data", "cid", c)
+
+		// Check if the key is already cached.
+		b, err := e.getCacheEntry(c)
+		if err != nil {
+			log.Errorf("Error fetching cached list for Cid (%s): %s", c, err)
+			return nil, err
+		}
+
+		// If we don't have the link, generate the linked list in cache so it's
+		// ready to be served for this (and future) ingestions.
+		//
+		// TODO: This process may take a lot of time, we should do it
+		// asynchronously to parallelize it. We could implement a cache manager
+		// that keeps the state of what has been generated, what has been
+		// requested but not available and requires reading from a CAR, and
+		// what is ready for ingestion. This manager will also have to handle
+		// garbage collecting the cache.
+		//
+		// The reason for caching this?  When we build the ingestion linked
+		// lists and we are serving back the structure to an indexer, we will
+		// be receiving requests for a chunkEntry, as we can't read a specific
+		// subset of CIDs from the CAR index, we need some intermediate storage
+		// to map link of the chunk in the linked list with the list of CIDs it
+		// corresponds to.
+		if b == nil {
+			log.Infow("Entry for CID is not cached, generating chunks", "cid", c)
+			// If the link is not found, it means that the root link of the list has
+			// not been generated and we need to get the relationship between the cid
+			// received and the lookupKey so the callback knows how to
+			// regenerate the list of CIDs.
+			key, err := e.getCidKeyMap(c)
 			if err != nil {
-				log.Errorf("Error fetching cached list for Cid (%s): %s", c, err)
+				log.Errorf("Error fetching relationship between CID and lookup key: %s", err)
 				return nil, err
 			}
 
-			// If we don't have the link, generate the linked list in cache
-			// so it's ready to be served for this (and future) ingestions.
-			// TODO: This process may take a lot of time,
-			// we should do it asynchronously to
-			// parallelize it. We could implement a cache manager that keeps
-			// the state of what has been generated, what has been requested but
-			// not available and requires reading from a CAR,
-			// and what is ready for ingestion. This manager will
-			// also have to handle garbage collecting the cache.
-			// The reason for caching this?
-			// When we build the ingestion linked lists and we are serving back the structure
-			// to an indexer, we will be receiving requests for a chunkEntry, as we can't read
-			// a specific subset of CIDs from the CAR index, we need some intermediate storage
-			// to map link of the chunk in the linked list with the list of CIDs it corresponds
-			// to.
-			if b == nil {
-				// If the link is not found, it means that the root link of the list has
-				// not been generated and we need to get the relationship between the cid
-				// received and the lookupKey so the callback knows how to
-				// regenerate the list of CIDs.
-				key, err := e.getCidKeyMap(c)
-				if err != nil {
-					log.Errorf("Error fetching relationship between Cid and lookup key: %s", err)
-					return nil, err
-				}
+			// TODO: For removals we may not have the list of CIDs, let's see
+			// what selector we end up using, but we may need additional
+			// validation here in order not to follow the link. If we do
+			// step-by-step syncs, this would mean that when the subscribers
+			// sees an advertisement of remove type, it doesn't follow the
+			// Entries link, if just gets the cid, and uses its local map cid
+			// to lookupKey to trigger the removal of all entries for that
+			// lookupKey in its index.
+			chcids, cherr := e.cb(key)
 
-				// TODO: For removals we may not have the
-				// list of CIDs, let's see what selector we end up
-				// using, but we may need additional validation here
-				// in order not to follow the link. If we do step-by-step
-				// syncs, this would mean that when the subscribers sees an
-				// advertisement of remove type, it doesn't follow the Entries link,
-				// if just gets the cid, and uses its local map cid to lookupKey
-				// to trigger the removal of all entries for that lookupKey
-				// in its index.
-				chcids, cherr := e.cb(key)
-
-				// Store the linked list entries in cache as we generate them.
-				// We use the cache linksystem here to entries are stored in an
-				// in-memory datastore.
-
-				_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
-				if err != nil {
-					log.Errorf("Error generating linked list from callback: %s", err)
-					return nil, err
-				}
-			}
-
-			// Return the linked list node.
-			val, err = e.getCacheEntry(c)
+			// Store the linked list entries in cache as we generate them.  We
+			// use the cache linksystem that stores entries in an in-memory
+			// datastore.
+			_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
 			if err != nil {
-				log.Errorf("Error fetching cached list for Cid (%s): %s", c, err)
+				log.Errorf("Error generating linked list from callback: %s", err)
 				return nil, err
-
 			}
+		} else {
+			log.Infow("Found cache entry for CID", "cid", c)
+		}
+
+		// Return the linked list node.
+		val, err = e.getCacheEntry(c)
+		if err != nil {
+			log.Errorf("Error fetching cached list for CID (%s): %s", c, err)
+			return nil, err
 		}
 
 		// If no value was populated it means that nothing was found
 		// in the multiple datastores.
 		if len(val) == 0 {
-			log.Errorf("No object has been found in linksystem for Cid (%s)", c)
+			log.Errorf("No object has been found in linksystem for CID (%s)", c)
 			return nil, datastore.ErrNotFound
 		}
 
@@ -153,47 +152,55 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 // from a callback, and generates the linked list structure. It also supports
 // configuring the number of entries per chunk in the list.
 func generateChunks(lsys ipld.LinkSystem, chmhs <-chan mh.Multihash, cherr <-chan error, numEntries int) (ipld.Link, error) {
-	i := 1
-	mhs := []mh.Multihash{}
+	mhs := make([]mh.Multihash, 0, numEntries)
 	var chunkLnk ipld.Link
 	var err error
 
+	var cidCount, chunkCount int
+
 	// For each Cid from callback.
-	for ec := range chmhs {
+eachCid:
+	for {
 		select {
-		// If something in error channel return error
-		case e, ok := <-cherr:
+		case ec, ok := <-chmhs:
 			if !ok {
-				break
+				break eachCid
 			}
-			return nil, e
-		// If not, start aggregating cids into chunks
-		default:
-			if i < numEntries {
-				// Start aggregating CIDs
-				mhs = append(mhs, ec)
-				i++
-			} else {
-				// Create the chunk and restart variables
-				mhs = append(mhs, ec)
-				chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
-				if err != nil {
-					return nil, err
-				}
-				// Restart the list
-				i = 1
-				mhs = []mh.Multihash{}
+			mhs = append(mhs, ec)
+		case err = <-cherr:
+			if err != nil {
+				// If something in error channel return error
+				return nil, err
 			}
+			break eachCid
+		}
+
+		// Create chunk of cids and link to previous chunk
+		if len(mhs) == numEntries {
+			cidCount += len(mhs)
+			chunkCount++
+			// Create the chunk and restart variables
+			chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
+			if err != nil {
+				return nil, err
+			}
+			// Restart the list
+			mhs = make([]mh.Multihash, 0, numEntries)
 		}
 	}
+
 	// If at the end there are outstanding cids, create a chunk
 	// with them
 	if len(mhs) > 0 {
+		cidCount += len(mhs)
+		chunkCount++
 		chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	log.Infow("Generated linked chunks of CIDs", "cids", cidCount, "chunks", chunkCount)
 	return chunkLnk, nil
 }
 
@@ -329,8 +336,7 @@ func (e *Engine) getCacheEntry(c cid.Cid) ([]byte, error) {
 }
 
 func (e *Engine) getLatestAdv() (cid.Cid, error) {
-	key := latestAdvKey
-	b, err := e.ds.Get(datastore.NewKey(key))
+	b, err := e.ds.Get(datastore.NewKey(latestAdvKey))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			return cid.Undef, nil

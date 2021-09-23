@@ -43,10 +43,11 @@ func NewCarSupplier(eng core.Interface, ds datastore.Datastore, opts ...car.Read
 	return cs
 }
 
-// Put makes the CAR at given path suppliable by this supplier.
-// The return CID can then be used via Supply to get an iterator over CIDs that belong to the CAR.
-// The ID is generated based on the content of the CAR.
-// When the CAR ID is already known, PutWithID should be used instead.
+// Put makes the CAR at given path suppliable by this supplier. The return CID
+// can then be used via Supply to get an iterator over CIDs that belong to the
+// CAR. The ID is generated based on the content of the CAR.  When the CAR ID
+// is already known, PutWithID should be used instead.
+//
 // This function accepts both CARv1 and CARv2 formats.
 func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (core.LookupKey, cid.Cid, error) {
 	// Clean path to CAR.
@@ -65,9 +66,11 @@ func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (c
 	return id, c, nil
 }
 
-// PutWithID makes the CAR at given path suppliable by this supplier identified by the given ID.
-// The return CID can then be used via Supply to get an iterator over CIDs that belong to the CAR.
-// When the CAR ID is not known, Put should be used instead.
+// PutWithID makes the CAR at the given path, and identified by the given ID,
+// suppliable by this supplier. The return CID can then be used via Supply to
+// get an iterator over CIDs that belong to the CAR. When the CAR ID is not
+// known, Put should be used instead.
+//
 // This function accepts both CARv1 and CARv2 formats.
 func (cs *CarSupplier) PutWithID(ctx context.Context, key core.LookupKey, path string, metadata []byte) (cid.Cid, error) {
 	// Clean path to CAR.
@@ -75,12 +78,13 @@ func (cs *CarSupplier) PutWithID(ctx context.Context, key core.LookupKey, path s
 
 	// Store mapping of CAR ID to path, used to instantiate CID iterator.
 	carIdKey := toCarIdKey(key)
-	if err := cs.ds.Put(carIdKey, []byte(path)); err != nil {
+	err := cs.ds.Put(carIdKey, []byte(path))
+	if err != nil {
 		return cid.Undef, err
 	}
 
 	// Store mapping of path to CAR ID, used to lookup the CAR by path when it is removed.
-	if err := cs.ds.Put(toPathKey(path), key); err != nil {
+	if err = cs.ds.Put(toPathKey(path), key); err != nil {
 		return cid.Undef, err
 	}
 
@@ -91,9 +95,9 @@ func toCarIdKey(key core.LookupKey) datastore.Key {
 	return datastore.NewKey(carIdDatastoreKeyPrefix + string(key))
 }
 
-// Remove removes the CAR at the given path from the list of suppliable CID iterators.
-// If the CAR at given path is not known, this function will return an error.
-// This function accepts both CARv1 and CARv2 formats.
+// Remove removes the CAR at the given path from the list of suppliable CID
+// iterators. If the CAR at given path is not known, this function will return
+// an error.  This function accepts both CARv1 and CARv2 formats.
 func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte) (cid.Cid, error) {
 	// Clean path.
 	path = filepath.Clean(path)
@@ -129,8 +133,8 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte)
 	return cs.eng.NotifyRemove(ctx, key, metadata)
 }
 
-// Supply supplies an iterator over CIDs of the CAR file that corresponds to the given key.
-// An error is returned if no CAR file is found for the key.
+// Supply supplies an iterator over CIDs of the CAR file that corresponds to
+// the given key.  An error is returned if no CAR file is found for the key.
 func (cs *CarSupplier) Supply(key core.LookupKey) (CidIterator, error) {
 	b, err := cs.ds.Get(toCarIdKey(key))
 	if err != nil {

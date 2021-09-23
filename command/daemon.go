@@ -46,7 +46,7 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		if err == config.ErrNotInitialized {
 			fmt.Fprintln(os.Stderr, "reference provider is not initialized")
-			fmt.Fprintln(os.Stderr, "To initialize, run the command: ./indexer-reference-provider init") // TODO adjust `./`; see how we can simplify the message here so that it would make sense regardless of OS or where the binary is located
+			fmt.Fprintln(os.Stderr, "To initialize, run using the \"init\" command")
 			os.Exit(1)
 		}
 		return fmt.Errorf("cannot load config file: %w", err)
@@ -93,7 +93,7 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 	// Starting provider core
-	eng, err := engine.New(ctx, privKey, h, ds, cfg.Ingest.PubSubTopic)
+	eng, err := engine.New(ctx, privKey, h, ds, cfg.Ingest.PubSubTopic, cfg.ProviderServer.RetrievalMultiaddrs)
 	if err != nil {
 		return err
 	}

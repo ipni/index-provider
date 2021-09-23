@@ -26,7 +26,7 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
 	mhs, _ := utils.RandomMultihashes(10)
-	e, err := engine.New(context.Background(), priv, h, store, testTopic)
+	e, err := engine.New(context.Background(), priv, h, store, testTopic, nil)
 	e.RegisterCidCallback(utils.ToCallback(mhs))
 	return e, err
 }
@@ -40,17 +40,10 @@ func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.
 	return s, h, e
 }
 
-func setupClient(ctx context.Context, p peer.ID, t *testing.T) (*p2pclient.Provider, host.Host) {
-	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+func setupClient(ctx context.Context, p peer.ID, t *testing.T) *p2pclient.Client {
+	c, err := p2pclient.New(nil, p)
 	require.NoError(t, err)
-	c, err := p2pclient.NewProvider(ctx, h, p)
-	require.NoError(t, err)
-	return c, h
-}
-
-func connect(ctx context.Context, t *testing.T, h1 host.Host, h2 host.Host) {
-	err := h1.Connect(ctx, *host.InfoFromHost(h2))
-	require.NoError(t, err)
+	return c
 }
 
 func TestAdvertisements(t *testing.T) {
@@ -59,8 +52,11 @@ func TestAdvertisements(t *testing.T) {
 
 	// Initialize everything
 	s, sh, e := setupServer(ctx, t)
-	c, ch := setupClient(ctx, s.ID(), t)
-	connect(ctx, t, ch, sh)
+	c := setupClient(ctx, s.ID(), t)
+	err := c.ConnectAddrs(ctx, sh.Addrs()...)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Publish some new advertisements.
 	cids, _ := utils.RandomCids(3)
