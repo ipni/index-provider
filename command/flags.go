@@ -61,6 +61,17 @@ var indexFlags = []cli.Flag{
 		Usage:    "Specify CID to use as indexer key",
 		Required: false,
 	},
+	&cli.StringFlag{
+		Name:     "meta",
+		Usage:    "Metadata bytes.",
+		Aliases:  []string{"m"},
+		Required: false,
+	},
+	&cli.IntFlag{
+		Name:     "proto",
+		Usage:    "Specify retrieval protocol ID",
+		Required: false,
+	},
 }
 
 var registerFlags = []cli.Flag{

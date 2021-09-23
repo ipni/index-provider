@@ -51,8 +51,6 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 				return bytes.NewBuffer(val), nil
 			}
 			log.Infow("Retrieved non-advertisement object from datastore", "cid", c, "size", len(val))
-		} else {
-			log.Infow("No data for cid", "cid", c)
 		}
 
 		// Not an advertisement, so this means we are receiving ingestion data.
@@ -62,6 +60,8 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			log.Error("No callback has been registered in engine")
 			return nil, ErrNoCallback
 		}
+
+		log.Debugw("Checking cache for data", "cid", c)
 
 		// Check if the key is already cached.
 		b, err := e.getCacheEntry(c)
@@ -87,7 +87,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		// to map link of the chunk in the linked list with the list of CIDs it
 		// corresponds to.
 		if b == nil {
-			log.Infow("Ingesting data: entry for CID is not cached, generating chunks", "cid", c)
+			log.Infow("Entry for CID is not cached, generating chunks", "cid", c)
 			// If the link is not found, it means that the root link of the list has
 			// not been generated and we need to get the relationship between the cid
 			// received and the lookupKey so the callback knows how to
@@ -117,7 +117,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 				return nil, err
 			}
 		} else {
-			log.Infow("Ingesting data, found cache entry for CID", "cid", c)
+			log.Infow("Found cache entry for CID", "cid", c)
 		}
 
 		// Return the linked list node.
