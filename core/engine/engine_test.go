@@ -352,7 +352,8 @@ func TestLinkedStructure(t *testing.T) {
 	chcids, cherr := e.cb(k)
 	lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, MaxCidsInChunk)
 	require.NoError(t, err)
-	e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	require.NoError(t, err)
 	// Check if the linksystem is able to load it. Demonstrating and e2e
 	// flow, from generation and storage to lsys loading.
 	n, err := e.lsys.Load(ipld.LinkContext{}, lnk, basicnode.Prototype.Any)
