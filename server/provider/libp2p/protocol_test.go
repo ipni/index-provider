@@ -40,10 +40,10 @@ func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.
 	return s, h, e
 }
 
-func setupClient(ctx context.Context, p peer.ID, t *testing.T) (*p2pclient.Provider, host.Host) {
-	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+func setupClient(ctx context.Context, p peer.ID, t *testing.T) (*p2pclient.Client, host.Host) {
+	h, err := libp2p.New(context.Background())
 	require.NoError(t, err)
-	c, err := p2pclient.NewProvider(ctx, h, p)
+	c, err := p2pclient.New(h, p)
 	require.NoError(t, err)
 	return c, h
 }

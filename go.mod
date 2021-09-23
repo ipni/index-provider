@@ -3,9 +3,9 @@ module github.com/filecoin-project/indexer-reference-provider
 go 1.16
 
 require (
-	github.com/filecoin-project/go-indexer-core v0.1.4
+	github.com/filecoin-project/go-indexer-core v0.1.5
 	github.com/filecoin-project/go-legs v0.0.0-20210922204025-c6f68b62ab16
-	github.com/filecoin-project/storetheindex v0.0.0-20210916095605-c8eabc6591b9
+	github.com/filecoin-project/storetheindex v0.0.0-20210923134014-29212a58a3a1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.7.4
@@ -24,5 +24,3 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 )
-
-replace github.com/filecoin-project/storetheindex => /home/ajg/protocollabs/filecoin/storetheindex
