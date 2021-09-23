@@ -232,14 +232,14 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	// Fail if not callback has been registered.
 	mhs, err := utils.RandomMultihashes(10)
 	require.NoError(t, err)
-	_, err := e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
+	_, err = e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
 	require.Error(t, err, ErrNoCallback)
 
 	// NotifyPut of cids
 	mhs, err = utils.RandomMultihashes(10)
 	require.NoError(t, err)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
-	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
+	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
