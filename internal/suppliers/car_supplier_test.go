@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"testing"
 
 	mock_core "github.com/filecoin-project/indexer-reference-provider/core/mock"
 	"github.com/golang/mock/gomock"
+	"github.com/ipld/go-car/v2"
 	"github.com/multiformats/go-multihash"
 
 	"github.com/ipfs/go-cid"
@@ -43,9 +45,27 @@ func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
 			subject := NewCarSupplier(mockEng, ds)
 			t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
-			wantIterator, err := newCarCidIterator(tt.carPath)
-			require.NoError(t, err)
-			t.Cleanup(func() { require.NoError(t, wantIterator.Close()) })
+			seenMultihashes := make(map[string]bool)
+			wantMultihashes := 0
+			{
+				f, err := os.Open(tt.carPath)
+				require.NoError(t, err)
+				t.Cleanup(func() { f.Close() })
+
+				br, err := car.NewBlockReader(f)
+				require.NoError(t, err)
+				for {
+					bl, err := br.Next()
+					if err == io.EOF {
+						break
+					}
+					require.NoError(t, err)
+
+					mh := bl.Cid().Hash()
+					seenMultihashes[mh.HexString()] = false
+					wantMultihashes++
+				}
+			}
 
 			wantCid := generateCidV1(t, rng)
 			mockEng.
@@ -58,19 +78,31 @@ func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
 			require.Equal(t, wantCid, gotCid)
 			require.NotNil(t, gotKey)
 
-			gotIterator, err := subject.Supply(gotKey)
+			gotMhChan, gotErrChan := subject.CidCallback(gotKey)
 			require.NoError(t, err)
 
+			gotMultihashes := 0
 			for {
-				wantNext, wantErr := wantIterator.Next()
-				gotNext, gotErr := gotIterator.Next()
-				require.Equal(t, wantErr, gotErr)
-				require.Equal(t, wantNext, gotNext)
+				gotMh, ok := <-gotMhChan
+				if !ok {
+					break // done
+				}
+				seen, known := seenMultihashes[gotMh.HexString()]
+				require.False(t, seen)
+				require.True(t, known)
+				seenMultihashes[gotMh.HexString()] = true
+				gotMultihashes++
+			}
 
-				if wantErr == io.EOF {
-					break
+			_, hasErr := <-gotErrChan
+			require.False(t, hasErr)
+
+			for mhStr, seen := range seenMultihashes {
+				if !seen {
+					t.Errorf("multihash %s was not seen", mhStr)
 				}
 			}
+			require.Equal(t, gotMultihashes, wantMultihashes)
 		})
 	}
 }
