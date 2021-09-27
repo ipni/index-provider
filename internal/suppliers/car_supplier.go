@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"io"
+	"errors"
 	"path/filepath"
 
 	"github.com/filecoin-project/indexer-reference-provider/core"
@@ -12,6 +12,9 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/index"
+	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-multihash"
 )
 
 const (
@@ -20,12 +23,8 @@ const (
 	carIdDatastoreKeyPrefix    = carSupplierDatastorePrefix + "car_id/"
 )
 
-var (
-	_ CidIteratorSupplier = (*CarSupplier)(nil)
-	_ io.Closer           = (*CarSupplier)(nil)
-	_ io.Closer           = (*carCidIterator)(nil)
-	_ CidIterator         = (*carCidIterator)(nil)
-)
+// ErrNotFound signals that CidIteratorSupplier has no iterator corresponding to the given key.
+var ErrNotFound = errors.New("no CID iterator found for given key")
 
 type CarSupplier struct {
 	eng  core.Interface
@@ -34,12 +33,18 @@ type CarSupplier struct {
 }
 
 func NewCarSupplier(eng core.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
+	// We require a "full" index, including identity CIDs.
+	// As such, we require StoreIdentityCIDs to be set.
+	// Don't rely on all callers to remember to set it.
+	// They can override it if they so wish, but that's unsupported.
+	opts = append([]car.ReadOption{car.StoreIdentityCIDs(true)}, opts...)
+
 	cs := &CarSupplier{
 		eng:  eng,
 		ds:   ds,
 		opts: opts,
 	}
-	eng.RegisterCidCallback(ToCidCallback(cs))
+	eng.RegisterCidCallback(cs.CidCallback)
 	return cs
 }
 
@@ -133,18 +138,69 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte)
 	return cs.eng.NotifyRemove(ctx, key, metadata)
 }
 
-// Supply supplies an iterator over CIDs of the CAR file that corresponds to
+// CidCallback supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) Supply(key core.LookupKey) (CidIterator, error) {
+func (cs *CarSupplier) CidCallback(key core.LookupKey) (<-chan multihash.Multihash, <-chan error) {
+	errch := make(chan error, 1)
+	idx, err := cs.lookupIterableIndex(key)
+	if err != nil {
+		errch <- err
+		close(errch)
+		return nil, errch
+	}
+	mhch := make(chan multihash.Multihash, 1)
+	go func() {
+		if err := idx.ForEach(func(mh multihash.Multihash, offset uint64) error {
+			mhch <- mh
+			return nil
+		}); err != nil {
+			errch <- err // though it should never happen, as we return nil above
+		}
+		close(mhch)
+		close(errch)
+	}()
+	return mhch, errch
+}
+
+func (cs *CarSupplier) lookupIterableIndex(key core.LookupKey) (index.IterableIndex, error) {
 	b, err := cs.ds.Get(toCarIdKey(key))
 	if err != nil {
 		if err == datastore.ErrNotFound {
-			return nil, ErrNotFound
+			err = ErrNotFound
 		}
 		return nil, err
 	}
 	path := string(b)
-	return newCarCidIterator(path, cs.opts...)
+
+	cr, err := car.OpenReader(path, cs.opts...)
+	if err != nil {
+		return nil, err
+	}
+	idxReader := cr.IndexReader()
+	if err != nil {
+		return nil, err
+	}
+	if idxReader == nil || !cr.Header.Characteristics.IsFullyIndexed() {
+		// Missing or non-complete index; generate it.
+		return cs.generateIterableIndex(cr)
+	}
+	idx, err := index.ReadFrom(idxReader)
+	if err != nil {
+		return nil, err
+	}
+	if idx.Codec() != multicodec.CarMultihashIndexSorted {
+		// Index doesn't contain full multihashes; generate it.
+		return cs.generateIterableIndex(cr)
+	}
+	return idx.(index.IterableIndex), nil
+}
+
+func (cs *CarSupplier) generateIterableIndex(cr *car.Reader) (index.IterableIndex, error) {
+	idx := index.NewMultihashSorted()
+	if err := car.LoadIndex(idx, cr.DataReader(), cs.opts...); err != nil {
+		return nil, err
+	}
+	return idx, nil
 }
 
 // Close permanently closes this supplier.
