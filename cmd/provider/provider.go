@@ -12,6 +12,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	// Set up a context that is canceled when the command is interrupted
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -32,6 +36,7 @@ func main() {
 	}()
 
 	app := &cli.App{
+
 		Name:    "provider",
 		Usage:   "Indexer Reference Provider Implementation",
 		Version: version.String(),
@@ -47,7 +52,8 @@ func main() {
 	}
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Fprintln(app.ErrWriter, err)
+		return 1
 	}
+	return 0
 }

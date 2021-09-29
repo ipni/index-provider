@@ -154,6 +154,7 @@ func daemonCommand(cctx *cli.Context) error {
 	log.Infow("admin server initialized", "address", adminAddr)
 
 	errChan := make(chan error, 1)
+	fmt.Fprintf(cctx.App.ErrWriter, "Starting admin server on %s ...", adminAddr.String())
 	go func() {
 		errChan <- adminSvr.Start()
 	}()
@@ -174,12 +175,12 @@ func daemonCommand(cctx *cli.Context) error {
 		// Wait for context to be canceled. If timeout, then exit with error.
 		<-ctx.Done()
 		if ctx.Err() == context.DeadlineExceeded {
-			fmt.Println("Timed out on shutdown, terminating...")
+			fmt.Fprintln(cctx.App.ErrWriter, "Timed out on shutdown, terminating...")
 			os.Exit(-1)
 		}
 	}()
 
-	if err = eng.Shutdown(ctx); err != nil {
+	if err := eng.Shutdown(ctx); err != nil {
 		log.Errorw("Error closing provider core", "err", err)
 		finalErr = ErrDaemonStop
 	}
@@ -191,7 +192,7 @@ func daemonCommand(cctx *cli.Context) error {
 	// cancel libp2p server
 	cancelp2p()
 
-	if err = adminSvr.Shutdown(ctx); err != nil {
+	if err := adminSvr.Shutdown(ctx); err != nil {
 		log.Errorw("Error shutting down admin server", "err", err)
 		finalErr = ErrDaemonStop
 	}

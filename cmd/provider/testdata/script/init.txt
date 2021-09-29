@@ -1,0 +1,5 @@
+# initialization succeeds.
+env HOME=${WORK}
+provider init
+! stderr .
+stdout 'generating ED25519 keypair...done\npeer identity:'
