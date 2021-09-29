@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -18,7 +19,7 @@ const providerProtocolID = 0x300001
 var ImportCmd = &cli.Command{
 	Name:        "import",
 	Aliases:     []string{"i"},
-	Usage:       "Imp",
+	Usage:       "Imports sources of multihashes to the index provider.",
 	Subcommands: []*cli.Command{importCarSubCmd},
 }
 
@@ -37,18 +38,18 @@ var (
 	}
 )
 
-func beforeImportCar(context *cli.Context) error {
-	if metadataFlagValue != "" {
+func beforeImportCar(cctx *cli.Context) error {
+	if cctx.IsSet(metadataFlag.Name) {
 		decoded, err := base64.StdEncoding.DecodeString(metadataFlagValue)
 		if err != nil {
-			return err
+			return errors.New("metadata is not a valid base64 encoded string")
 		}
 		metadata.Data = decoded
 	}
-	if keyFlagValue != "" {
+	if cctx.IsSet(keyFlag.Name) {
 		decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)
 		if err != nil {
-			return err
+			return errors.New("key is not a valid base64 encoded string")
 		}
 		key = decoded
 	}

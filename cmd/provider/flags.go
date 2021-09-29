@@ -36,7 +36,7 @@ var indexerFlag = &cli.StringFlag{
 
 var addrFlag = &cli.StringSliceFlag{
 	Name:     "addr",
-	Usage:    "Provider address as multiaddr string, example: \"/ip4/127.0.0.1/tcp/3103\"",
+	Usage:    `Provider address as multiaddr string, example: "/ip4/127.0.0.1/tcp/3103"`,
 	Aliases:  []string{"a"},
 	Required: true,
 }
@@ -136,6 +136,7 @@ var (
 	adminAPIFlag      = &cli.StringFlag{
 		Name:        "listen-admin",
 		Usage:       "Admin HTTP API listen address",
+		Aliases:     []string{"l"},
 		EnvVars:     []string{"PROVIDER_LISTEN_ADMIN"},
 		Destination: &adminAPIFlagValue,
 		Required:    true,

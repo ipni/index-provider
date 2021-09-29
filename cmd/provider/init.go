@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/urfave/cli/v2"
 )
@@ -36,7 +34,7 @@ func initCommand(cctx *cli.Context) error {
 		return config.ErrInitialized
 	}
 
-	cfg, err := config.Init(os.Stderr)
+	cfg, err := config.Init(cctx.App.Writer)
 	if err != nil {
 		return err
 	}
