@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/filecoin-project/go-indexer-core v0.1.5
 	github.com/filecoin-project/go-legs v0.0.0-20210922204025-c6f68b62ab16
-	github.com/filecoin-project/storetheindex v0.0.0-20210923204308-73cdb54d39a5
+	github.com/filecoin-project/storetheindex v0.0.0-20211001170917-11797057b28d
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.7.4
