@@ -5,8 +5,9 @@ import (
 	"errors"
 	"sync"
 
+	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
-	"github.com/filecoin-project/indexer-reference-provider"
+	provider "github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
@@ -50,7 +51,6 @@ type Engine struct {
 	// indexed data, etc.)
 	ds datastore.Batching
 	lp legs.LegPublisher
-	lt *legs.LegTransport
 	// pubsubtopic where the provider will push advertisements
 	pubSubTopic string
 
@@ -60,7 +60,7 @@ type Engine struct {
 }
 
 // New creates a new engine
-func New(ctx context.Context, privKey crypto.PrivKey, h host.Host, ds datastore.Batching, pubSubTopic string, addrs []string) (*Engine, error) {
+func New(ctx context.Context, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, pubSubTopic string, addrs []string) (*Engine, error) {
 	if len(addrs) == 0 {
 		addrs = []string{h.Addrs()[0].String()}
 		log.Infof("Retrieval address not configured, using %s", addrs[0])
@@ -81,12 +81,7 @@ func New(ctx context.Context, privKey crypto.PrivKey, h host.Host, ds datastore.
 
 	e.cachelsys = e.cacheLinkSystem()
 	e.lsys = e.mkLinkSystem()
-	e.lt, err = legs.MakeLegTransport(context.Background(), h, ds, e.lsys, pubSubTopic)
-	if err != nil {
-		log.Errorf("Error initializing leg transport: %s", err)
-		return nil, err
-	}
-	e.lp, err = legs.NewPublisher(ctx, e.lt)
+	e.lp, err = legs.NewPublisherFromExisting(ctx, dt, h, pubSubTopic, e.lsys)
 	if err != nil {
 		log.Errorf("Error initializing publisher in engine: %s", err)
 		return nil, err
@@ -95,14 +90,14 @@ func New(ctx context.Context, privKey crypto.PrivKey, h host.Host, ds datastore.
 }
 
 // NewFromConfig creates a reference provider engine with the corresponding config.
-func NewFromConfig(ctx context.Context, cfg config.Config, ds datastore.Batching, host host.Host) (*Engine, error) {
+func NewFromConfig(ctx context.Context, cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching) (*Engine, error) {
 	log.Info("Starting new reference provider engine")
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {
 		log.Errorf("Error decoding private key from provider: %s", err)
 		return nil, err
 	}
-	return New(ctx, privKey, host, ds, cfg.Ingest.PubSubTopic, cfg.ProviderServer.RetrievalMultiaddrs)
+	return New(ctx, privKey, dt, host, ds, cfg.Ingest.PubSubTopic, cfg.ProviderServer.RetrievalMultiaddrs)
 }
 
 // PublishLocal stores the advertisement in the local datastore.
@@ -164,8 +159,7 @@ func (e *Engine) NotifyRemove(ctx context.Context, key provider.LookupKey) (cid.
 }
 
 func (e *Engine) Shutdown(ctx context.Context) error {
-	e.lp.Close()
-	return e.lt.Close(ctx)
+	return e.lp.Close()
 }
 
 func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
