@@ -5,44 +5,32 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/config"
-	"github.com/filecoin-project/indexer-reference-provider/core"
-	icl "github.com/filecoin-project/storetheindex/api/v0/ingest/client/libp2p"
-	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
-
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multihash"
-
-	legs "github.com/filecoin-project/go-legs"
 )
 
 var log = logging.Logger("provider/engine")
 
-var _ core.Interface = &Engine{}
+var _ provider.Interface = (*Engine)(nil)
 
-// NOTE: Consider including this constant as config or options
+// TODO: Consider including this constant as config or options
 // in provider so they are conigurable.
-const (
-	// metadataProtocol identifies the protocol used by provider
-	// to encode metadata.
-	metadataProtocol = 0
-	// MaxCidsInChunk number of entries to include in each chunk
-	// of ingestion linked list.
-	MaxCidsInChunk = 100
-)
 
-var (
-	// ErrNoCallback is thrown when no callback has been defined.
-	ErrNoCallback = errors.New("no callback was registered in indexer")
-)
+// maxIngestChunk is the maximum number of entries to include in each chunk of ingestion linked list.
+const maxIngestChunk = 100
+
+// ErrNoCallback is thrown when no callback has been defined.
+var ErrNoCallback = errors.New("no callback is registered")
 
 // Engine is an implementation of the core reference provider interface
 type Engine struct {
@@ -67,7 +55,7 @@ type Engine struct {
 	pubSubTopic string
 
 	// cb is the callback used in the linkSystem
-	cb   core.CidCallback
+	cb   provider.Callback
 	cblk sync.Mutex
 }
 
@@ -143,11 +131,6 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	return c, nil
 }
 
-// Publish publishes the advertisement on the pubsub channel.
-//
-// Advertisements are published immutably, so it doesn't matter if the same
-// advertisement is published twice, as this will only propagate the
-// announcement again through the pubsub channel.
 func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	// Store the advertisement locally.
 	c, err := e.PublishLocal(ctx, adv)
@@ -161,47 +144,26 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	return c, e.lp.UpdateRoot(ctx, c)
 }
 
-func (e *Engine) PushAdv(ctx context.Context, indexer peer.ID, adv schema.Advertisement) error {
-	// TODO: Waiting for libp2p interface for advertisement push.
-	panic("not implemented")
-}
-
-// Push sends a single piece of content to the indexer
-func (e *Engine) Push(ctx context.Context, indexer peer.ID, h multihash.Multihash, metadata []byte) error {
-	log.Infow("Pushing metadata for multihash to indexer", "multihash", h.B58String())
-	cl, err := icl.New(e.host, indexer)
-	if err != nil {
-		log.Errorf("Ingest client to indexer could not be initialized: %s", err)
-		return err
-	}
-
-	return cl.IndexContent(ctx, e.host.ID(), e.privKey, h, metadataProtocol, metadata, e.addrs)
-}
-
-// Registers new Cid callback to go from deal.ID to list of cids for the linksystem.
-func (e *Engine) RegisterCidCallback(cb core.CidCallback) {
+func (e *Engine) RegisterCallback(cb provider.Callback) {
 	log.Debugf("Registering callback in engine")
 	e.cblk.Lock()
 	defer e.cblk.Unlock()
 	e.cb = cb
 }
 
-// NotifyPut publishes an advertisement for new content into the pubsub channel
-func (e *Engine) NotifyPut(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
+func (e *Engine) NotifyPut(ctx context.Context, key provider.LookupKey, metadata []byte) (cid.Cid, error) {
 	log.Debugf("NotifyPut for lookup key")
 	// The callback must have been registered for the linkSystem to know how to
 	// go from lookupKey to list of CIDs.
 	return e.publishAdvForIndex(ctx, key, metadata, false)
 }
 
-// NotifyRemove publishes an advertisement, for content to remove, into the
-// pubsub channel
-func (e *Engine) NotifyRemove(ctx context.Context, key core.LookupKey, metadata []byte) (cid.Cid, error) {
+func (e *Engine) NotifyRemove(ctx context.Context, key provider.LookupKey) (cid.Cid, error) {
 	log.Debugf("NotifyRemove for lookup key %s", string(key))
-	return e.publishAdvForIndex(ctx, key, metadata, true)
+	return e.publishAdvForIndex(ctx, key, nil, true)
 }
 
-func (e *Engine) Close(ctx context.Context) error {
+func (e *Engine) Shutdown(ctx context.Context) error {
 	e.lp.Close()
 	return e.lt.Close(ctx)
 }
@@ -243,7 +205,7 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdv, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
@@ -262,7 +224,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key core.LookupKey, met
 		// Generate the linked list ipld.Link that is added to the
 		// advertisement and used for ingestion.  We do not want to store
 		// anything here, thus the noStoreLsys.
-		lnk, err := generateChunks(noStoreLinkSystem(), chmhs, cherr, MaxCidsInChunk)
+		lnk, err := generateChunks(noStoreLinkSystem(), chmhs, cherr, maxIngestChunk)
 		if err != nil {
 			log.Errorf("Error generating link for linked list structure from list of CIDs for key (%s): %s", string(key), err)
 			return cid.Undef, err

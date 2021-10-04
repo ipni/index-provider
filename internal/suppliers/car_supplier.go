@@ -7,8 +7,7 @@ import (
 	"errors"
 	"path/filepath"
 
-	"github.com/filecoin-project/indexer-reference-provider/core"
-
+	"github.com/filecoin-project/indexer-reference-provider"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
@@ -27,12 +26,12 @@ const (
 var ErrNotFound = errors.New("no CID iterator found for given key")
 
 type CarSupplier struct {
-	eng  core.Interface
+	eng  provider.Interface
 	ds   datastore.Datastore
 	opts []car.ReadOption
 }
 
-func NewCarSupplier(eng core.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
+func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
 	// We require a "full" index, including identity CIDs.
 	// As such, we require StoreIdentityCIDs to be set.
 	// Don't rely on all callers to remember to set it.
@@ -44,7 +43,7 @@ func NewCarSupplier(eng core.Interface, ds datastore.Datastore, opts ...car.Read
 		ds:   ds,
 		opts: opts,
 	}
-	eng.RegisterCidCallback(cs.CidCallback)
+	eng.RegisterCallback(cs.CidCallback)
 	return cs
 }
 
@@ -54,7 +53,7 @@ func NewCarSupplier(eng core.Interface, ds datastore.Datastore, opts ...car.Read
 // is already known, PutWithID should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (core.LookupKey, cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (provider.LookupKey, cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
@@ -77,7 +76,7 @@ func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (c
 // known, Put should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) PutWithID(ctx context.Context, key core.LookupKey, path string, metadata []byte) (cid.Cid, error) {
+func (cs *CarSupplier) PutWithID(ctx context.Context, key provider.LookupKey, path string, metadata []byte) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
@@ -96,7 +95,7 @@ func (cs *CarSupplier) PutWithID(ctx context.Context, key core.LookupKey, path s
 	return cs.eng.NotifyPut(ctx, key, metadata)
 }
 
-func toCarIdKey(key core.LookupKey) datastore.Key {
+func toCarIdKey(key provider.LookupKey) datastore.Key {
 	return datastore.NewKey(carIdDatastoreKeyPrefix + string(key))
 }
 
@@ -135,12 +134,12 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte)
 		// See what we can do to opportunistically heal the datastore.
 		return cid.Undef, err
 	}
-	return cs.eng.NotifyRemove(ctx, key, metadata)
+	return cs.eng.NotifyRemove(ctx, key)
 }
 
 // CidCallback supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) CidCallback(key core.LookupKey) (<-chan multihash.Multihash, <-chan error) {
+func (cs *CarSupplier) CidCallback(key provider.LookupKey) (<-chan multihash.Multihash, <-chan error) {
 	errch := make(chan error, 1)
 	idx, err := cs.lookupIterableIndex(key)
 	if err != nil {
@@ -162,7 +161,7 @@ func (cs *CarSupplier) CidCallback(key core.LookupKey) (<-chan multihash.Multiha
 	return mhch, errch
 }
 
-func (cs *CarSupplier) lookupIterableIndex(key core.LookupKey) (index.IterableIndex, error) {
+func (cs *CarSupplier) lookupIterableIndex(key provider.LookupKey) (index.IterableIndex, error) {
 	b, err := cs.ds.Get(toCarIdKey(key))
 	if err != nil {
 		if err == datastore.ErrNotFound {
@@ -209,11 +208,11 @@ func (cs *CarSupplier) Close() error {
 	return cs.ds.Close()
 }
 
-func (cs *CarSupplier) getLookupKeyFromPathKey(pathKey datastore.Key) (core.LookupKey, error) {
+func (cs *CarSupplier) getLookupKeyFromPathKey(pathKey datastore.Key) (provider.LookupKey, error) {
 	return cs.ds.Get(pathKey)
 }
 
-func generateLookupKey(path string) (core.LookupKey, error) {
+func generateLookupKey(path string) (provider.LookupKey, error) {
 	// Simply hash the path given as the lookup key.
 	return sha256.New().Sum([]byte(path)), nil
 }

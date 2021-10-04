@@ -8,13 +8,12 @@ import (
 	"os"
 	"testing"
 
-	mock_core "github.com/filecoin-project/indexer-reference-provider/core/mock"
+	"github.com/filecoin-project/indexer-reference-provider/mock"
 	"github.com/golang/mock/gomock"
-	"github.com/ipld/go-car/v2"
-	"github.com/multiformats/go-multihash"
-
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipld/go-car/v2"
+	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,9 +38,9 @@ func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
 			t.Cleanup(mc.Finish)
 
 			ctx := context.Background()
-			mockEng := mock_core.NewMockInterface(mc)
+			mockEng := mock_provider.NewMockInterface(mc)
 			ds := datastore.NewMapDatastore()
-			mockEng.EXPECT().RegisterCidCallback(gomock.Any())
+			mockEng.EXPECT().RegisterCallback(gomock.Any())
 			subject := NewCarSupplier(mockEng, ds)
 			t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
@@ -116,8 +115,8 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	t.Cleanup(mc.Finish)
 	ds := datastore.NewMapDatastore()
 
-	mockEng := mock_core.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCidCallback(gomock.Any())
+	mockEng := mock_provider.NewMockInterface(mc)
+	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	subject := NewCarSupplier(mockEng, ds)
 	t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
@@ -135,7 +134,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	wantCid = generateCidV1(t, rng)
 	mockEng.
 		EXPECT().
-		NotifyRemove(ctx, gotKey, gomock.Nil()).
+		NotifyRemove(ctx, gotKey).
 		Return(wantCid, nil)
 
 	removedId, err := subject.Remove(ctx, path, nil)

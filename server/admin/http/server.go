@@ -5,9 +5,8 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-
-	"github.com/filecoin-project/indexer-reference-provider/core/engine"
 	"github.com/gorilla/mux"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"

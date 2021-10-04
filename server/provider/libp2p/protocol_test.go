@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
@@ -13,7 +13,7 @@ import (
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
@@ -27,7 +27,7 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 
 	mhs, _ := utils.RandomMultihashes(10)
 	e, err := engine.New(context.Background(), priv, h, store, testTopic, nil)
-	e.RegisterCidCallback(utils.ToCallback(mhs))
+	e.RegisterCallback(utils.ToCallback(mhs))
 	return e, err
 }
 

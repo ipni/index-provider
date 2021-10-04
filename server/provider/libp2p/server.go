@@ -3,7 +3,7 @@ package p2pserver
 import (
 	"context"
 
-	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/libp2p/go-libp2p-core/host"
 )
