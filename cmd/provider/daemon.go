@@ -1,4 +1,4 @@
-package command
+package main
 
 import (
 	"context"
@@ -7,15 +7,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-	"github.com/ipld/go-car/v2"
-
 	"github.com/filecoin-project/indexer-reference-provider/config"
-	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	"github.com/filecoin-project/indexer-reference-provider/engine"
+	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/ipld/go-car/v2"
 	"github.com/libp2p/go-libp2p"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -154,7 +153,7 @@ func daemonCommand(cctx *cli.Context) error {
 		}
 	}()
 
-	if err = eng.Close(ctx); err != nil {
+	if err = eng.Shutdown(ctx); err != nil {
 		log.Errorw("Error closing provider core", "err", err)
 		finalErr = ErrDaemonStop
 	}

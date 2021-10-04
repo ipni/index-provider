@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/filecoin-project/indexer-reference-provider/core/engine"
+	"github.com/filecoin-project/indexer-reference-provider/engine"
 	pclient "github.com/filecoin-project/storetheindex/providerclient"
 	pb "github.com/filecoin-project/storetheindex/providerclient/libp2p/pb"
 	"github.com/gogo/protobuf/proto"

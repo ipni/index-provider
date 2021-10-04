@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/filecoin-project/indexer-reference-provider/core"
-	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/indexer-reference-provider"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
@@ -111,7 +111,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Store the linked list entries in cache as we generate them.  We
 			// use the cache linksystem that stores entries in an in-memory
 			// datastore.
-			_, err = generateChunks(e.cachelsys, chcids, cherr, MaxCidsInChunk)
+			_, err = generateChunks(e.cachelsys, chcids, cherr, maxIngestChunk)
 			if err != nil {
 				log.Errorf("Error generating linked list from callback: %s", err)
 				return nil, err
@@ -287,7 +287,7 @@ func (e *Engine) putLatestAdv(advID []byte) error {
 	return e.ds.Put(datastore.NewKey(latestAdvKey), advID)
 }
 
-func (e *Engine) putKeyCidMap(key core.LookupKey, c cid.Cid) error {
+func (e *Engine) putKeyCidMap(key provider.LookupKey, c cid.Cid) error {
 	// We need to store the map Key-Cid to know what CidLink to put
 	// in advertisement when we notify a removal.
 	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(key)), c.Bytes())
@@ -299,7 +299,7 @@ func (e *Engine) putKeyCidMap(key core.LookupKey, c cid.Cid) error {
 	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), key)
 }
 
-func (e *Engine) deleteKeyCidMap(key core.LookupKey) error {
+func (e *Engine) deleteKeyCidMap(key provider.LookupKey) error {
 	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(key)))
 }
 
@@ -307,11 +307,11 @@ func (e *Engine) deleteCidKeyMap(c cid.Cid) error {
 	return e.ds.Delete(datastore.NewKey(cidToKeyMapPrefix + c.String()))
 }
 
-func (e *Engine) getCidKeyMap(c cid.Cid) (core.LookupKey, error) {
+func (e *Engine) getCidKeyMap(c cid.Cid) (provider.LookupKey, error) {
 	return e.ds.Get(datastore.NewKey(cidToKeyMapPrefix + c.String()))
 }
 
-func (e *Engine) getKeyCidMap(key core.LookupKey) (cid.Cid, error) {
+func (e *Engine) getKeyCidMap(key provider.LookupKey) (cid.Cid, error) {
 	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(key)))
 	if err != nil {
 		if err == datastore.ErrNotFound {

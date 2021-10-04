@@ -63,7 +63,7 @@ func (s *Server) handleNewStream(stream network.Stream) {
 	}
 }
 
-// Returns true on orderly completion of writes (so we can Close the stream conveniently).
+// Returns true on orderly completion of writes (so we can Shutdown the stream conveniently).
 func (s *Server) handleNewMessages(stream network.Stream) bool {
 	ctx := s.ctx
 	handler := s.handler

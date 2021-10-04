@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-indexer-core"
-	"github.com/filecoin-project/indexer-reference-provider/core"
-	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/indexer-reference-provider"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	crypto "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
 	mh "github.com/multiformats/go-multihash"
@@ -26,8 +26,8 @@ var prefix = schema.Linkproto.Prefix
 // ToCallback simply returns the list of multihashes for
 // testing purposes. A more complex callback could read
 // from the CID index and return the list of multihashes.
-func ToCallback(mhs []mh.Multihash) core.CidCallback {
-	return func(k core.LookupKey) (<-chan mh.Multihash, <-chan error) {
+func ToCallback(mhs []mh.Multihash) provider.Callback {
+	return func(k provider.LookupKey) (<-chan mh.Multihash, <-chan error) {
 		chmhs := make(chan mh.Multihash, 1)
 		err := make(chan error, 1)
 		go func() {
@@ -58,7 +58,7 @@ func RandomCids(n int) ([]cid.Cid, error) {
 }
 
 func RandomMultihashes(n int) ([]mh.Multihash, error) {
-	var prng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	mhashes := make([]mh.Multihash, n)
 	for i := 0; i < n; i++ {

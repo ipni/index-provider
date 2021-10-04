@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/filecoin-project/indexer-reference-provider/core"
+	"github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/ipfs/go-cid"
 )
@@ -26,7 +26,7 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Supply CAR.
-	var key core.LookupKey
+	var key provider.LookupKey
 	var advId cid.Cid
 	var err error
 	ctx := context.Background()

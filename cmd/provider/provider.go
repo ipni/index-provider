@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/filecoin-project/indexer-reference-provider/command"
 	"github.com/filecoin-project/indexer-reference-provider/internal/version"
 	"github.com/urfave/cli/v2"
 )
@@ -37,13 +36,13 @@ func main() {
 		Usage:   "Indexer Reference Provider Implementation",
 		Version: version.String(),
 		Commands: []*cli.Command{
-			command.DaemonCmd,
-			command.FindCmd,
-			command.IndexCmd,
-			command.InitCmd,
-			command.ConnectCmd,
-			command.ImportCmd,
-			command.RegisterCmd,
+			DaemonCmd,
+			FindCmd,
+			IndexCmd,
+			InitCmd,
+			ConnectCmd,
+			ImportCmd,
+			RegisterCmd,
 		},
 	}
 
