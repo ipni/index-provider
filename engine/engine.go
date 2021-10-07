@@ -281,8 +281,9 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey,
 		previousLnk = nb.Build().(schema.Link_Advertisement)
 	}
 
+	contextID := []byte(key)
 	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidsLnk,
-		metadata, isRm, e.host.ID().String(), e.addrs)
+		contextID, metadata, isRm, e.host.ID().String(), e.addrs)
 	if err != nil {
 		log.Errorf("Error generating new advertisement: %s", err)
 		return cid.Undef, err

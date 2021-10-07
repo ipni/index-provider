@@ -69,6 +69,11 @@ var indexFlags = []cli.Flag{
 		Required: false,
 	},
 	&cli.StringFlag{
+		Name:     "ctxid",
+		Usage:    "Context ID",
+		Required: true,
+	},
+	&cli.StringFlag{
 		Name:     "meta",
 		Usage:    "Metadata bytes.",
 		Aliases:  []string{"m"},

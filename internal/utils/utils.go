@@ -86,11 +86,12 @@ func GenRandomIndexAndAdv(t *testing.T, lsys ipld.LinkSystem) (schema.Advertisem
 	require.NoError(t, err)
 	mhs, _ := RandomMultihashes(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
-	val := indexer.MakeValue(p, 0, mhs[0])
+	ctxID := mhs[0]
+	val := indexer.MakeValue(p, ctxID, 0, []byte("test-metadata"))
 	cidsLnk, err := schema.NewListOfMhs(lsys, mhs)
 	require.NoError(t, err)
 	addrs := []string{"/ip4/0.0.0.0/tcp/3103"}
-	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, val.Metadata, false, p.String(), addrs)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, ctxID, val.Metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return adv, advLnk
 }
