@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/filecoin-project/indexer-reference-provider"
