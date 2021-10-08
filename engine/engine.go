@@ -166,7 +166,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 	log.Infow("Getting advertisement", "cid", c)
 	l, err := schema.LinkAdvFromCid(c).AsLink()
 	if err != nil {
-		log.Errorf("Error getting Advertisement link from its CID (%s): %s", c, err)
+		log.Errorf("Error getting Advertisement link from its CID %q: %s", c, err)
 		return nil, err
 	}
 
@@ -178,7 +178,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 	}
 	adv, ok := n.(schema.Advertisement)
 	if !ok {
-		log.Errorf("stored IPLD node for cid (%s) not of type advertisement", c)
+		log.Errorf("Stored IPLD node for cid %q", c)
 		return nil, errors.New("stored IPLD node not of advertisement type")
 	}
 	return adv, nil
