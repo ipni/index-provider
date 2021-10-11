@@ -4,16 +4,22 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
+	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
+	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-indexer-core"
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	gsimpl "github.com/ipfs/go-graphsync/impl"
+	gsnet "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -49,14 +55,12 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	return lsys
 }
 
-func mkMockSubscriber(t *testing.T, h host.Host) (legs.LegSubscriber, *legs.LegTransport) {
+func mkMockSubscriber(t *testing.T, h host.Host) legs.LegSubscriber {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	lsys := mkLinkSystem(store)
-	lt, err := legs.MakeLegTransport(context.Background(), h, store, lsys, testTopic)
+	ls, err := legs.NewSubscriber(context.Background(), h, store, lsys, testTopic)
 	require.NoError(t, err)
-	ls, err := legs.NewSubscriber(context.Background(), lt, nil)
-	require.NoError(t, err)
-	return ls, lt
+	return ls
 }
 
 func mkTestHost(t *testing.T) host.Host {
@@ -86,9 +90,23 @@ func mkEngine(t *testing.T) (*Engine, error) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	h := mkTestHost(t)
+
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	return New(context.Background(), priv, h, store, testTopic, nil)
+	gsnet := gsnet.NewFromLibp2pHost(h)
+	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
+	tp := gstransport.NewTransport(h.ID(), gs)
+	dtNet := dtnetwork.NewFromLibp2pHost(h)
+	tmpDir, err := ioutil.TempDir("", "indexer-dt-dir")
+	if err != nil {
+		return nil, err
+	}
+	dt, err := datatransfer.NewDataTransfer(store, tmpDir, dtNet, tp)
+	if err != nil {
+		return nil, err
+	}
+
+	return New(context.Background(), priv, dt, h, store, testTopic, nil)
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -176,10 +194,10 @@ func TestNotifyPublish(t *testing.T) {
 	// Create mockSubscriber
 	lh := mkTestHost(t)
 	_, adv, advLnk := genRandomIndexAndAdv(t, e)
-	ls, lt := mkMockSubscriber(t, lh)
+	ls := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
-	t.Cleanup(clean(ls, lt, e, cncl))
+	t.Cleanup(clean(ls, e, cncl))
 
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
@@ -218,10 +236,10 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
-	ls, lt := mkMockSubscriber(t, lh)
+	ls := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
-	t.Cleanup(clean(ls, lt, e, cncl))
+	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
 
@@ -300,10 +318,10 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
-	ls, lt := mkMockSubscriber(t, lh)
+	ls := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnChange()
 
-	t.Cleanup(clean(ls, lt, e, cncl))
+	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
 
@@ -361,11 +379,10 @@ func TestLinkedStructure(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func clean(ls legs.LegSubscriber, lt *legs.LegTransport, e *Engine, cncl context.CancelFunc) func() {
+func clean(ls legs.LegSubscriber, e *Engine, cncl context.CancelFunc) func() {
 	return func() {
 		cncl()
 		ls.Close()
-		lt.Close(context.Background())
 		e.Shutdown(context.Background())
 	}
 }

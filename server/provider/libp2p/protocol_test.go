@@ -2,8 +2,12 @@ package p2pserver_test
 
 import (
 	"context"
+	"io/ioutil"
 	"testing"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
+	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
+	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
@@ -11,7 +15,10 @@ import (
 	p2pclient "github.com/filecoin-project/storetheindex/providerclient/libp2p"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	gsimpl "github.com/ipfs/go-graphsync/impl"
+	gsnet "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -25,8 +32,21 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 	require.NoError(t, err)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
+	gsnet := gsnet.NewFromLibp2pHost(h)
+	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
+	tp := gstransport.NewTransport(h.ID(), gs)
+	dtNet := dtnetwork.NewFromLibp2pHost(h)
+	tmpDir, err := ioutil.TempDir("", "indexer-dt-dir")
+	if err != nil {
+		return nil, err
+	}
+	dt, err := datatransfer.NewDataTransfer(store, tmpDir, dtNet, tp)
+	if err != nil {
+		return nil, err
+	}
+
 	mhs, _ := utils.RandomMultihashes(10)
-	e, err := engine.New(context.Background(), priv, h, store, testTopic, nil)
+	e, err := engine.New(context.Background(), priv, dt, h, store, testTopic, nil)
 	e.RegisterCallback(utils.ToCallback(mhs))
 	return e, err
 }

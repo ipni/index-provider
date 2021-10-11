@@ -3,8 +3,9 @@ module github.com/filecoin-project/indexer-reference-provider
 go 1.16
 
 require (
+	github.com/filecoin-project/go-data-transfer v1.10.1
 	github.com/filecoin-project/go-indexer-core v0.1.5
-	github.com/filecoin-project/go-legs v0.0.0-20210922204025-c6f68b62ab16
+	github.com/filecoin-project/go-legs v0.0.0-20211002011713-f1f52b88c467
 	github.com/filecoin-project/storetheindex v0.0.0-20211001170917-11797057b28d
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
@@ -12,6 +13,7 @@ require (
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-leveldb v0.4.2
+	github.com/ipfs/go-graphsync v0.9.3
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipld/go-car/v2 v2.0.3-0.20210920144420-f35d88ce16ca
 	github.com/ipld/go-ipld-prime v0.12.0
