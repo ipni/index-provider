@@ -13,7 +13,6 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multicodec"
-	"github.com/multiformats/go-multihash"
 )
 
 const (
@@ -43,7 +42,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 		ds:   ds,
 		opts: opts,
 	}
-	eng.RegisterCallback(cs.CidCallback)
+	eng.RegisterCallback(cs.Callback)
 	return cs
 }
 
@@ -137,28 +136,14 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte)
 	return cs.eng.NotifyRemove(ctx, key)
 }
 
-// CidCallback supplies an iterator over CIDs of the CAR file that corresponds to
+// Callback supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) CidCallback(key provider.LookupKey) (<-chan multihash.Multihash, <-chan error) {
-	errch := make(chan error, 1)
+func (cs *CarSupplier) Callback(ctx context.Context, key provider.LookupKey) (provider.MultihashIterator, error) {
 	idx, err := cs.lookupIterableIndex(key)
 	if err != nil {
-		errch <- err
-		close(errch)
-		return nil, errch
+		return nil, err
 	}
-	mhch := make(chan multihash.Multihash, 1)
-	go func() {
-		if err := idx.ForEach(func(mh multihash.Multihash, offset uint64) error {
-			mhch <- mh
-			return nil
-		}); err != nil {
-			errch <- err // though it should never happen, as we return nil above
-		}
-		close(mhch)
-		close(errch)
-	}()
-	return mhch, errch
+	return newIndexMhIterator(ctx, idx), nil
 }
 
 func (cs *CarSupplier) lookupIterableIndex(key provider.LookupKey) (index.IterableIndex, error) {

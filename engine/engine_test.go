@@ -74,16 +74,18 @@ func TestToCallback(t *testing.T) {
 	require.NoError(t, err)
 
 	subject := utils.ToCallback(wantMhs)
-	cidChan, errChan := subject([]byte("fish"))
+	mhIter, err := subject(context.Background(), []byte("fish"))
+	require.NoError(t, err)
 	var i int
-	for gotCid := range cidChan {
+	for {
+		gotCid, err := mhIter.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
 		require.Equal(t, wantMhs[i], gotCid)
 		i++
 	}
-
-	gotErr, isOpen := <-errChan
-	require.False(t, isOpen)
-	require.Nil(t, gotErr)
 }
 
 func mkEngine(t *testing.T) (*Engine, error) {
@@ -124,8 +126,9 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 	e.RegisterCallback(utils.ToCallback(mhs))
 	// Use a random key for the list of cids.
 	key := []byte(mhs[0])
-	chcids, cherr := e.cb(key)
-	cidsLnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, maxIngestChunk)
+	mhIter, err := e.cb(context.Background(), key)
+	require.NoError(t, err)
+	cidsLnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
 	require.NoError(t, err)
 	// Store the relationship between lookupKey and CID
 	// of the advertised list of Cids so it is available
@@ -367,8 +370,9 @@ func TestLinkedStructure(t *testing.T) {
 	k := []byte("a")
 
 	// Generate the linked list
-	chcids, cherr := e.cb(k)
-	lnk, err := generateChunks(noStoreLinkSystem(), chcids, cherr, maxIngestChunk)
+	mhIter, err := e.cb(context.Background(), k)
+	require.NoError(t, err)
+	lnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
 	require.NoError(t, err)
 	err = e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
 	require.NoError(t, err)

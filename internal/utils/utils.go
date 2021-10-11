@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"math/rand"
 	"testing"
@@ -23,21 +24,28 @@ import (
 
 var prefix = schema.Linkproto.Prefix
 
+var _ provider.MultihashIterator = (*sliceMhIterator)(nil)
+
+type sliceMhIterator struct {
+	mhs    []mh.Multihash
+	offset int
+}
+
+func (s *sliceMhIterator) Next() (mh.Multihash, error) {
+	if s.offset < len(s.mhs) {
+		next := s.mhs[s.offset]
+		s.offset++
+		return next, nil
+	}
+	return nil, io.EOF
+}
+
 // ToCallback simply returns the list of multihashes for
 // testing purposes. A more complex callback could read
 // from the CID index and return the list of multihashes.
 func ToCallback(mhs []mh.Multihash) provider.Callback {
-	return func(k provider.LookupKey) (<-chan mh.Multihash, <-chan error) {
-		chmhs := make(chan mh.Multihash, 1)
-		err := make(chan error, 1)
-		go func() {
-			defer close(chmhs)
-			defer close(err)
-			for _, c := range mhs {
-				chmhs <- c
-			}
-		}()
-		return chmhs, err
+	return func(_ context.Context, _ provider.LookupKey) (provider.MultihashIterator, error) {
+		return &sliceMhIterator{mhs: mhs}, nil
 	}
 }
 

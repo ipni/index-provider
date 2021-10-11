@@ -214,11 +214,14 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey,
 	if !isRm {
 		log.Info("Generating linked list of CIDs for advertisement")
 		// Call the callback
-		chmhs, cherr := e.cb(key)
+		mhIter, err := e.cb(ctx, key)
+		if err != nil {
+			return cid.Undef, err
+		}
 		// Generate the linked list ipld.Link that is added to the
 		// advertisement and used for ingestion.  We do not want to store
 		// anything here, thus the noStoreLsys.
-		lnk, err := generateChunks(noStoreLinkSystem(), chmhs, cherr, maxIngestChunk)
+		lnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
 		if err != nil {
 			log.Errorf("Error generating link for linked list structure from list of CIDs for key (%s): %s", string(key), err)
 			return cid.Undef, err
