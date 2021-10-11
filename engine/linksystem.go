@@ -106,12 +106,15 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Entries link, if just gets the cid, and uses its local map cid
 			// to lookupKey to trigger the removal of all entries for that
 			// lookupKey in its index.
-			chcids, cherr := e.cb(key)
+			mhIter, err := e.cb(lctx.Ctx, key)
+			if err != nil {
+				return nil, err
+			}
 
 			// Store the linked list entries in cache as we generate them.  We
 			// use the cache linksystem that stores entries in an in-memory
 			// datastore.
-			_, err = generateChunks(e.cachelsys, chcids, cherr, maxIngestChunk)
+			_, err = generateChunks(e.cachelsys, mhIter, maxIngestChunk)
 			if err != nil {
 				log.Errorf("Error generating linked list from callback: %s", err)
 				return nil, err
@@ -151,56 +154,42 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 // This function takes a linksystem for persistence along with the channels
 // from a callback, and generates the linked list structure. It also supports
 // configuring the number of entries per chunk in the list.
-func generateChunks(lsys ipld.LinkSystem, chmhs <-chan mh.Multihash, cherr <-chan error, numEntries int) (ipld.Link, error) {
-	mhs := make([]mh.Multihash, 0, numEntries)
+func generateChunks(lsys ipld.LinkSystem, mhIter provider.MultihashIterator, maxChunkSize int) (ipld.Link, error) {
+	mhs := make([]mh.Multihash, 0, maxChunkSize)
 	var chunkLnk ipld.Link
-	var err error
-
-	var cidCount, chunkCount int
-
-	// For each Cid from callback.
-eachCid:
+	var totalMhCount, chunkCount int
 	for {
-		select {
-		case ec, ok := <-chmhs:
-			if !ok {
-				break eachCid
-			}
-			mhs = append(mhs, ec)
-		case err = <-cherr:
-			if err != nil {
-				// If something in error channel return error
-				return nil, err
-			}
-			break eachCid
+		next, err := mhIter.Next()
+		if err == io.EOF {
+			break
 		}
+		if err != nil {
+			return nil, err
+		}
+		mhs = append(mhs, next)
+		totalMhCount++
 
-		// Create chunk of cids and link to previous chunk
-		if len(mhs) == numEntries {
-			cidCount += len(mhs)
-			chunkCount++
-			// Create the chunk and restart variables
+		if len(mhs) >= maxChunkSize {
 			chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
 			if err != nil {
 				return nil, err
 			}
-			// Restart the list
-			mhs = make([]mh.Multihash, 0, numEntries)
+			chunkCount++
+			mhs = make([]mh.Multihash, 0, maxChunkSize)
 		}
 	}
 
-	// If at the end there are outstanding cids, create a chunk
-	// with them
-	if len(mhs) > 0 {
-		cidCount += len(mhs)
-		chunkCount++
+	// Chunk remaining multihashes.
+	if len(mhs) != 0 {
+		var err error
 		chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
 		if err != nil {
 			return nil, err
 		}
+		chunkCount++
 	}
 
-	log.Infow("Generated linked chunks of CIDs", "cids", cidCount, "chunks", chunkCount)
+	log.Infow("Generated linked chunks of multihashes", "totalMhCount", totalMhCount, "chunkCount", chunkCount)
 	return chunkLnk, nil
 }
 

@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
+func TestPutCarReturnsExpectedIterator(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
 	tests := []struct {
 		name    string
@@ -77,24 +77,22 @@ func TestPutCarReturnsExpectedCidIterator(t *testing.T) {
 			require.Equal(t, wantCid, gotCid)
 			require.NotNil(t, gotKey)
 
-			gotMhChan, gotErrChan := subject.CidCallback(gotKey)
+			gotIterator, err := subject.Callback(ctx, gotKey)
 			require.NoError(t, err)
 
 			gotMultihashes := 0
 			for {
-				gotMh, ok := <-gotMhChan
-				if !ok {
+				gotMh, err := gotIterator.Next()
+				if err == io.EOF {
 					break // done
 				}
+				require.NoError(t, err)
 				seen, known := seenMultihashes[gotMh.HexString()]
 				require.False(t, seen)
 				require.True(t, known)
 				seenMultihashes[gotMh.HexString()] = true
 				gotMultihashes++
 			}
-
-			_, hasErr := <-gotErrChan
-			require.False(t, hasErr)
 
 			for mhStr, seen := range seenMultihashes {
 				if !seen {

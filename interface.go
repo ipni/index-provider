@@ -68,8 +68,16 @@ type Interface interface {
 	Shutdown(ctx context.Context) error
 }
 
+// MultihashIterator iterates over a list of multihashes.
+type MultihashIterator interface {
+	// Next returns the next multihash in the list of mulitihashes.
+	// The iterator fails fast: errors that occur during iteration are returned immediately.
+	// This function returns a zero multihash and io.EOF when there are no more elements to return.
+	Next() (mh.Multihash, error)
+}
+
 // Callback is used by provider to look up a list of multihashes associated to a key.
 // The callback must produce the same list of multihashes for the same key.
-// See: Interface.NotifyPut, Interface.NotifyRemove
-// TODO: update docs once the iterator return type refactor is done.
-type Callback func(key LookupKey) (<-chan mh.Multihash, <-chan error)
+//
+// See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator
+type Callback func(ctx context.Context, key LookupKey) (MultihashIterator, error)
