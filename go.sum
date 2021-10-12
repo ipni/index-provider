@@ -185,7 +185,6 @@ github.com/filecoin-project/go-ds-versioning v0.1.0 h1:y/X6UksYTsK8TLCI7rttCKEvl
 github.com/filecoin-project/go-ds-versioning v0.1.0/go.mod h1:mp16rb4i2QPmxBnmanUx8i/XANp+PFCCJWiAb+VW4/s=
 github.com/filecoin-project/go-indexer-core v0.2.0 h1:I3mtrTLH6aXOkbxsjRKv3rn8tLgoa6vIYl8XuBNRDik=
 github.com/filecoin-project/go-indexer-core v0.2.0/go.mod h1:CsD+HUiCB+lwL+mxXPKQCsqoA9fezXTheU7IjsFohCU=
-github.com/filecoin-project/go-legs v0.0.0-20210922204025-c6f68b62ab16 h1:xFiCa75M7kjr9/AfaVvFNjJKsMgtIP25g+DXKx4Ub7A=
 github.com/filecoin-project/go-legs v0.0.0-20210922204025-c6f68b62ab16/go.mod h1:qLH/nW+bQoOmnLG4eGU36vubv0MmAezQ2Y2FQBa1hM8=
 github.com/filecoin-project/go-legs v0.0.0-20211002011713-f1f52b88c467 h1:zJYJcnbujeGTfLtr9ErJa0+oFBtY6mqW+7dCLf4/pQU=
 github.com/filecoin-project/go-legs v0.0.0-20211002011713-f1f52b88c467/go.mod h1:lKwBnslfNGG7JnsP9uQZl3yK7f74fit1MyHcwuuOP3k=
