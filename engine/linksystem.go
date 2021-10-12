@@ -133,7 +133,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		// If no value was populated it means that nothing was found
 		// in the multiple datastores.
 		if len(val) == 0 {
-			log.Errorf("No object has been found in linksystem for CID (%s)", c)
+			log.Errorf("No object found in linksystem for CID (%s)", c)
 			return nil, datastore.ErrNotFound
 		}
 
@@ -200,6 +200,7 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 		c := lnk.(cidlink.Link).Cid
 		val, err := e.cache.Get(datastore.NewKey(linksEntryCachePrefix + c.String()))
 		if err != nil {
+			log.Errorf("Could not get cache entry for key %q", linksEntryCachePrefix+c.String())
 			return nil, err
 		}
 		return bytes.NewBuffer(val), nil
@@ -208,7 +209,11 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			return e.cache.Put(datastore.NewKey(linksEntryCachePrefix+c.String()), buf.Bytes())
+			err := e.cache.Put(datastore.NewKey(linksEntryCachePrefix+c.String()), buf.Bytes())
+			if err != nil {
+				log.Errorf("Could not put cache entry for key %q", linksEntryCachePrefix+c.String())
+			}
+			return err
 		}, nil
 	}
 	return lsys

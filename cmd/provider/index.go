@@ -59,7 +59,7 @@ func indexCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	err = client.IndexContent(cctx.Context, peerID, privKey, mh, uint64(cctx.Int("proto")), []byte(cctx.String("meta")), cctx.StringSlice("addr"))
+	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), uint64(cctx.Int("proto")), []byte(cctx.String("meta")), cctx.StringSlice("addr"))
 	if err != nil {
 		return err
 	}

@@ -37,7 +37,8 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			mc := gomock.NewController(t)
 			t.Cleanup(mc.Finish)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			mockEng := mock_provider.NewMockInterface(mc)
 			ds := datastore.NewMapDatastore()
 			mockEng.EXPECT().RegisterCallback(gomock.Any())

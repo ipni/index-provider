@@ -145,11 +145,13 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisem
 	require.NoError(t, err)
 	p, err := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	require.NoError(t, err)
-	val := indexer.MakeValue(p, 0, mhs[0])
+	ctxID := mhs[0]
+	metadata := []byte("test-metadata")
+	val := indexer.MakeValue(p, ctxID, 0, metadata)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	addrs := []string{"/ip4/127.0.0.1/tcp/3103"}
 	// Generate the advertisement.
-	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, val.Metadata, false, p.String(), addrs)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, ctxID, val.Metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return cidsLnk, adv, advLnk
 }
