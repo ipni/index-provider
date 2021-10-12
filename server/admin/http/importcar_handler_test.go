@@ -14,15 +14,21 @@ import (
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	"github.com/filecoin-project/indexer-reference-provider/mock"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/require"
 )
 
+const testProtocolID = 0x300000
+
 func Test_importCarHandler(t *testing.T) {
 	wantKey := []byte("lobster")
-	wantMetadata := []byte("munch")
+	wantMetadata := stiapi.Metadata{
+		ProtocolID: testProtocolID,
+		Data:       []byte("munch"),
+	}
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
@@ -70,7 +76,10 @@ func Test_importCarHandler(t *testing.T) {
 
 func Test_importCarHandlerFail(t *testing.T) {
 	wantKey := []byte("lobster")
-	wantMetadata := []byte("munch")
+	wantMetadata := stiapi.Metadata{
+		ProtocolID: testProtocolID,
+		Data:       []byte("munch"),
+	}
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,

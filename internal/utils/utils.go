@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/go-indexer-core"
 	"github.com/filecoin-project/indexer-reference-provider"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -87,11 +87,14 @@ func GenRandomIndexAndAdv(t *testing.T, lsys ipld.LinkSystem) (schema.Advertisem
 	mhs, _ := RandomMultihashes(10)
 	p, _ := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	ctxID := mhs[0]
-	val := indexer.MakeValue(p, ctxID, 0, []byte("test-metadata"))
+	metadata := stiapi.Metadata{
+		ProtocolID: 0x300000,
+		Data:       []byte("test-metadata"),
+	}
 	cidsLnk, err := schema.NewListOfMhs(lsys, mhs)
 	require.NoError(t, err)
 	addrs := []string{"/ip4/0.0.0.0/tcp/3103"}
-	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, ctxID, val.Metadata, false, p.String(), addrs)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(lsys, priv, nil, cidsLnk, ctxID, metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return adv, advLnk
 }

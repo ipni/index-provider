@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	provider "github.com/filecoin-project/indexer-reference-provider"
+	v0 "github.com/filecoin-project/storetheindex/api/v0"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
@@ -38,24 +39,24 @@ func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 }
 
 // GetAdv mocks base method.
-func (m *MockInterface) GetAdv(ctx context.Context, id cid.Cid) (schema.Advertisement, error) {
+func (m *MockInterface) GetAdv(arg0 context.Context, arg1 cid.Cid) (schema.Advertisement, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAdv", ctx, id)
+	ret := m.ctrl.Call(m, "GetAdv", arg0, arg1)
 	ret0, _ := ret[0].(schema.Advertisement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAdv indicates an expected call of GetAdv.
-func (mr *MockInterfaceMockRecorder) GetAdv(ctx, id interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetAdv(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAdv", reflect.TypeOf((*MockInterface)(nil).GetAdv), ctx, id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAdv", reflect.TypeOf((*MockInterface)(nil).GetAdv), arg0, arg1)
 }
 
 // GetLatestAdv mocks base method.
-func (m *MockInterface) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
+func (m *MockInterface) GetLatestAdv(arg0 context.Context) (cid.Cid, schema.Advertisement, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLatestAdv", ctx)
+	ret := m.ctrl.Call(m, "GetLatestAdv", arg0)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(schema.Advertisement)
 	ret2, _ := ret[2].(error)
@@ -63,93 +64,93 @@ func (m *MockInterface) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Adver
 }
 
 // GetLatestAdv indicates an expected call of GetLatestAdv.
-func (mr *MockInterfaceMockRecorder) GetLatestAdv(ctx interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) GetLatestAdv(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestAdv", reflect.TypeOf((*MockInterface)(nil).GetLatestAdv), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestAdv", reflect.TypeOf((*MockInterface)(nil).GetLatestAdv), arg0)
 }
 
 // NotifyPut mocks base method.
-func (m *MockInterface) NotifyPut(ctx context.Context, key provider.LookupKey, metadata []byte) (cid.Cid, error) {
+func (m *MockInterface) NotifyPut(arg0 context.Context, arg1 provider.LookupKey, arg2 v0.Metadata) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyPut", ctx, key, metadata)
+	ret := m.ctrl.Call(m, "NotifyPut", arg0, arg1, arg2)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NotifyPut indicates an expected call of NotifyPut.
-func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, key, metadata interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyPut(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), ctx, key, metadata)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), arg0, arg1, arg2)
 }
 
 // NotifyRemove mocks base method.
-func (m *MockInterface) NotifyRemove(ctx context.Context, key provider.LookupKey) (cid.Cid, error) {
+func (m *MockInterface) NotifyRemove(arg0 context.Context, arg1 provider.LookupKey) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyRemove", ctx, key)
+	ret := m.ctrl.Call(m, "NotifyRemove", arg0, arg1)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NotifyRemove indicates an expected call of NotifyRemove.
-func (mr *MockInterfaceMockRecorder) NotifyRemove(ctx, key interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyRemove(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyRemove", reflect.TypeOf((*MockInterface)(nil).NotifyRemove), ctx, key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyRemove", reflect.TypeOf((*MockInterface)(nil).NotifyRemove), arg0, arg1)
 }
 
 // Publish mocks base method.
-func (m *MockInterface) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
+func (m *MockInterface) Publish(arg0 context.Context, arg1 schema.Advertisement) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Publish", ctx, adv)
+	ret := m.ctrl.Call(m, "Publish", arg0, arg1)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Publish indicates an expected call of Publish.
-func (mr *MockInterfaceMockRecorder) Publish(ctx, adv interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) Publish(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockInterface)(nil).Publish), ctx, adv)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockInterface)(nil).Publish), arg0, arg1)
 }
 
 // PublishLocal mocks base method.
-func (m *MockInterface) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
+func (m *MockInterface) PublishLocal(arg0 context.Context, arg1 schema.Advertisement) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublishLocal", ctx, adv)
+	ret := m.ctrl.Call(m, "PublishLocal", arg0, arg1)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PublishLocal indicates an expected call of PublishLocal.
-func (mr *MockInterfaceMockRecorder) PublishLocal(ctx, adv interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) PublishLocal(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishLocal", reflect.TypeOf((*MockInterface)(nil).PublishLocal), ctx, adv)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishLocal", reflect.TypeOf((*MockInterface)(nil).PublishLocal), arg0, arg1)
 }
 
 // RegisterCallback mocks base method.
-func (m *MockInterface) RegisterCallback(cb provider.Callback) {
+func (m *MockInterface) RegisterCallback(arg0 provider.Callback) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterCallback", cb)
+	m.ctrl.Call(m, "RegisterCallback", arg0)
 }
 
 // RegisterCallback indicates an expected call of RegisterCallback.
-func (mr *MockInterfaceMockRecorder) RegisterCallback(cb interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) RegisterCallback(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCallback", reflect.TypeOf((*MockInterface)(nil).RegisterCallback), cb)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCallback", reflect.TypeOf((*MockInterface)(nil).RegisterCallback), arg0)
 }
 
 // Shutdown mocks base method.
-func (m *MockInterface) Shutdown(ctx context.Context) error {
+func (m *MockInterface) Shutdown(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Shutdown", ctx)
+	ret := m.ctrl.Call(m, "Shutdown", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Shutdown indicates an expected call of Shutdown.
-func (mr *MockInterfaceMockRecorder) Shutdown(ctx interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) Shutdown(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown), arg0)
 }

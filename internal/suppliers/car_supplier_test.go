@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/indexer-reference-provider/mock"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -16,6 +17,8 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
+
+const testProtocolID = 0x300000
 
 func TestPutCarReturnsExpectedIterator(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
@@ -31,6 +34,9 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			"CARv2ReturnsExpectedCIDs",
 			"../../testdata/sample-wrapped-v2.car",
 		},
+	}
+	metadata := stiapi.Metadata{
+		ProtocolID: testProtocolID,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,10 +76,10 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			wantCid := generateCidV1(t, rng)
 			mockEng.
 				EXPECT().
-				NotifyPut(ctx, gomock.Any(), gomock.Nil()).
+				NotifyPut(ctx, gomock.Any(), metadata).
 				Return(wantCid, nil)
 
-			gotKey, gotCid, err := subject.Put(ctx, tt.carPath, nil)
+			gotKey, gotCid, err := subject.Put(ctx, tt.carPath, metadata)
 			require.NoError(t, err)
 			require.Equal(t, wantCid, gotCid)
 			require.NotNil(t, gotKey)
@@ -119,13 +125,17 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	subject := NewCarSupplier(mockEng, ds)
 	t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
+	metadata := stiapi.Metadata{
+		ProtocolID: testProtocolID,
+	}
+
 	wantCid := generateCidV1(t, rng)
 	mockEng.
 		EXPECT().
-		NotifyPut(ctx, gomock.Any(), gomock.Nil()).
+		NotifyPut(ctx, gomock.Any(), metadata).
 		Return(wantCid, nil)
 
-	gotKey, id, err := subject.Put(ctx, path, nil)
+	gotKey, id, err := subject.Put(ctx, path, metadata)
 	require.NoError(t, err)
 	require.Equal(t, wantCid, id)
 	require.NotNil(t, gotKey)
@@ -136,11 +146,11 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 		NotifyRemove(ctx, gotKey).
 		Return(wantCid, nil)
 
-	removedId, err := subject.Remove(ctx, path, nil)
+	removedId, err := subject.Remove(ctx, path, metadata)
 	require.NoError(t, err)
 	require.Equal(t, wantCid, removedId)
 
-	_, err = subject.Remove(ctx, path, nil)
+	_, err = subject.Remove(ctx, path, metadata)
 	require.EqualError(t, err, "no CID iterator found for given key")
 }
 

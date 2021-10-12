@@ -8,8 +8,12 @@ import (
 	"net/http"
 
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/urfave/cli/v2"
 )
+
+// TODO: This should change to a code that indicates graphsync.
+const providerProtocolID = 0x300001
 
 var ImportCmd = &cli.Command{
 	Name:        "import",
@@ -19,7 +23,6 @@ var ImportCmd = &cli.Command{
 }
 
 var (
-	metadata        []byte
 	key             []byte
 	importCarSubCmd = &cli.Command{
 		Name:    "car",
@@ -29,6 +32,9 @@ var (
 		Before:  beforeImportCar,
 		Action:  doImportCar,
 	}
+	metadata = stiapi.Metadata{
+		ProtocolID: providerProtocolID,
+	}
 )
 
 func beforeImportCar(context *cli.Context) error {
@@ -37,7 +43,7 @@ func beforeImportCar(context *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		metadata = decoded
+		metadata.Data = decoded
 	}
 	if keyFlagValue != "" {
 		decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)

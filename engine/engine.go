@@ -9,6 +9,7 @@ import (
 	"github.com/filecoin-project/go-legs"
 	provider "github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/config"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -146,7 +147,7 @@ func (e *Engine) RegisterCallback(cb provider.Callback) {
 	e.cb = cb
 }
 
-func (e *Engine) NotifyPut(ctx context.Context, key provider.LookupKey, metadata []byte) (cid.Cid, error) {
+func (e *Engine) NotifyPut(ctx context.Context, key provider.LookupKey, metadata stiapi.Metadata) (cid.Cid, error) {
 	log.Debugf("NotifyPut for lookup key")
 	// The callback must have been registered for the linkSystem to know how to
 	// go from lookupKey to list of CIDs.
@@ -155,7 +156,7 @@ func (e *Engine) NotifyPut(ctx context.Context, key provider.LookupKey, metadata
 
 func (e *Engine) NotifyRemove(ctx context.Context, key provider.LookupKey) (cid.Cid, error) {
 	log.Debugf("NotifyRemove for lookup key %s", string(key))
-	return e.publishAdvForIndex(ctx, key, nil, true)
+	return e.publishAdvForIndex(ctx, key, stiapi.Metadata{}, true)
 }
 
 func (e *Engine) Shutdown(ctx context.Context) error {
@@ -199,7 +200,7 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdv, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey, metadata []byte, isRm bool) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey, metadata stiapi.Metadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
