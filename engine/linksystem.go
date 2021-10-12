@@ -2,7 +2,6 @@ package engine
 
 import (
 	"bytes"
-	"context"
 	"io"
 
 	"github.com/filecoin-project/indexer-reference-provider"
@@ -13,7 +12,7 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
-	mh "github.com/multiformats/go-multihash"
+	"github.com/multiformats/go-multihash"
 )
 
 const (
@@ -156,7 +155,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 // from a callback, and generates the linked list structure. It also supports
 // configuring the number of entries per chunk in the list.
 func generateChunks(lsys ipld.LinkSystem, mhIter provider.MultihashIterator, maxChunkSize int) (ipld.Link, error) {
-	mhs := make([]mh.Multihash, 0, maxChunkSize)
+	mhs := make([]multihash.Multihash, 0, maxChunkSize)
 	var chunkLnk ipld.Link
 	var totalMhCount, chunkCount int
 	for {
@@ -176,7 +175,7 @@ func generateChunks(lsys ipld.LinkSystem, mhIter provider.MultihashIterator, max
 				return nil, err
 			}
 			chunkCount++
-			mhs = make([]mh.Multihash, 0, maxChunkSize)
+			mhs = make([]multihash.Multihash, 0, maxChunkSize)
 		}
 	}
 
