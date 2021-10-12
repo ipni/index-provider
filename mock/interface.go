@@ -13,6 +13,7 @@ import (
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
+	multihash "github.com/multiformats/go-multihash"
 )
 
 // MockInterface is a mock of Interface interface.
@@ -153,4 +154,42 @@ func (m *MockInterface) Shutdown(arg0 context.Context) error {
 func (mr *MockInterfaceMockRecorder) Shutdown(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown), arg0)
+}
+
+// MockMultihashIterator is a mock of MultihashIterator interface.
+type MockMultihashIterator struct {
+	ctrl     *gomock.Controller
+	recorder *MockMultihashIteratorMockRecorder
+}
+
+// MockMultihashIteratorMockRecorder is the mock recorder for MockMultihashIterator.
+type MockMultihashIteratorMockRecorder struct {
+	mock *MockMultihashIterator
+}
+
+// NewMockMultihashIterator creates a new mock instance.
+func NewMockMultihashIterator(ctrl *gomock.Controller) *MockMultihashIterator {
+	mock := &MockMultihashIterator{ctrl: ctrl}
+	mock.recorder = &MockMultihashIteratorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMultihashIterator) EXPECT() *MockMultihashIteratorMockRecorder {
+	return m.recorder
+}
+
+// Next mocks base method.
+func (m *MockMultihashIterator) Next() (multihash.Multihash, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Next")
+	ret0, _ := ret[0].(multihash.Multihash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Next indicates an expected call of Next.
+func (mr *MockMultihashIteratorMockRecorder) Next() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockMultihashIterator)(nil).Next))
 }
