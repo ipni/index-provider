@@ -1,6 +1,9 @@
 package adminserver
 
-import "github.com/ipfs/go-cid"
+import (
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/ipfs/go-cid"
+)
 
 // ErrorRes represents a response that captures information about failure to handle a request.
 type ErrorRes struct {
@@ -26,7 +29,7 @@ type (
 		// The optional lookup key associated to the CAR. If not provided, one will be generated.
 		Key []byte `json:"key"`
 		// The optional metadata.
-		Metadata []byte `json:"metadata"`
+		Metadata stiapi.Metadata `json:"metadata"`
 	}
 	// ImportCarRes represents the response to an ImportCarReq.
 	ImportCarRes struct {

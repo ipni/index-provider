@@ -12,9 +12,9 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/go-indexer-core"
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -34,6 +34,7 @@ import (
 )
 
 const testTopic = "indexer/test"
+const protocolID = 0x300000
 
 func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
@@ -146,12 +147,14 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisem
 	p, err := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	require.NoError(t, err)
 	ctxID := mhs[0]
-	metadata := []byte("test-metadata")
-	val := indexer.MakeValue(p, ctxID, 0, metadata)
+	metadata := stiapi.Metadata{
+		ProtocolID: protocolID,
+		Data:       []byte("test-metadata"),
+	}
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	addrs := []string{"/ip4/127.0.0.1/tcp/3103"}
 	// Generate the advertisement.
-	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, ctxID, val.Metadata, false, p.String(), addrs)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, ctxID, metadata, false, p.String(), addrs)
 	require.NoError(t, err)
 	return cidsLnk, adv, advLnk
 }
@@ -255,14 +258,18 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	// Fail if not callback has been registered.
 	mhs, err := utils.RandomMultihashes(10)
 	require.NoError(t, err)
-	_, err = e.NotifyPut(ctx, []byte(mhs[0]), []byte("metadata"))
+	metadata := stiapi.Metadata{
+		ProtocolID: protocolID,
+		Data:       []byte("metadata"),
+	}
+	_, err = e.NotifyPut(ctx, []byte(mhs[0]), metadata)
 	require.Error(t, err, ErrNoCallback)
 
 	// NotifyPut of cids
 	mhs, err = utils.RandomMultihashes(10)
 	require.NoError(t, err)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
-	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
+	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
@@ -280,7 +287,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	require.NoError(t, err)
 	cidsLnk = prepareMhsForCallback(t, e, mhs)
 	require.NoError(t, err)
-	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
+	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
 	select {
@@ -340,7 +347,11 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	e.RegisterCallback(utils.ToCallback(mhs))
 	cidsLnk, _, err := schema.NewLinkedListOfMhs(e.lsys, mhs, nil)
 	require.NoError(t, err)
-	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), []byte("metadata"))
+	metadata := stiapi.Metadata{
+		ProtocolID: protocolID,
+		Data:       []byte("metadata"),
+	}
+	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber

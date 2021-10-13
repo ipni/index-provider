@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/filecoin-project/go-indexer-core"
 	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
@@ -55,14 +54,7 @@ func findCommand(cctx *cli.Context) error {
 	for i := range resp.MultihashResults {
 		fmt.Println("   Multihash:", resp.MultihashResults[i].Multihash.B58String(), "==>")
 		for _, pr := range resp.MultihashResults[i].ProviderResults {
-			v := indexer.Value{
-				Metadata: pr.Metadata,
-			}
-			protocol, data, err := v.GetData()
-			if err != nil {
-				return fmt.Errorf("cannot decode metadata: %s", err)
-			}
-			fmt.Println("       Provider:", pr.Provider, "Proto:", protocol, "Data:", string(data))
+			fmt.Println("       Provider:", pr.Provider, "Proto:", pr.Metadata.ProtocolID, "Data:", string(pr.Metadata.Data))
 		}
 	}
 

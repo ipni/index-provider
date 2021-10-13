@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/filecoin-project/indexer-reference-provider"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
@@ -52,7 +53,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 // is already known, PutWithID should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (provider.LookupKey, cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, path string, metadata stiapi.Metadata) (provider.LookupKey, cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
@@ -75,7 +76,7 @@ func (cs *CarSupplier) Put(ctx context.Context, path string, metadata []byte) (p
 // known, Put should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) PutWithID(ctx context.Context, key provider.LookupKey, path string, metadata []byte) (cid.Cid, error) {
+func (cs *CarSupplier) PutWithID(ctx context.Context, key provider.LookupKey, path string, metadata stiapi.Metadata) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
@@ -101,7 +102,7 @@ func toCarIdKey(key provider.LookupKey) datastore.Key {
 // Remove removes the CAR at the given path from the list of suppliable CID
 // iterators. If the CAR at given path is not known, this function will return
 // an error.  This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata []byte) (cid.Cid, error) {
+func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata stiapi.Metadata) (cid.Cid, error) {
 	// Clean path.
 	path = filepath.Clean(path)
 

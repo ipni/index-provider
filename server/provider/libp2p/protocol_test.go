@@ -12,6 +12,7 @@ import (
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	p2pclient "github.com/filecoin-project/storetheindex/providerclient/libp2p"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -26,6 +27,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/stretchr/testify/require"
 )
+
+// Metadata protocol in reserved range.
+const testMetadataProto = 0x300000
 
 func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, error) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
@@ -79,10 +83,14 @@ func TestAdvertisements(t *testing.T) {
 	}
 
 	// Publish some new advertisements.
+	metadata := stiapi.Metadata{
+		ProtocolID: testMetadataProto,
+		Data:       []byte("some metadata"),
+	}
 	cids, _ := utils.RandomCids(3)
-	c1, err := e.NotifyPut(ctx, cids[0].Bytes(), []byte("some metadata"))
+	c1, err := e.NotifyPut(ctx, cids[0].Bytes(), metadata)
 	require.NoError(t, err)
-	c2, err := e.NotifyPut(ctx, cids[1].Bytes(), []byte("some metadata"))
+	c2, err := e.NotifyPut(ctx, cids[1].Bytes(), metadata)
 	require.NoError(t, err)
 
 	// Get first advertisement

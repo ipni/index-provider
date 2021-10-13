@@ -183,8 +183,7 @@ github.com/filecoin-project/go-data-transfer v1.10.1 h1:YQNLwhizxkdfFxegAyrnn3l7
 github.com/filecoin-project/go-data-transfer v1.10.1/go.mod h1:CSDMCrPK2lVGodNB1wPEogjFvM9nVGyiL1GNbBRTSdw=
 github.com/filecoin-project/go-ds-versioning v0.1.0 h1:y/X6UksYTsK8TLCI7rttCKEvl8btmWxyFMEeeWGUxIQ=
 github.com/filecoin-project/go-ds-versioning v0.1.0/go.mod h1:mp16rb4i2QPmxBnmanUx8i/XANp+PFCCJWiAb+VW4/s=
-github.com/filecoin-project/go-indexer-core v0.2.0 h1:I3mtrTLH6aXOkbxsjRKv3rn8tLgoa6vIYl8XuBNRDik=
-github.com/filecoin-project/go-indexer-core v0.2.0/go.mod h1:CsD+HUiCB+lwL+mxXPKQCsqoA9fezXTheU7IjsFohCU=
+github.com/filecoin-project/go-indexer-core v0.2.2/go.mod h1:wV+NmrF8fHG6Xii3ecoZf2JW3laGTe5xtsWz609jo+Y=
 github.com/filecoin-project/go-legs v0.0.0-20210922204025-c6f68b62ab16/go.mod h1:qLH/nW+bQoOmnLG4eGU36vubv0MmAezQ2Y2FQBa1hM8=
 github.com/filecoin-project/go-legs v0.0.0-20211002011713-f1f52b88c467 h1:zJYJcnbujeGTfLtr9ErJa0+oFBtY6mqW+7dCLf4/pQU=
 github.com/filecoin-project/go-legs v0.0.0-20211002011713-f1f52b88c467/go.mod h1:lKwBnslfNGG7JnsP9uQZl3yK7f74fit1MyHcwuuOP3k=
@@ -192,8 +191,8 @@ github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe h
 github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
 github.com/filecoin-project/go-statestore v0.1.0 h1:t56reH59843TwXHkMcwyuayStBIiWBRilQjQ+5IiwdQ=
 github.com/filecoin-project/go-statestore v0.1.0/go.mod h1:LFc9hD+fRxPqiHiaqUEZOinUJB4WARkRfNl10O7kTnI=
-github.com/filecoin-project/storetheindex v0.0.0-20211008013136-08d087cd7027 h1:B8tEGq5x6gqS8xxB4AJ6rFwZnbE0WrxVRVYQUpR8Ofk=
-github.com/filecoin-project/storetheindex v0.0.0-20211008013136-08d087cd7027/go.mod h1:pB6CsinSt1E1WsfD/svmuK65JxfozOy4dLSRtXyGB8w=
+github.com/filecoin-project/storetheindex v0.0.0-20211013013615-de7f4bab70c6 h1:0ykdisK4ysyspXdN08+T36VRuUPMmPPWzJn82OFndEQ=
+github.com/filecoin-project/storetheindex v0.0.0-20211013013615-de7f4bab70c6/go.mod h1:BQxNbH3URSMkVGGy3QDbonkjUVjqf0l3a7Cs8a1uqig=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6/go.mod h1:1i71OnUq3iUe1ma7Lr6yG6/rjvM3emb6yoL7xLFzcVQ=
 github.com/flynn/noise v1.0.0 h1:DlTHqmzmvcEiKj+4RYo/imoswx/4r6iBlCMfVtrMXpQ=
@@ -207,7 +206,7 @@ github.com/frankban/quicktest v1.11.3/go.mod h1:wRf/ReqHper53s+kmmSZizM8NamnL3IM
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9 h1:hsms1Qyu0jgnwNXIxa+/V/PDsU6CfLf6CNO8H7IWoS4=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
-github.com/gammazero/keymutex v0.0.0-20211002043844-c7ebad3e5479/go.mod h1:qtzWCCLMisQUmVa4dvqHVgwfh4BP2YB7JxNDGXnsKrs=
+github.com/gammazero/keymutex v0.0.2/go.mod h1:qtzWCCLMisQUmVa4dvqHVgwfh4BP2YB7JxNDGXnsKrs=
 github.com/gammazero/radixtree v0.2.5/go.mod h1:VPqqCDZ3YZZxAzUUsIF/ytFBigVWV7JIV1Stld8hri0=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gliderlabs/ssh v0.1.1/go.mod h1:U7qILu1NlMHj9FlMhZLlkCdDnU1DBEAqr0aevW3Awn0=
