@@ -115,6 +115,10 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	err = dt.Start(context.Background())
+	if err != nil {
+		return err
+	}
 
 	// Starting provider core
 	eng, err := engine.New(ctx, privKey, dt, h, ds, cfg.Ingest.PubSubTopic, cfg.ProviderServer.RetrievalMultiaddrs)

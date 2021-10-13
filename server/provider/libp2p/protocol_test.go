@@ -48,7 +48,10 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, erro
 	if err != nil {
 		return nil, err
 	}
-
+	err = dt.Start(context.Background())
+	if err != nil {
+		return nil, err
+	}
 	mhs, _ := utils.RandomMultihashes(10)
 	e, err := engine.New(context.Background(), priv, dt, h, store, testTopic, nil)
 	e.RegisterCallback(utils.ToCallback(mhs))
