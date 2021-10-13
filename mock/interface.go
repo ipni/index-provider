@@ -71,33 +71,33 @@ func (mr *MockInterfaceMockRecorder) GetLatestAdv(arg0 interface{}) *gomock.Call
 }
 
 // NotifyPut mocks base method.
-func (m *MockInterface) NotifyPut(arg0 context.Context, arg1 provider.LookupKey, arg2 v0.Metadata) (cid.Cid, error) {
+func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, metadata v0.Metadata) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyPut", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NotifyPut", ctx, contextID, metadata)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NotifyPut indicates an expected call of NotifyPut.
-func (mr *MockInterfaceMockRecorder) NotifyPut(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, contextID, metadata interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), ctx, contextID, metadata)
 }
 
 // NotifyRemove mocks base method.
-func (m *MockInterface) NotifyRemove(arg0 context.Context, arg1 provider.LookupKey) (cid.Cid, error) {
+func (m *MockInterface) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyRemove", arg0, arg1)
+	ret := m.ctrl.Call(m, "NotifyRemove", ctx, contextID)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NotifyRemove indicates an expected call of NotifyRemove.
-func (mr *MockInterfaceMockRecorder) NotifyRemove(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyRemove(ctx, contextID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyRemove", reflect.TypeOf((*MockInterface)(nil).NotifyRemove), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyRemove", reflect.TypeOf((*MockInterface)(nil).NotifyRemove), ctx, contextID)
 }
 
 // Publish mocks base method.

@@ -147,16 +147,16 @@ func (e *Engine) RegisterCallback(cb provider.Callback) {
 	e.cb = cb
 }
 
-func (e *Engine) NotifyPut(ctx context.Context, key provider.LookupKey, metadata stiapi.Metadata) (cid.Cid, error) {
-	log.Debugf("NotifyPut for lookup key")
+func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error) {
+	log.Debugf("NotifyPut for context ID %s", string(contextID))
 	// The callback must have been registered for the linkSystem to know how to
-	// go from lookupKey to list of CIDs.
-	return e.publishAdvForIndex(ctx, key, metadata, false)
+	// go from contextID to list of CIDs.
+	return e.publishAdvForIndex(ctx, contextID, metadata, false)
 }
 
-func (e *Engine) NotifyRemove(ctx context.Context, key provider.LookupKey) (cid.Cid, error) {
-	log.Debugf("NotifyRemove for lookup key %s", string(key))
-	return e.publishAdvForIndex(ctx, key, stiapi.Metadata{}, true)
+func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
+	log.Debugf("NotifyRemove for contextID %s", string(contextID))
+	return e.publishAdvForIndex(ctx, contextID, stiapi.Metadata{}, true)
 }
 
 func (e *Engine) Shutdown(ctx context.Context) error {
@@ -200,7 +200,7 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdv, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey, metadata stiapi.Metadata, isRm bool) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metadata stiapi.Metadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
@@ -211,11 +211,11 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey,
 	}
 
 	// If we are not removing, we need to generate the link for the list
-	// of CIDs from the lookup key using the callback, and store the relationship
+	// of CIDs from the contextID using the callback, and store the relationship
 	if !isRm {
 		log.Info("Generating linked list of CIDs for advertisement")
 		// Call the callback
-		mhIter, err := e.cb(ctx, key)
+		mhIter, err := e.cb(ctx, contextID)
 		if err != nil {
 			return cid.Undef, err
 		}
@@ -224,33 +224,33 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey,
 		// anything here, thus the noStoreLsys.
 		lnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
 		if err != nil {
-			log.Errorf("Error generating link for linked list structure from list of CIDs for key (%s): %s", string(key), err)
+			log.Errorf("Error generating link for linked list structure from list of CIDs for contextID (%s): %s", string(contextID), err)
 			return cid.Undef, err
 		}
 		cidsLnk = lnk.(cidlink.Link)
 
-		// Store the relationship between lookupKey and CID of the advertised
+		// Store the relationship between contextID and CID of the advertised
 		// list of Cids
-		err = e.putKeyCidMap(key, cidsLnk.Cid)
+		err = e.putKeyCidMap(contextID, cidsLnk.Cid)
 		if err != nil {
-			log.Errorf("Could not set mapping between lookup key and CID of linked list (%s): %s", string(key), err)
+			log.Errorf("Could not set mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
 			return cid.Undef, err
 		}
 	} else {
 		log.Info("Generating removal list for advertisement")
 		// If we are removing, we already know the relationship key-cid of the
 		// list, so we can add it right away in the advertisement.
-		c, err := e.getKeyCidMap(key)
+		c, err := e.getKeyCidMap(contextID)
 		if err != nil {
-			log.Errorf("Could not get mapping between lookup key and CID of linked list (%s): %s", string(key), err)
+			log.Errorf("Could not get mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
 			return cid.Undef, err
 		}
 		cidsLnk = cidlink.Link{Cid: c}
 		// And if we are removing it means we probably do not have the list of
 		// CIDs anymore, so we can remove the entry from the datastore.
-		err = e.deleteKeyCidMap(key)
+		err = e.deleteKeyCidMap(contextID)
 		if err != nil {
-			log.Errorf("Failed deleting Key-Cid map for lookup key (%s): %s", string(key), err)
+			log.Errorf("Failed deleting Key-Cid map for contextID (%s): %s", string(contextID), err)
 			return cid.Undef, err
 		}
 		err = e.deleteCidKeyMap(c)
@@ -282,7 +282,6 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, key provider.LookupKey,
 		previousLnk = nb.Build().(schema.Link_Advertisement)
 	}
 
-	contextID := []byte(key)
 	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidsLnk,
 		contextID, metadata, isRm, e.host.ID().String(), e.addrs)
 	if err != nil {

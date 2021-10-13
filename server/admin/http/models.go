@@ -26,7 +26,7 @@ type (
 	ImportCarReq struct {
 		// The path to the CAR file
 		Path string `json:"path"`
-		// The optional lookup key associated to the CAR. If not provided, one will be generated.
+		// The optional key associated to the CAR. If not provided, one will be generated.
 		Key []byte `json:"key"`
 		// The optional metadata.
 		Metadata stiapi.Metadata `json:"metadata"`

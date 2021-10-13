@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/ipfs/go-cid"
 )
@@ -26,17 +25,17 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Supply CAR.
-	var key provider.LookupKey
+	var contextID []byte
 	var advId cid.Cid
 	var err error
 	ctx := context.Background()
 	if req.hasId() {
-		key = req.Key
-		log.Info("Storing car with specified key")
+		contextID = req.Key
+		log.Info("Storing car with specified contextID")
 		advId, err = h.cs.PutWithID(ctx, req.Key, req.Path, req.Metadata)
 	} else {
-		log.Info("Storing CAR and generating key")
-		key, advId, err = h.cs.Put(ctx, req.Path, req.Metadata)
+		log.Info("Storing CAR and generating contextID")
+		contextID, advId, err = h.cs.Put(ctx, req.Path, req.Metadata)
 	}
 
 	// Respond with cause of failure.
@@ -47,10 +46,10 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infow("Stored CAR", "path", req.Path, "key", key)
+	log.Infow("Stored CAR", "path", req.Path, "contextID", contextID)
 
 	// Respond with successful import results.
-	resp := &ImportCarRes{key, advId}
+	resp := &ImportCarRes{contextID, advId}
 	respond(w, http.StatusOK, resp)
 }
 

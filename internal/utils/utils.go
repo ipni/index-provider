@@ -44,7 +44,7 @@ func (s *sliceMhIterator) Next() (mh.Multihash, error) {
 // testing purposes. A more complex callback could read
 // from the CID index and return the list of multihashes.
 func ToCallback(mhs []mh.Multihash) provider.Callback {
-	return func(_ context.Context, _ provider.LookupKey) (provider.MultihashIterator, error) {
+	return func(_ context.Context, _ []byte) (provider.MultihashIterator, error) {
 		return &sliceMhIterator{mhs: mhs}, nil
 	}
 }

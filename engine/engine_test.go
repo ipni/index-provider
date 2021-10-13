@@ -33,8 +33,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testTopic = "indexer/test"
-const protocolID = 0x300000
+const (
+	testTopic  = "indexer/test"
+	protocolID = 0x300000
+)
 
 func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
@@ -125,16 +127,16 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 	// Register a callback that returns the randomly generated
 	// list of cids.
 	e.RegisterCallback(utils.ToCallback(mhs))
-	// Use a random key for the list of cids.
-	key := []byte(mhs[0])
-	mhIter, err := e.cb(context.Background(), key)
+	// Use a random contextID for the list of cids.
+	contextID := []byte(mhs[0])
+	mhIter, err := e.cb(context.Background(), contextID)
 	require.NoError(t, err)
 	cidsLnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
 	require.NoError(t, err)
-	// Store the relationship between lookupKey and CID
+	// Store the relationship between contextID and CID
 	// of the advertised list of Cids so it is available
 	// for the engine.
-	err = e.putKeyCidMap(key, cidsLnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(contextID, cidsLnk.(cidlink.Link).Cid)
 	require.NoError(t, err)
 	return cidsLnk
 }
