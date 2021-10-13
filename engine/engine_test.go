@@ -110,7 +110,10 @@ func mkEngine(t *testing.T) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	dt.Start(context.Background())
+	if err != nil {
+		return nil, err
+	}
 	return New(context.Background(), priv, dt, h, store, testTopic, nil)
 }
 
