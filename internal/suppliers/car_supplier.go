@@ -53,12 +53,12 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 // is already known, PutWithID should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(ctx context.Context, path string, metadata stiapi.Metadata) (provider.LookupKey, cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, path string, metadata stiapi.Metadata) ([]byte, cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
-	// Generate a CID for the CAR at given path.
-	id, err := generateLookupKey(path)
+	// Generate an ID for the CAR at given path.
+	id, err := generateId(path)
 	if err != nil {
 		return nil, cid.Undef, err
 	}
@@ -76,27 +76,27 @@ func (cs *CarSupplier) Put(ctx context.Context, path string, metadata stiapi.Met
 // known, Put should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) PutWithID(ctx context.Context, key provider.LookupKey, path string, metadata stiapi.Metadata) (cid.Cid, error) {
+func (cs *CarSupplier) PutWithID(ctx context.Context, contextID []byte, path string, metadata stiapi.Metadata) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
 	// Store mapping of CAR ID to path, used to instantiate CID iterator.
-	carIdKey := toCarIdKey(key)
+	carIdKey := toCarIdKey(contextID)
 	err := cs.ds.Put(carIdKey, []byte(path))
 	if err != nil {
 		return cid.Undef, err
 	}
 
 	// Store mapping of path to CAR ID, used to lookup the CAR by path when it is removed.
-	if err = cs.ds.Put(toPathKey(path), key); err != nil {
+	if err = cs.ds.Put(toPathKey(path), contextID); err != nil {
 		return cid.Undef, err
 	}
 
-	return cs.eng.NotifyPut(ctx, key, metadata)
+	return cs.eng.NotifyPut(ctx, contextID, metadata)
 }
 
-func toCarIdKey(key provider.LookupKey) datastore.Key {
-	return datastore.NewKey(carIdDatastoreKeyPrefix + string(key))
+func toCarIdKey(contextID []byte) datastore.Key {
+	return datastore.NewKey(carIdDatastoreKeyPrefix + string(contextID))
 }
 
 // Remove removes the CAR at the given path from the list of suppliable CID
@@ -108,7 +108,7 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata stiapi.
 
 	// Find the CAR ID that corresponds to the given path
 	pathKey := toPathKey(path)
-	key, err := cs.getLookupKeyFromPathKey(pathKey)
+	key, err := cs.getIdFromPathKey(pathKey)
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			err = ErrNotFound
@@ -139,16 +139,16 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata stiapi.
 
 // Callback supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) Callback(ctx context.Context, key provider.LookupKey) (provider.MultihashIterator, error) {
-	idx, err := cs.lookupIterableIndex(key)
+func (cs *CarSupplier) Callback(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	idx, err := cs.lookupIterableIndex(contextID)
 	if err != nil {
 		return nil, err
 	}
 	return newIndexMhIterator(ctx, idx), nil
 }
 
-func (cs *CarSupplier) lookupIterableIndex(key provider.LookupKey) (index.IterableIndex, error) {
-	b, err := cs.ds.Get(toCarIdKey(key))
+func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
+	b, err := cs.ds.Get(toCarIdKey(contextID))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			err = ErrNotFound
@@ -194,12 +194,12 @@ func (cs *CarSupplier) Close() error {
 	return cs.ds.Close()
 }
 
-func (cs *CarSupplier) getLookupKeyFromPathKey(pathKey datastore.Key) (provider.LookupKey, error) {
+func (cs *CarSupplier) getIdFromPathKey(pathKey datastore.Key) ([]byte, error) {
 	return cs.ds.Get(pathKey)
 }
 
-func generateLookupKey(path string) (provider.LookupKey, error) {
-	// Simply hash the path given as the lookup key.
+func generateId(path string) ([]byte, error) {
+	// Simply hash the path given as the contextID.
 	return sha256.New().Sum([]byte(path)), nil
 }
 

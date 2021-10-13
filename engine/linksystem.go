@@ -90,11 +90,11 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			log.Infow("Entry for CID is not cached, generating chunks", "cid", c)
 			// If the link is not found, it means that the root link of the list has
 			// not been generated and we need to get the relationship between the cid
-			// received and the lookupKey so the callback knows how to
+			// received and the contextID so the callback knows how to
 			// regenerate the list of CIDs.
 			key, err := e.getCidKeyMap(c)
 			if err != nil {
-				log.Errorf("Error fetching relationship between CID and lookup key: %s", err)
+				log.Errorf("Error fetching relationship between CID and contextID: %s", err)
 				return nil, err
 			}
 
@@ -104,8 +104,8 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// step-by-step syncs, this would mean that when the subscribers
 			// sees an advertisement of remove type, it doesn't follow the
 			// Entries link, if just gets the cid, and uses its local map cid
-			// to lookupKey to trigger the removal of all entries for that
-			// lookupKey in its index.
+			// to contextID to trigger the removal of all entries for that
+			// contextID in its index.
 			mhIter, err := e.cb(lctx.Ctx, key)
 			if err != nil {
 				return nil, err
@@ -281,32 +281,32 @@ func (e *Engine) putLatestAdv(advID []byte) error {
 	return e.ds.Put(datastore.NewKey(latestAdvKey), advID)
 }
 
-func (e *Engine) putKeyCidMap(key provider.LookupKey, c cid.Cid) error {
+func (e *Engine) putKeyCidMap(contextID []byte, c cid.Cid) error {
 	// We need to store the map Key-Cid to know what CidLink to put
 	// in advertisement when we notify a removal.
-	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(key)), c.Bytes())
+	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
 	if err != nil {
 		return err
 	}
 	// And the other way around when graphsync ios making a request,
-	// so the callback in the linksystem knows to what key we are referring.
-	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), key)
+	// so the callback in the linksystem knows to what contextID we are referring.
+	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
 }
 
-func (e *Engine) deleteKeyCidMap(key provider.LookupKey) error {
-	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(key)))
+func (e *Engine) deleteKeyCidMap(contextID []byte) error {
+	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
 }
 
 func (e *Engine) deleteCidKeyMap(c cid.Cid) error {
 	return e.ds.Delete(datastore.NewKey(cidToKeyMapPrefix + c.String()))
 }
 
-func (e *Engine) getCidKeyMap(c cid.Cid) (provider.LookupKey, error) {
+func (e *Engine) getCidKeyMap(c cid.Cid) ([]byte, error) {
 	return e.ds.Get(datastore.NewKey(cidToKeyMapPrefix + c.String()))
 }
 
-func (e *Engine) getKeyCidMap(key provider.LookupKey) (cid.Cid, error) {
-	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(key)))
+func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
+	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			return cid.Undef, nil

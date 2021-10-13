@@ -10,12 +10,6 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-// LookupKey represents the key that uniquely identifies a list of multihashes
-// looked up via Callback.
-//
-// See: Interface.NotifyPut, Interface.NotifyRemove, ProviderCallback.
-type LookupKey []byte
-
 // Interface represents an index provider that manages the advertisement of
 // multihashes to indexer nodes.
 type Interface interface {
@@ -34,13 +28,13 @@ type Interface interface {
 	Publish(context.Context, schema.Advertisement) (cid.Cid, error)
 
 	// RegisterCallback registers the callback used by the provider to look up
-	// a list of multihashes by LookupKey.  Only a single callback is
+	// a list of multihashes by context ID.  Only a single callback is
 	// supported; repeated calls to this function will replace the previous
 	// callback.
 	RegisterCallback(Callback)
 
 	// NotifyPut sginals to the provider that the list of multihashes looked up
-	// by the given key are available.  The given key is then used to look up
+	// by the given contextID are available.  The given contextID is then used to look up
 	// the list of multihashes via Callback.  An advertisement is then
 	// generated, appended to the chain of advertisements and published onto
 	// the gossip pubsub channel.  Therefore, a Callback must be registered
@@ -51,16 +45,16 @@ type Interface interface {
 	// ID, but its data is optional.
 	//
 	// This function returns the ID of the advertisement published.
-	NotifyPut(context.Context, LookupKey, stiapi.Metadata) (cid.Cid, error)
+	NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error)
 
 	// NotifyRemove sginals to the provider that the multihashes that
-	// corresponded to the given key are no longer available.  An advertisement
+	// corresponded to the given contextID are no longer available.  An advertisement
 	// is then generated, appended to the chain of advertisements and published
-	// onto the gossip pubsub channel.  The given key must have previously been
+	// onto the gossip pubsub channel.  The given contextID must have previously been
 	// put via NotifyPut.
 	//
 	// This function returns the ID of the advertisement published.
-	NotifyRemove(context.Context, LookupKey) (cid.Cid, error)
+	NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error)
 
 	// GetAdv gets the advertisement that corresponds to the given cid.
 	GetAdv(context.Context, cid.Cid) (schema.Advertisement, error)
@@ -85,8 +79,8 @@ type MultihashIterator interface {
 }
 
 // Callback is used by provider to look up a list of multihashes associated to
-// a key.  The callback must produce the same list of multihashes for the same
-// key.
+// a context ID.  The callback must produce the same list of multihashes for the same
+// context ID.
 //
-// See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator
-type Callback func(ctx context.Context, key LookupKey) (MultihashIterator, error)
+// See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator.
+type Callback func(ctx context.Context, contextID []byte) (MultihashIterator, error)
