@@ -1,22 +1,27 @@
-package suppliers
+package provider
 
 import (
 	"context"
 	"io"
 
-	provider "github.com/filecoin-project/indexer-reference-provider"
-	"github.com/ipld/go-car/v2/index"
+	carindex "github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multihash"
 )
 
-var _ provider.MultihashIterator = (*indexMhIterator)(nil)
+var _ MultihashIterator = (*indexMhIterator)(nil)
 
 type indexMhIterator struct {
 	mhch chan multihash.Multihash
 	err  error
 }
 
-func newIndexMhIterator(ctx context.Context, idx index.IterableIndex) *indexMhIterator {
+// CarMultihashIterator constructs a new MultihashIterator from a CAR index.
+//
+// A background goroutine is started to supply multihashes via Next method calls.
+// Its lifecycle is controlled by the given context.
+// If the context is canceled before Next reaches io.EOF,
+// then the following Next call will return the context's error.
+func CarMultihashIterator(ctx context.Context, idx carindex.IterableIndex) MultihashIterator {
 	mhIterator := indexMhIterator{
 		mhch: make(chan multihash.Multihash, 1),
 	}

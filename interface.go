@@ -70,6 +70,8 @@ type Interface interface {
 }
 
 // MultihashIterator iterates over a list of multihashes.
+//
+// See: CarMultihashIterator.
 type MultihashIterator interface {
 	// Next returns the next multihash in the list of mulitihashes.  The
 	// iterator fails fast: errors that occur during iteration are returned

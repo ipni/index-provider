@@ -1,4 +1,4 @@
-package suppliers
+package provider
 
 import (
 	"context"
@@ -17,7 +17,7 @@ func TestIndexMhIterator_NextReturnsMhThenEOFOnHappyPath(t *testing.T) {
 	wantMh, err := multihash.Sum([]byte("fish"), multihash.SHA3_256, -1)
 	require.NoError(t, err)
 
-	subject := newIndexMhIterator(context.Background(), &testIterableIndex{
+	subject := CarMultihashIterator(context.Background(), &testIterableIndex{
 		doForEach: func(f func(multihash.Multihash, uint64) error) error {
 			err := f(wantMh, 1)
 			require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestIndexMhIterator_NextReturnsErrorOnUnHappyPath(t *testing.T) {
 	require.NoError(t, err)
 	wantErr := errors.New("lobster")
 
-	subject := newIndexMhIterator(context.Background(), &testIterableIndex{
+	subject := CarMultihashIterator(context.Background(), &testIterableIndex{
 		doForEach: func(f func(multihash.Multihash, uint64) error) error {
 			err := f(wantMh, 1)
 			require.NoError(t, err)
@@ -66,12 +66,12 @@ func TestNewIndexMhIterator_TimesOutWhenContextTimesOut(t *testing.T) {
 	timedoutCtx, cancelFunc := context.WithTimeout(context.Background(), time.Nanosecond)
 	t.Cleanup(cancelFunc)
 
-	idx, err := car.GenerateIndexFromFile("../../testdata/sample-v1.car")
+	idx, err := car.GenerateIndexFromFile("testdata/sample-v1.car")
 	require.NoError(t, err)
 	iterIdx, ok := idx.(index.IterableIndex)
 	require.True(t, ok)
 
-	subject := newIndexMhIterator(timedoutCtx, iterIdx)
+	subject := CarMultihashIterator(timedoutCtx, iterIdx)
 
 	// Assert that eventually deadline exceeded error is returned.
 	// Note, we have to assert eventually, since we can't guarantee whether mh gets added to channel
@@ -86,7 +86,7 @@ func TestNewIndexMhIterator_TimesOutWhenContextTimesOut(t *testing.T) {
 }
 
 func TestNewCarSupplier_ReturnsExpectedMultihashes(t *testing.T) {
-	idx, err := car.GenerateIndexFromFile("../../testdata/sample-v1.car")
+	idx, err := car.GenerateIndexFromFile("testdata/sample-v1.car")
 	require.NoError(t, err)
 	iterIdx, ok := idx.(index.IterableIndex)
 	require.True(t, ok)
@@ -100,7 +100,7 @@ func TestNewCarSupplier_ReturnsExpectedMultihashes(t *testing.T) {
 
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancelFunc)
-	subject := newIndexMhIterator(ctx, iterIdx)
+	subject := CarMultihashIterator(ctx, iterIdx)
 
 	var gotMhs []multihash.Multihash
 	for {

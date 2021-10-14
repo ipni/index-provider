@@ -144,7 +144,7 @@ func (cs *CarSupplier) Callback(ctx context.Context, contextID []byte) (provider
 	if err != nil {
 		return nil, err
 	}
-	return newIndexMhIterator(ctx, idx), nil
+	return provider.CarMultihashIterator(ctx, idx), nil
 }
 
 func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
