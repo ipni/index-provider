@@ -13,6 +13,7 @@ require (
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-leveldb v0.4.2
 	github.com/ipfs/go-graphsync v0.9.3
+	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipld/go-car/v2 v2.0.3-0.20210920144420-f35d88ce16ca
 	github.com/ipld/go-ipld-prime v0.12.0
