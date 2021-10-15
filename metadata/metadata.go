@@ -2,49 +2,71 @@ package metadata
 
 import (
 	"bytes"
-	"io"
+	"fmt"
 
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
+	"github.com/multiformats/go-multicodec"
 )
 
-// DataTransferProtocolID is the protocol id that indicates an piece of content
-// is served over the data transport protocol
-// TBD: choose a number -- should Protocol be a multicodec? It's not really
-// and encoding format -- it's a protocol -- or maybe we're ultimately just
-// describing a metadata encoding format?
-const DataTransferProtocolID = 0x300001
+// IsDataTransferProtocol indicates whether or not a multicodec is
+// in the reserved range for a data transfer protocols
+// Data transfer protocols reserve the range 0x3F0000 to 0x3FFFFF
+// After the 2 largest order bytes (3F)
+// the first two remaining bytes indicate the exchange format and
+// the next indicate the transport
+// so for 0x3F6704, 67 would indicate the exchange format and 04 would be the
+// transfport
+func IsDataTransferProtocol(c multicodec.Code) bool {
+	return c&0xFFFFFFFFFF3F0000 == 0x3F0000
+}
 
-// ExchangeFormat identifies a protocol for exchanging vouchers over data transfer
-type ExchangeFormat string
+// ErrNotDataTransfer indicates a protocol is not a data transfer protocol
+type ErrNotDataTransfer struct {
+	incorrectProtocol multicodec.Code
+}
 
-// TransportProtocol indicates the underlying transport data transfer will use
-// Note: while currently go-data-transfer supports only graphsync, this is part
-// of the metadata to future proof for multiple transport protocols
-type TransportProtocol string
+func (e ErrNotDataTransfer) Error() string {
+	return fmt.Sprintf("protocol 0x%X is not a data transfer protocol", uint64(e.incorrectProtocol))
+}
 
-// DataTransferMetadata is the CBOR serialized data encoded in the
-// metadata bytes when the multicodec is DataTransferProtocolID
+// ExchangeFormat identifies the type of vouchers taht will be exchanged
+type ExchangeFormat byte
+
+// TransportProtocol indicates the underlying protocol (for now, always graphsync)
+type TransportProtocol byte
+
+// DataTransferMetadata is simply a structured form of Metadata that deciphers
+// ExchangeFormat and TransportProtocol
 type DataTransferMetadata struct {
-	// ExchangeFormat identifies the type of vouchers taht will be exchanged
-	ExchangeFormat ExchangeFormat
-	// Transport indicates the underlying protocol (for now, always graphsync)
-	TransportProtocol TransportProtocol
+	c multicodec.Code
 	// FormatData is opaque bytes that can be decoded once you know the format type
-	FormatData []byte
+	Data []byte
+}
+
+// ExchangeFormat indicates the type of exchange format used for sending vouchers
+// in this data transfer
+func (dtm DataTransferMetadata) ExchangeFormat() ExchangeFormat {
+	return ExchangeFormat((dtm.c & 0xFF00) >> 8)
+}
+
+// TransportProtocol indicates the type of transport protocol used for this data transfer
+func (dtm DataTransferMetadata) TransportProtocol() TransportProtocol {
+	return TransportProtocol(dtm.c & 0xFF)
 }
 
 const (
 	// FilecoinV1 is the current filecoin retrieval protocol
-	FilecoinV1 ExchangeFormat = "/filecoin-exchange/1.0.0"
+	FilecoinV1 ExchangeFormat = 0x00
 
-	// GraphSync is the name of actual graphsync libp2p protocol
-	GraphSync TransportProtocol = "/ipfs/graphsync/1.0.0"
+	// GraphSyncV1 is the graphsync libp2p protocol
+	GraphSyncV1 TransportProtocol = 0x00
 )
 
-// FilecoinV1Data is the information encoded in FormatDat for FilecoinV1
+// FilecoinV1Data is the information encoded in Data for FilecoinGraphsyncV1
 type FilecoinV1Data struct {
 	// PieceCID identifies the piece this data can be found in
 	PieceCID datamodel.Link
@@ -54,24 +76,13 @@ type FilecoinV1Data struct {
 	FastRetrieval bool
 }
 
-var dataTransferSchemaType schema.Type
 var filecoinvV1SchemaType schema.Type
 
 func init() {
 	ts := schema.TypeSystem{}
 	ts.Init()
-	ts.Accumulate(schema.SpawnString("String"))
-	ts.Accumulate(schema.SpawnBytes("Bytes"))
 	ts.Accumulate(schema.SpawnLink("Link"))
 	ts.Accumulate(schema.SpawnBool("Bool"))
-	ts.Accumulate(schema.SpawnStruct("DataTransferMetadata",
-		[]schema.StructField{
-			schema.SpawnStructField("ExchangeFormat", "String", false, false),
-			schema.SpawnStructField("TransportProtocol", "String", false, false),
-			schema.SpawnStructField("FormatData", "Bytes", false, false),
-		},
-		schema.SpawnStructRepresentationMap(nil),
-	))
 	ts.Accumulate(schema.SpawnStruct("FilecoinV1Data",
 		[]schema.StructField{
 			schema.SpawnStructField("PieceCID", "Link", false, false),
@@ -80,67 +91,67 @@ func init() {
 		},
 		schema.SpawnStructRepresentationMap(nil),
 	))
-	dataTransferSchemaType = ts.TypeByName("DataTransferMetadata")
 	filecoinvV1SchemaType = ts.TypeByName("FilecoinV1Data")
 }
 
-// EncodeDataTransferMetadata writes DataTransferMetadata to a byte stream
-func EncodeDataTransferMetadata(dtm *DataTransferMetadata, w io.Writer) error {
-	nd := bindnode.Wrap(dtm, dataTransferSchemaType)
-	return dagcbor.Encode(nd, w)
+// DataTransferMulticodec writes a new data transfer protocol multicodec
+// from the given exchange format and transport protocol
+func DataTransferMulticodec(ef ExchangeFormat, tp TransportProtocol) multicodec.Code {
+	return multicodec.Code(uint64(0x3F0000) | uint64(ef)<<8 | uint64(tp))
 }
 
-// EncodeDataTransferMetadataToBytes writes a serialized byte array for the given
-// DataTransferMetadata
-func EncodeDataTransferMetadataToBytes(dtm *DataTransferMetadata) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	err := EncodeDataTransferMetadata(dtm, buf)
-	if err != nil {
-		return nil, err
+// ToIndexerMetadata converts DataTransferMetadata information into
+// indexer Metadata format
+func (dtm DataTransferMetadata) ToIndexerMetadata() stiapi.Metadata {
+	return stiapi.Metadata{
+		ProtocolID: dtm.c,
+		Data:       dtm.Data,
 	}
-	return buf.Bytes(), nil
 }
 
-// DecodeDataTransferMetadata reads a new DataTransferMetadata instance from
-// a byte stream
-func DecodeDataTransferMetadata(r io.Reader) (*DataTransferMetadata, error) {
-	proto := bindnode.Prototype((*DataTransferMetadata)(nil), dataTransferSchemaType)
-	nb := proto.NewBuilder()
-	err := dagcbor.Decode(nb, r)
-	if err != nil {
-		return nil, err
+// FromIndexerMetadata converts indexer Metadata format to DataTransferMetadata
+// if the multicodec falls in the DataTransferMetadata range
+func FromIndexerMetadata(m stiapi.Metadata) (DataTransferMetadata, error) {
+	if !IsDataTransferProtocol(m.ProtocolID) {
+		return DataTransferMetadata{}, ErrNotDataTransfer{m.ProtocolID}
 	}
-	nd := nb.Build()
-	return bindnode.Unwrap(nd).(*DataTransferMetadata), nil
+	return DataTransferMetadata{
+		c:    m.ProtocolID,
+		Data: m.Data,
+	}, nil
 }
 
-// DecodeDataTransferMetadataFromBytes reads a new DataTransferMetadata instance from
-// serialized byte array
-func DecodeDataTransferMetadataFromBytes(serialized []byte) (*DataTransferMetadata, error) {
-	r := bytes.NewBuffer(serialized)
-	return DecodeDataTransferMetadata(r)
-}
-
-// EncodeFilecoinV1Data writes FilecoinV1Data to a byte stream
-func EncodeFilecoinV1Data(fd *FilecoinV1Data, w io.Writer) error {
+// Encode serialized FilecoinV1 data and then wraps it into a
+// DataTransferMetadata struct
+func (fd *FilecoinV1Data) Encode(transportProtocol TransportProtocol) (DataTransferMetadata, error) {
 	nd := bindnode.Wrap(fd, filecoinvV1SchemaType)
-	return dagcbor.Encode(nd, w)
-}
-
-// EncodeFilecoinV1DataToBytes writes a serialized byte array for the given
-// FilecoinV1Data
-func EncodeFilecoinV1DataToBytes(fd *FilecoinV1Data) ([]byte, error) {
 	buf := new(bytes.Buffer)
-	err := EncodeFilecoinV1Data(fd, buf)
+	err := dagcbor.Encode(nd, buf)
 	if err != nil {
-		return nil, err
+		return DataTransferMetadata{}, err
 	}
-	return buf.Bytes(), nil
+	return DataTransferMetadata{
+		c:    DataTransferMulticodec(FilecoinV1, transportProtocol),
+		Data: buf.Bytes(),
+	}, nil
 }
 
-// DecodeFilecoinV1Data reads a new FilecoinV1Data instance from
-// a byte stream
-func DecodeFilecoinV1Data(r io.Reader) (*FilecoinV1Data, error) {
+// ErrNotFilecoinV1 indicates a protocol does not use filecoin v1 exchange
+type ErrNotFilecoinV1 struct {
+	incorrectProtocol multicodec.Code
+}
+
+func (e ErrNotFilecoinV1) Error() string {
+	return fmt.Sprintf("protocol 0x%X does not use the FilecoinV1 exchange format", uint64(e.incorrectProtocol))
+}
+
+// DecodeFilecoinV1Data decodes a new FilecoinV1Data instance from
+// DataTransferMetadata if the format and protocol match
+func DecodeFilecoinV1Data(dtm DataTransferMetadata) (*FilecoinV1Data, error) {
+	if dtm.ExchangeFormat() != FilecoinV1 {
+		return nil, ErrNotFilecoinV1{dtm.c}
+	}
+	r := bytes.NewBuffer(dtm.Data)
 	proto := bindnode.Prototype((*FilecoinV1Data)(nil), filecoinvV1SchemaType)
 	nb := proto.NewBuilder()
 	err := dagcbor.Decode(nb, r)
@@ -149,11 +160,4 @@ func DecodeFilecoinV1Data(r io.Reader) (*FilecoinV1Data, error) {
 	}
 	nd := nb.Build()
 	return bindnode.Unwrap(nd).(*FilecoinV1Data), nil
-}
-
-// DecodeFilecoinV1DataFromBytes reads a new FilecoinV1Data instance from
-// serialized byte array
-func DecodeFilecoinV1DataFromBytes(serialized []byte) (*FilecoinV1Data, error) {
-	r := bytes.NewBuffer(serialized)
-	return DecodeFilecoinV1Data(r)
 }
