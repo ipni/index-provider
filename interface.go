@@ -37,8 +37,9 @@ type Interface interface {
 	// by the given contextID are available.  The given contextID is then used to look up
 	// the list of multihashes via Callback.  An advertisement is then
 	// generated, appended to the chain of advertisements and published onto
-	// the gossip pubsub channel.  Therefore, a Callback must be registered
-	// prior to using this function.
+	// the gossip pubsub channel.
+	// Therefore, a Callback must be registered prior to using this function.
+	// ErrNoCallback is returned if no such callback is registered.
 	//
 	// The metadata is data that provides hints about how to retrieve data and
 	// is protocol dependant.  The metadata must at least specify a protocol
@@ -50,8 +51,9 @@ type Interface interface {
 	// NotifyRemove sginals to the provider that the multihashes that
 	// corresponded to the given contextID are no longer available.  An advertisement
 	// is then generated, appended to the chain of advertisements and published
-	// onto the gossip pubsub channel.  The given contextID must have previously been
-	// put via NotifyPut.
+	// onto the gossip pubsub channel.
+	// The given contextID must have previously been put via NotifyPut.
+	// If not found ErrContextIDNotFound is returned.
 	//
 	// This function returns the ID of the advertisement published.
 	NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error)
