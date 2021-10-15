@@ -31,9 +31,6 @@ var _ provider.Interface = (*Engine)(nil)
 // maxIngestChunk is the maximum number of entries to include in each chunk of ingestion linked list.
 const maxIngestChunk = 100
 
-// ErrNoCallback is thrown when no callback has been defined.
-var ErrNoCallback = errors.New("no callback is registered")
-
 // Engine is an implementation of the core reference provider interface
 type Engine struct {
 	// privKey is the provider's privateKey
@@ -207,7 +204,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 	// If no callback registered return error
 	if e.cb == nil {
 		log.Error("No callback defined in engine")
-		return cid.Undef, ErrNoCallback
+		return cid.Undef, provider.ErrNoCallback
 	}
 
 	// If we are not removing, we need to generate the link for the list
@@ -243,6 +240,9 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		c, err := e.getKeyCidMap(contextID)
 		if err != nil {
 			log.Errorf("Could not get mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
+			if err == datastore.ErrNotFound {
+				return cid.Undef, provider.ErrContextIDNotFound
+			}
 			return cid.Undef, err
 		}
 		cidsLnk = cidlink.Link{Cid: c}

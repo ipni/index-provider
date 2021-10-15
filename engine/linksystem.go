@@ -58,7 +58,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		// If no callback registered return error
 		if e.cb == nil {
 			log.Error("No callback has been registered in engine")
-			return nil, ErrNoCallback
+			return nil, provider.ErrNoCallback
 		}
 
 		log.Debugw("Checking cache for data", "cid", c)
@@ -308,9 +308,6 @@ func (e *Engine) getCidKeyMap(c cid.Cid) ([]byte, error) {
 func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
 	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
 	if err != nil {
-		if err == datastore.ErrNotFound {
-			return cid.Undef, nil
-		}
 		return cid.Undef, err
 	}
 	_, d, err := cid.CidFromBytes(b)

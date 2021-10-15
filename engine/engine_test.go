@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+
+	provider "github.com/filecoin-project/indexer-reference-provider"
+	"github.com/ipfs/go-cid"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
@@ -91,30 +93,36 @@ func TestToCallback(t *testing.T) {
 	}
 }
 
-func mkEngine(t *testing.T) (*Engine, error) {
+func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
+	subject := mkEngine(t)
+	mhs, err := utils.RandomMultihashes(10)
+	require.NoError(t, err)
+	subject.RegisterCallback(utils.ToCallback(mhs))
+	c, err := subject.NotifyRemove(context.Background(), []byte("unknown context ID"))
+	require.Equal(t, cid.Undef, c)
+	require.Equal(t, provider.ErrContextIDNotFound, err)
+}
+
+func mkEngine(t *testing.T) *Engine {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	h := mkTestHost(t)
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	gsnet := gsnet.NewFromLibp2pHost(h)
-	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
+	gn := gsnet.NewFromLibp2pHost(h)
+	gs := gsimpl.New(context.Background(), gn, cidlink.DefaultLinkSystem())
 	tp := gstransport.NewTransport(h.ID(), gs)
 	dtNet := dtnetwork.NewFromLibp2pHost(h)
-	tmpDir, err := ioutil.TempDir("", "indexer-dt-dir")
-	if err != nil {
-		return nil, err
-	}
+	tmpDir := t.TempDir()
 	dt, err := datatransfer.NewDataTransfer(store, tmpDir, dtNet, tp)
-	if err != nil {
-		return nil, err
-	}
-	dt.Start(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return New(context.Background(), priv, dt, h, store, testTopic, nil)
+	require.NoError(t, err)
+
+	err = dt.Start(context.Background())
+	require.NoError(t, err)
+	engine, err := New(context.Background(), priv, dt, h, store, testTopic, nil)
+	require.NoError(t, err)
+	return engine
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -166,8 +174,7 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisem
 
 func TestPublishLocal(t *testing.T) {
 	ctx := context.Background()
-	e, err := mkEngine(t)
-	require.NoError(t, err)
+	e := mkEngine(t)
 
 	_, adv, advLnk := genRandomIndexAndAdv(t, e)
 	advCid, err := e.PublishLocal(ctx, adv)
@@ -201,8 +208,7 @@ func TestPublishLocal(t *testing.T) {
 func TestNotifyPublish(t *testing.T) {
 	skipFlaky(t)
 	ctx := context.Background()
-	e, err := mkEngine(t)
-	require.NoError(t, err)
+	e := mkEngine(t)
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
@@ -220,7 +226,7 @@ func TestNotifyPublish(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Publish advertisement
-	_, err = e.Publish(ctx, adv)
+	_, err := e.Publish(ctx, adv)
 	require.NoError(t, err)
 
 	// Check that the update has been published and can be fetched from subscriber
@@ -244,8 +250,7 @@ func TestNotifyPublish(t *testing.T) {
 func TestNotifyPutAndRemoveCids(t *testing.T) {
 	skipFlaky(t)
 	ctx := context.Background()
-	e, err := mkEngine(t)
-	require.NoError(t, err)
+	e := mkEngine(t)
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
@@ -267,8 +272,8 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 		ProtocolID: protocolID,
 		Data:       []byte("metadata"),
 	}
-	_, err = e.NotifyPut(ctx, []byte(mhs[0]), metadata)
-	require.Error(t, err, ErrNoCallback)
+	_, err = e.NotifyPut(ctx, mhs[0], metadata)
+	require.Error(t, err, provider.ErrNoCallback)
 
 	// NotifyPut of cids
 	mhs, err = utils.RandomMultihashes(10)
@@ -321,8 +326,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 }
 
 func TestRegisterCallback(t *testing.T) {
-	e, err := mkEngine(t)
-	require.NoError(t, err)
+	e := mkEngine(t)
 	e.RegisterCallback(utils.ToCallback([]mh.Multihash{}))
 	require.NotNil(t, e.cb)
 }
@@ -330,8 +334,7 @@ func TestRegisterCallback(t *testing.T) {
 func TestNotifyPutWithCallback(t *testing.T) {
 	skipFlaky(t)
 	ctx := context.Background()
-	e, err := mkEngine(t)
-	require.NoError(t, err)
+	e := mkEngine(t)
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
@@ -378,8 +381,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 // Tests and end-to-end flow of the main linksystem
 func TestLinkedStructure(t *testing.T) {
 	skipFlaky(t)
-	e, err := mkEngine(t)
-	require.NoError(t, err)
+	e := mkEngine(t)
 	mhs, err := utils.RandomMultihashes(200)
 	require.NoError(t, err)
 	// Register simple callback.
