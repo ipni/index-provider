@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"sort"
 
 	carindex "github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multihash"
@@ -11,8 +13,16 @@ import (
 var _ MultihashIterator = (*indexMhIterator)(nil)
 
 type indexMhIterator struct {
-	mhch chan multihash.Multihash
-	err  error
+	steps []iteratorStep
+	err   error
+
+	curStep    int
+	lastOffset uint64
+}
+
+type iteratorStep struct {
+	mh     multihash.Multihash
+	offset uint64
 }
 
 // CarMultihashIterator constructs a new MultihashIterator from a CAR index.
@@ -22,35 +32,39 @@ type indexMhIterator struct {
 // If the context is canceled before Next reaches io.EOF,
 // then the following Next call will return the context's error.
 func CarMultihashIterator(ctx context.Context, idx carindex.IterableIndex) MultihashIterator {
-	mhIterator := indexMhIterator{
-		mhch: make(chan multihash.Multihash, 1),
-	}
-	go func() {
-		if err := idx.ForEach(func(mh multihash.Multihash, _ uint64) error {
-			select {
-			case mhIterator.mhch <- mh:
-				return nil
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}); err != nil {
-			mhIterator.err = err
-		}
-		close(mhIterator.mhch)
-	}()
-	return &mhIterator
+	// TODO(mvdan): if we stick with this "upfront range and sort" approach,
+	// we probably need to rethink this API a bit.
+	// At the very least, to remove the context.
+
+	var steps []iteratorStep
+	err := idx.ForEach(func(mh multihash.Multihash, offset uint64) error {
+		steps = append(steps, iteratorStep{mh, offset})
+		return nil
+	})
+	sort.Slice(steps, func(i, j int) bool {
+		return steps[i].offset < steps[j].offset
+	})
+	return &indexMhIterator{steps: steps, err: err}
 }
 
 func (i *indexMhIterator) Next() (multihash.Multihash, error) {
-	mh, ok := <-i.mhch
-	// If channel is closed we have reached the end of stream.
+	// We have reached the end of stream.
 	// There might also be an error available, which we should return.
-	if !ok {
+	if i.curStep >= len(i.steps) {
 		// Check if there is a error first, since returning error must take precedence.
 		if i.err != nil {
 			return nil, i.err
 		}
 		return nil, io.EOF
 	}
-	return mh, nil
+	step := i.steps[i.curStep]
+	i.curStep++
+	if step.offset < i.lastOffset {
+		return nil, fmt.Errorf("car multihash iterator out of order: %d then %d", i.lastOffset, step.offset)
+	}
+	if step.offset == i.lastOffset {
+		return nil, fmt.Errorf("car multihash iterator has duplicate offset %d", step.offset)
+	}
+	i.lastOffset = step.offset
+	return step.mh, nil
 }
