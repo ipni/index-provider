@@ -217,11 +217,10 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 			return cid.Undef, err
 		}
 		// Generate the linked list ipld.Link that is added to the
-		// advertisement and used for ingestion.  We do not want to store
-		// anything here, thus the noStoreLsys.
-		lnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
+		// advertisement and used for ingestion.
+		lnk, err := generateChunks(e.cachelsys, mhIter, maxIngestChunk)
 		if err != nil {
-			log.Errorf("Error generating link for linked list structure from list of CIDs for contextID (%s): %s", string(contextID), err)
+			log.Errorf("Error generating link from list of CIDs for contextID (%s): %s", string(contextID), err)
 			return cid.Undef, err
 		}
 		cidsLnk = lnk.(cidlink.Link)

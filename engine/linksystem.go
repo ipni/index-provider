@@ -249,8 +249,7 @@ func (e *Engine) vanillaLinkSystem() ipld.LinkSystem {
 func noStoreLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
-		buf := bytes.NewBuffer(nil)
-		return buf, func(lnk ipld.Link) error {
+		return io.Discard, func(lnk ipld.Link) error {
 			return nil
 		}, nil
 	}
