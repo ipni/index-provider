@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
-	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/multiformats/go-multicodec"
@@ -69,7 +69,7 @@ const (
 // FilecoinV1Data is the information encoded in Data for FilecoinGraphsyncV1
 type FilecoinV1Data struct {
 	// PieceCID identifies the piece this data can be found in
-	PieceCID datamodel.Link
+	PieceCID cid.Cid
 	// Free indicates if the retrieval is free
 	IsFree bool
 	// FastRetrieval indicates whether the provider claims there is an unsealed copy

@@ -7,7 +7,6 @@ import (
 	"github.com/filecoin-project/indexer-reference-provider/metadata"
 	"github.com/ipfs/go-cid"
 	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
-	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/require"
 )
@@ -16,22 +15,22 @@ func TestRoundTripDataTransferFilecoin(t *testing.T) {
 	cids := generateCids(4)
 	filecoinV1Datas := []*metadata.FilecoinV1Data{
 		{
-			PieceCID:      cidlink.Link{Cid: cids[0]},
+			PieceCID:      cids[0],
 			IsFree:        false,
 			FastRetrieval: false,
 		},
 		{
-			PieceCID:      cidlink.Link{Cid: cids[1]},
+			PieceCID:      cids[1],
 			IsFree:        false,
 			FastRetrieval: true,
 		},
 		{
-			PieceCID:      cidlink.Link{Cid: cids[2]},
+			PieceCID:      cids[2],
 			IsFree:        true,
 			FastRetrieval: true,
 		},
 		{
-			PieceCID:      cidlink.Link{Cid: cids[3]},
+			PieceCID:      cids[3],
 			IsFree:        true,
 			FastRetrieval: true,
 		},
@@ -55,7 +54,7 @@ func TestRoundTripDataTransferFilecoin(t *testing.T) {
 func TestFormatDetection(t *testing.T) {
 	cids := generateCids(1)
 	filecoinV1Data := &metadata.FilecoinV1Data{
-		PieceCID:      cidlink.Link{Cid: cids[0]},
+		PieceCID:      cids[0],
 		IsFree:        false,
 		FastRetrieval: false,
 	}

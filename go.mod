@@ -16,7 +16,7 @@ require (
 	github.com/ipfs/go-ipfs-blocksutil v0.0.1
 	github.com/ipfs/go-log/v2 v2.3.0
 	github.com/ipld/go-car/v2 v2.0.3-0.20210920144420-f35d88ce16ca
-	github.com/ipld/go-ipld-prime v0.12.0
+	github.com/ipld/go-ipld-prime v0.12.4-0.20211018101421-492705d1efdc
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/libp2p/go-msgio v0.0.6
