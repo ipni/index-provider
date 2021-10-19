@@ -2,13 +2,14 @@ package suppliers
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
 	"testing"
 
-	"github.com/filecoin-project/indexer-reference-provider/mock"
+	mock_provider "github.com/filecoin-project/indexer-reference-provider/mock"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
@@ -79,12 +80,12 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 				NotifyPut(ctx, gomock.Any(), metadata).
 				Return(wantCid, nil)
 
-			gotKey, gotCid, err := subject.Put(ctx, tt.carPath, metadata)
+			gotContextID := sha256.New().Sum([]byte(tt.carPath))
+			gotCid, err := subject.Put(ctx, gotContextID, tt.carPath, metadata)
 			require.NoError(t, err)
 			require.Equal(t, wantCid, gotCid)
-			require.NotNil(t, gotKey)
 
-			gotIterator, err := subject.Callback(ctx, gotKey)
+			gotIterator, err := subject.Callback(ctx, gotContextID)
 			require.NoError(t, err)
 
 			gotMultihashes := 0
@@ -135,22 +136,22 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 		NotifyPut(ctx, gomock.Any(), metadata).
 		Return(wantCid, nil)
 
-	gotKey, id, err := subject.Put(ctx, path, metadata)
+	gotContextID := sha256.New().Sum([]byte(path))
+	id, err := subject.Put(ctx, gotContextID, path, metadata)
 	require.NoError(t, err)
 	require.Equal(t, wantCid, id)
-	require.NotNil(t, gotKey)
 
 	wantCid = generateCidV1(t, rng)
 	mockEng.
 		EXPECT().
-		NotifyRemove(ctx, gotKey).
+		NotifyRemove(ctx, gotContextID).
 		Return(wantCid, nil)
 
-	removedId, err := subject.Remove(ctx, path, metadata)
+	removedId, err := subject.Remove(ctx, gotContextID)
 	require.NoError(t, err)
 	require.Equal(t, wantCid, removedId)
 
-	_, err = subject.Remove(ctx, path, metadata)
+	_, err = subject.Remove(ctx, gotContextID)
 	require.EqualError(t, err, "no CID iterator found for given key")
 }
 

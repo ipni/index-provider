@@ -36,7 +36,7 @@ type BlockStoreSupplier interface {
 	ReadOnlyBlockstore(contextID []byte) (suppliers.ClosableBlockstore, error)
 }
 
-type CarDataTransfer struct {
+type carDataTransfer struct {
 	dt       datatransfer.Manager
 	supplier BlockStoreSupplier
 	stores   *stores.ReadOnlyBlockstores
@@ -47,17 +47,23 @@ type CarDataTransfer struct {
 
 const ContextIDCodec multicodec.Code = 0x300001
 
-func NewCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) *CarDataTransfer {
-	cdt := &CarDataTransfer{
+func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) error {
+	cdt := &carDataTransfer{
 		dt:       dt,
 		supplier: supplier,
 		stores:   stores.NewReadOnlyBlockstores(),
 	}
-	dt.RegisterVoucherType(&DealProposal{}, cdt)
+	err := dt.RegisterVoucherType(&DealProposal{}, cdt)
+	if err != nil {
+		return err
+	}
 	dt.RegisterVoucherResultType(&DealResponse{})
-	dt.RegisterTransportConfigurer(&DealProposal{}, cdt.transportConfigurer)
+	err = dt.RegisterTransportConfigurer(&DealProposal{}, cdt.transportConfigurer)
+	if err != nil {
+		return err
+	}
 	dt.SubscribeToEvents(cdt.eventListener)
-	return cdt
+	return nil
 }
 
 func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
@@ -83,12 +89,12 @@ func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
 }
 
 // ValidatePush validates a push request received from the peer that will send data
-func (cdt *CarDataTransfer) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (cdt *carDataTransfer) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	return nil, errors.New("No pushes accepted")
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (cdt *CarDataTransfer) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
+func (cdt *carDataTransfer) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
 	proposal, ok := voucher.(*DealProposal)
 	if !ok {
 		return nil, errors.New("wrong voucher type")
@@ -136,7 +142,7 @@ func (cdt *CarDataTransfer) ValidatePull(isRestart bool, _ datatransfer.ChannelI
 	return &response, nil
 }
 
-func (cdt *CarDataTransfer) attemptAcceptDeal(providerDealID ProviderDealID, proposal *DealProposal) (DealStatus, error) {
+func (cdt *carDataTransfer) attemptAcceptDeal(providerDealID ProviderDealID, proposal *DealProposal) (DealStatus, error) {
 
 	if proposal.PieceCID == nil {
 		return DealStatusErrored, errors.New("must specific piece CID")
@@ -172,7 +178,7 @@ func checkTermination(event datatransfer.Event, channelState datatransfer.Channe
 		event.Code == datatransfer.Cancel
 }
 
-func (cdt *CarDataTransfer) eventListener(event datatransfer.Event, channelState datatransfer.ChannelState) {
+func (cdt *carDataTransfer) eventListener(event datatransfer.Event, channelState datatransfer.ChannelState) {
 	dealProposal, ok := channelState.Voucher().(*DealProposal)
 	// if this event is for a transfer not related to storage, ignore
 	if !ok {
@@ -195,7 +201,7 @@ type StoreConfigurableTransport interface {
 	UseStore(datatransfer.ChannelID, ipld.LinkSystem) error
 }
 
-func (ctd *CarDataTransfer) transportConfigurer(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
+func (ctd *carDataTransfer) transportConfigurer(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
 	dealProposal, ok := voucher.(*DealProposal)
 	if !ok {
 		return

@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/urfave/cli/v2"
 )
 
@@ -33,19 +32,9 @@ var (
 		Before:  beforeImportCar,
 		Action:  doImportCar,
 	}
-	metadata = stiapi.Metadata{
-		ProtocolID: providerProtocolID,
-	}
 )
 
-func beforeImportCar(cctx *cli.Context) error {
-	if cctx.IsSet(metadataFlag.Name) {
-		decoded, err := base64.StdEncoding.DecodeString(metadataFlagValue)
-		if err != nil {
-			return errors.New("metadata is not a valid base64 encoded string")
-		}
-		metadata.Data = decoded
-	}
+func beforeImportCar(context *cli.Context) error {
 	if cctx.IsSet(keyFlag.Name) {
 		decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)
 		if err != nil {
@@ -58,9 +47,8 @@ func beforeImportCar(cctx *cli.Context) error {
 
 func doImportCar(cctx *cli.Context) error {
 	req := adminserver.ImportCarReq{
-		Path:     carPathFlagValue,
-		Key:      key,
-		Metadata: metadata,
+		Path: carPathFlagValue,
+		Key:  key,
 	}
 
 	reqBody, err := json.Marshal(req)
