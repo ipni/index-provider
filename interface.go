@@ -83,8 +83,8 @@ type MultihashIterator interface {
 }
 
 // Callback is used by provider to look up a list of multihashes associated to
-// a context ID.  The callback must produce the same list of multihashes for the same
-// context ID.
+// a context ID.  The callback must be deterministic: it must produce the same
+// list of multihashes in the same order for the same context ID.
 //
 // See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator.
 type Callback func(ctx context.Context, contextID []byte) (MultihashIterator, error)

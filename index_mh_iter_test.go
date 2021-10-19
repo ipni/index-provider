@@ -1,11 +1,9 @@
 package provider
 
 import (
-	"context"
 	"errors"
 	"io"
 	"testing"
-	"time"
 
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
@@ -17,7 +15,7 @@ func TestIndexMhIterator_NextReturnsMhThenEOFOnHappyPath(t *testing.T) {
 	wantMh, err := multihash.Sum([]byte("fish"), multihash.SHA3_256, -1)
 	require.NoError(t, err)
 
-	subject := CarMultihashIterator(context.Background(), &testIterableIndex{
+	subject, err := CarMultihashIterator(&testIterableIndex{
 		doForEach: func(f func(multihash.Multihash, uint64) error) error {
 			err := f(wantMh, 1)
 			require.NoError(t, err)
@@ -26,6 +24,7 @@ func TestIndexMhIterator_NextReturnsMhThenEOFOnHappyPath(t *testing.T) {
 			return nil
 		},
 	})
+	require.NoError(t, err)
 
 	gotMh, err := subject.Next()
 	require.Equal(t, wantMh, gotMh)
@@ -40,50 +39,15 @@ func TestIndexMhIterator_NextReturnsMhThenEOFOnHappyPath(t *testing.T) {
 	require.Equal(t, io.EOF, err)
 }
 
-func TestIndexMhIterator_NextReturnsErrorOnUnHappyPath(t *testing.T) {
-	wantMh, err := multihash.Sum([]byte("fish"), multihash.SHA3_256, -1)
-	require.NoError(t, err)
+func TestIndexMhIterator_FailsFastWhenForEachReturnsError(t *testing.T) {
 	wantErr := errors.New("lobster")
-
-	subject := CarMultihashIterator(context.Background(), &testIterableIndex{
+	subject, err := CarMultihashIterator(&testIterableIndex{
 		doForEach: func(f func(multihash.Multihash, uint64) error) error {
-			err := f(wantMh, 1)
-			require.NoError(t, err)
 			return wantErr
 		},
 	})
-
-	gotMh, err := subject.Next()
-	require.NotNil(t, gotMh)
-	require.Nil(t, err)
-
-	gotMh, err = subject.Next()
-	require.Nil(t, gotMh)
 	require.Equal(t, wantErr, err)
-}
-
-func TestNewIndexMhIterator_TimesOutWhenContextTimesOut(t *testing.T) {
-	t.Skipf("TODO(mvdan): context currently unused")
-	timedoutCtx, cancelFunc := context.WithTimeout(context.Background(), time.Nanosecond)
-	t.Cleanup(cancelFunc)
-
-	idx, err := car.GenerateIndexFromFile("testdata/sample-v1.car")
-	require.NoError(t, err)
-	iterIdx, ok := idx.(index.IterableIndex)
-	require.True(t, ok)
-
-	subject := CarMultihashIterator(timedoutCtx, iterIdx)
-
-	// Assert that eventually deadline exceeded error is returned.
-	// Note, we have to assert eventually, since we can't guarantee whether mh gets added to channel
-	// first or ctx.Done() is selected first.
-	for {
-		_, err = subject.Next()
-		if err != nil {
-			break
-		}
-	}
-	require.EqualError(t, err, "context deadline exceeded")
+	require.Nil(t, subject)
 }
 
 func TestNewCarSupplier_ReturnsExpectedMultihashes(t *testing.T) {
@@ -99,9 +63,8 @@ func TestNewCarSupplier_ReturnsExpectedMultihashes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
-	t.Cleanup(cancelFunc)
-	subject := CarMultihashIterator(ctx, iterIdx)
+	subject, err := CarMultihashIterator(iterIdx)
+	require.NoError(t, err)
 
 	var gotMhs []multihash.Multihash
 	for {

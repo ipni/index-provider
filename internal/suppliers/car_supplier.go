@@ -139,12 +139,12 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata stiapi.
 
 // Callback supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) Callback(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+func (cs *CarSupplier) Callback(_ context.Context, contextID []byte) (provider.MultihashIterator, error) {
 	idx, err := cs.lookupIterableIndex(contextID)
 	if err != nil {
 		return nil, err
 	}
-	return provider.CarMultihashIterator(ctx, idx), nil
+	return provider.CarMultihashIterator(idx)
 }
 
 func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
