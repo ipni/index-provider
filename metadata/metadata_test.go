@@ -5,14 +5,13 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/indexer-reference-provider/metadata"
-	"github.com/ipfs/go-cid"
-	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
+	"github.com/filecoin-project/indexer-reference-provider/testutil"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRoundTripDataTransferFilecoin(t *testing.T) {
-	cids := generateCids(4)
+	cids := testutil.GenerateCids(4)
 	filecoinV1Datas := []*metadata.FilecoinV1Data{
 		{
 			PieceCID:      cids[0],
@@ -52,7 +51,7 @@ func TestRoundTripDataTransferFilecoin(t *testing.T) {
 }
 
 func TestFormatDetection(t *testing.T) {
-	cids := generateCids(1)
+	cids := testutil.GenerateCids(1)
 	filecoinV1Data := &metadata.FilecoinV1Data{
 		PieceCID:      cids[0],
 		IsFree:        false,
@@ -95,15 +94,4 @@ func TestFormatDetection(t *testing.T) {
 			require.EqualError(t, err, testCase.expectedErr.Error())
 		}
 	}
-}
-
-var blockGenerator = blocksutil.NewBlockGenerator()
-
-func generateCids(n int) []cid.Cid {
-	cids := make([]cid.Cid, 0, n)
-	for i := 0; i < n; i++ {
-		c := blockGenerator.Next().Cid()
-		cids = append(cids, c)
-	}
-	return cids
 }
