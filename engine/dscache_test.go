@@ -21,7 +21,7 @@ func TestDsCache(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cache, err := newDsCache(ctx, ldstore, 5, false)
+	cache, err := newDsCache(ctx, ldstore, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestDsCache(t *testing.T) {
 	}
 
 	// Test loading cache from datastore.
-	cache, err = newDsCache(ctx, ldstore, 3, false)
+	cache, err = newDsCache(ctx, ldstore, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,15 +75,17 @@ func TestDsCache(t *testing.T) {
 		t.Fatalf("expected %d items in cache, got %d", cache.Cap(), cache.Len())
 	}
 
-	// Test purge cache
-	cache, err = newDsCache(ctx, ldstore, 3, true)
+	// Test cache Clear.
+	cache.Clear()
+	if cache.Len() != 0 {
+		t.Fatal("cache was not purged")
+	}
+	// Check that no keys are loaded from datastore.
+	cache, err = newDsCache(ctx, ldstore, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cache.Len() != 0 {
 		t.Fatal("cache was not purged")
-	}
-	if cache.Cap() != 3 {
-		t.Fatal("cache has wrong capacity")
 	}
 }

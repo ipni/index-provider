@@ -8,9 +8,9 @@ require (
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.7.4
-	github.com/hashicorp/golang-lru v0.5.4
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.4.6
 	github.com/ipfs/go-ds-leveldb v0.4.2

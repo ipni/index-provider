@@ -65,9 +65,13 @@ func New(ctx context.Context, ingestCfg config.Ingest, privKey crypto.PrivKey, d
 		log.Infof("Retrieval address not configured, using %s", addrs[0])
 	}
 
-	dsCache, err := newDsCache(ctx, ds, ingestCfg.LinkCacheSize, ingestCfg.PurgeLinkCache)
+	dsCache, err := newDsCache(ctx, ds, ingestCfg.LinkCacheSize)
 	if err != nil {
 		return nil, err
+	}
+
+	if ingestCfg.PurgeLinkCache {
+		dsCache.Clear()
 	}
 
 	if dsCache.Cap() > ingestCfg.LinkCacheSize {
