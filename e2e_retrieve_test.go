@@ -53,7 +53,7 @@ func setupClient(ctx context.Context, p peer.ID, t *testing.T) (datatransfer.Man
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	blockStore := blockstore.NewBlockstore(store)
 	lsys := storeutil.LinkSystemForBlockstore(blockStore)
-	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/1"))
+	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
