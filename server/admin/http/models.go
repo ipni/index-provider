@@ -1,6 +1,7 @@
 package adminserver
 
 import (
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 )
 
@@ -27,6 +28,8 @@ type (
 		Path string `json:"path"`
 		// The optional key associated to the CAR. If not provided, one will be generated.
 		Key []byte `json:"key"`
+		// The optional metadata.
+		Metadata stiapi.Metadata `json:"metadata"`
 	}
 	// ImportCarRes represents the response to an ImportCarReq.
 	ImportCarRes struct {

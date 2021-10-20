@@ -2,10 +2,8 @@ package adminserver
 
 import (
 	"context"
-	"crypto/sha256"
 	"net/http"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/ipfs/go-cid"
 )
@@ -27,26 +25,12 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Supply CAR.
-	var contextID []byte
 	var advID cid.Cid
 	var err error
 	ctx := context.Background()
-	if req.hasId() {
-		contextID = req.Key
-	} else {
-		contextID = sha256.New().Sum([]byte(req.Path))
-	}
-
-	metadata, err := cardatatransfer.MetadataFromContextID(contextID)
-	if err != nil {
-		log.Errorw("could not generate storetheindex metadata", "err", err)
-		errRes := newErrorResponse("failed to generate metadata. %v", err)
-		respond(w, http.StatusInternalServerError, errRes)
-		return
-	}
 
 	log.Info("Storing CAR and generating key")
-	advID, err = h.cs.Put(ctx, contextID, req.Path, metadata)
+	advID, err = h.cs.Put(ctx, req.Key, req.Path, req.Metadata)
 
 	// Respond with cause of failure.
 	if err != nil {
@@ -56,13 +40,9 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infow("Stored CAR", "path", req.Path, "contextID", contextID)
+	log.Infow("Stored CAR", "path", req.Path, "contextID", req.Key)
 
 	// Respond with successful import results.
-	resp := &ImportCarRes{contextID, advID}
+	resp := &ImportCarRes{req.Key, advID}
 	respond(w, http.StatusOK, resp)
-}
-
-func (req *ImportCarReq) hasId() bool {
-	return len(req.Key) != 0
 }

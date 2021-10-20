@@ -28,8 +28,9 @@ func Test_importCarHandler(t *testing.T) {
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
 	require.NoError(t, err)
 	icReq := &ImportCarReq{
-		Path: "fish",
-		Key:  wantKey,
+		Path:     "fish",
+		Key:      wantKey,
+		Metadata: wantMetadata,
 	}
 
 	jsonReq, err := json.Marshal(icReq)
@@ -76,8 +77,9 @@ func Test_importCarHandlerFail(t *testing.T) {
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
 	require.NoError(t, err)
 	icReq := &ImportCarReq{
-		Path: "fish",
-		Key:  wantKey,
+		Path:     "fish",
+		Key:      wantKey,
+		Metadata: wantMetadata,
 	}
 
 	jsonReq, err := json.Marshal(icReq)

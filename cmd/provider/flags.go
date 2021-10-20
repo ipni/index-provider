@@ -94,8 +94,20 @@ var registerFlags = []cli.Flag{
 var importCarFlags = []cli.Flag{
 	adminAPIFlag,
 	carPathFlag,
+	metadataFlag,
 	keyFlag,
 }
+
+var (
+	metadataFlagValue string
+	metadataFlag      = &cli.StringFlag{
+		Name:        "metadata",
+		Usage:       "Base64 encoded metadata bytes.",
+		Aliases:     []string{"m"},
+		Required:    false,
+		Destination: &metadataFlagValue,
+	}
+)
 
 var (
 	keyFlagValue string
