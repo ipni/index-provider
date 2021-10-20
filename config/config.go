@@ -92,6 +92,7 @@ func Load(filePath string) (*Config, error) {
 	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failure to decode config: %s", err)
 	}
+
 	return &cfg, err
 }
 

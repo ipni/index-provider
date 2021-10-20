@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
@@ -33,7 +34,10 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) *engine.Engine {
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
 	mhs, _ := utils.RandomMultihashes(10)
-	e, err := engine.New(context.Background(), priv, dt, h, store, testTopic, nil)
+	ingestCfg := config.Ingest{
+		PubSubTopic: testTopic,
+	}
+	e, err := engine.New(context.Background(), ingestCfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
 	e.RegisterCallback(utils.ToCallback(mhs))
 	return e

@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	"github.com/filecoin-project/indexer-reference-provider/testutil"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
@@ -106,8 +107,11 @@ func mkEngine(t *testing.T) *Engine {
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
+	ingestCfg := config.Ingest{
+		PubSubTopic: testTopic,
+	}
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	engine, err := New(context.Background(), priv, dt, h, store, testTopic, nil)
+	engine, err := New(context.Background(), ingestCfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
 	return engine
 }
@@ -129,7 +133,7 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 	contextID := []byte(mhs[0])
 	mhIter, err := e.cb(context.Background(), contextID)
 	require.NoError(t, err)
-	cidsLnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
+	cidsLnk, err := e.generateChunks(mhIter)
 	require.NoError(t, err)
 	// Store the relationship between contextID and CID
 	// of the advertised list of Cids so it is available
@@ -379,7 +383,7 @@ func TestLinkedStructure(t *testing.T) {
 	// Generate the linked list
 	mhIter, err := e.cb(context.Background(), k)
 	require.NoError(t, err)
-	lnk, err := generateChunks(noStoreLinkSystem(), mhIter, maxIngestChunk)
+	lnk, err := e.generateChunks(mhIter)
 	require.NoError(t, err)
 	err = e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
 	require.NoError(t, err)

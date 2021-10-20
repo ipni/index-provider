@@ -16,10 +16,9 @@ import (
 )
 
 const (
-	latestAdvKey          = "sync/adv/"
-	keyToCidMapPrefix     = "map/keyCid/"
-	cidToKeyMapPrefix     = "map/cidKey/"
-	linksEntryCachePrefix = "cache/links/"
+	latestAdvKey      = "sync/adv/"
+	keyToCidMapPrefix = "map/keyCid/"
+	cidToKeyMapPrefix = "map/cidKey/"
 )
 
 // Creates the main engine linksystem.
@@ -114,7 +113,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Store the linked list entries in cache as we generate them.  We
 			// use the cache linksystem that stores entries in an in-memory
 			// datastore.
-			_, err = generateChunks(e.cachelsys, mhIter, maxIngestChunk)
+			_, err = e.generateChunks(mhIter)
 			if err != nil {
 				log.Errorf("Error generating linked list from callback: %s", err)
 				return nil, err
@@ -149,13 +148,15 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	return lsys
 }
 
-// Generate chunks of the linked list.
-//
-// This function takes a linksystem for persistence along with the channels
-// from a callback, and generates the linked list structure. It also supports
-// configuring the number of entries per chunk in the list.
-func generateChunks(lsys ipld.LinkSystem, mhIter provider.MultihashIterator, maxChunkSize int) (ipld.Link, error) {
-	mhs := make([]multihash.Multihash, 0, maxChunkSize)
+// generateChunks iterates multihashes, bundles them into a chunk (slice), and
+// then and stores that chunk and a link to the previous chunk.
+func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, error) {
+	chunkSize := e.linkedChunkSize
+	mhs := make([]multihash.Multihash, 0, chunkSize)
+
+	dsc, isDsc := e.cache.(*dsCache)
+	var resized bool
+
 	var chunkLnk ipld.Link
 	var totalMhCount, chunkCount int
 	for {
@@ -169,24 +170,39 @@ func generateChunks(lsys ipld.LinkSystem, mhIter provider.MultihashIterator, max
 		mhs = append(mhs, next)
 		totalMhCount++
 
-		if len(mhs) >= maxChunkSize {
-			chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
+		if len(mhs) >= chunkSize {
+			// Cache needs to be large enough to store all links in a list.
+			if isDsc && dsc.Len() == dsc.Cap() {
+				dsc.Resize(dsc.Cap() * 2)
+			}
+			chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
 			if err != nil {
 				return nil, err
 			}
 			chunkCount++
-			mhs = make([]multihash.Multihash, 0, maxChunkSize)
+			// NewLinkedListOfMhs makes it own copy, so safe to reuse mhs
+			mhs = mhs[:0]
 		}
 	}
 
 	// Chunk remaining multihashes.
 	if len(mhs) != 0 {
+		if isDsc && dsc.Len() == dsc.Cap() {
+			dsc.Resize(dsc.Cap() * 2)
+		}
 		var err error
-		chunkLnk, _, err = schema.NewLinkedListOfMhs(lsys, mhs, chunkLnk)
+		chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
 		if err != nil {
 			return nil, err
 		}
 		chunkCount++
+	}
+
+	// If the cache was resized to expand beyond its original capacity, then
+	// set its size to only as big as the number of links in this list.
+	if resized {
+		dsc.Resize(dsc.Len())
+		log.Infow("Link cache expanded to hold links", "new_size", dsc.Cap())
 	}
 
 	log.Infow("Generated linked chunks of multihashes", "totalMhCount", totalMhCount, "chunkCount", chunkCount)
@@ -198,9 +214,9 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
 		c := lnk.(cidlink.Link).Cid
-		val, err := e.cache.Get(datastore.NewKey(linksEntryCachePrefix + c.String()))
+		val, err := e.cache.Get(datastore.NewKey(c.String()))
 		if err != nil {
-			log.Errorf("Could not get cache entry for key %q", linksEntryCachePrefix+c.String())
+			log.Errorf("Could not get cache entry for key %q", c)
 			return nil, err
 		}
 		return bytes.NewBuffer(val), nil
@@ -209,9 +225,9 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			err := e.cache.Put(datastore.NewKey(linksEntryCachePrefix+c.String()), buf.Bytes())
+			err := e.cache.Put(datastore.NewKey(c.String()), buf.Bytes())
 			if err != nil {
-				log.Errorf("Could not put cache entry for key %q", linksEntryCachePrefix+c.String())
+				log.Errorf("Could not put cache entry for key %q", c)
 			}
 			return err
 		}, nil
@@ -238,7 +254,7 @@ func (e *Engine) vanillaLinkSystem() ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			return e.cache.Put(datastore.NewKey(c.String()), buf.Bytes())
+			return e.ds.Put(datastore.NewKey(c.String()), buf.Bytes())
 		}, nil
 	}
 	return lsys
@@ -315,7 +331,7 @@ func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
 
 // get an entry from cache.
 func (e *Engine) getCacheEntry(c cid.Cid) ([]byte, error) {
-	b, err := e.cache.Get(datastore.NewKey(linksEntryCachePrefix + c.String()))
+	b, err := e.cache.Get(datastore.NewKey(c.String()))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			return nil, nil
