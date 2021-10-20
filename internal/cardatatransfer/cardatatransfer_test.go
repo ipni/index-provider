@@ -173,6 +173,11 @@ func TestCarDataTransfer(t *testing.T) {
 			dstDt := testutil.SetupDataTransferOnHost(t, dstHost, dstStore, lsys)
 			mn.LinkAll()
 
+			var expectedLen int
+			// read blockstore length ahead of time
+			if data.expectedBlockstoreResult != nil {
+				expectedLen = testutil.GetBstoreLen(ctx, t, data.expectedBlockstoreResult)
+			}
 			dstResultChan := make(chan bool, 1)
 			var dstMessage string
 			dstDt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
@@ -200,7 +205,6 @@ func TestCarDataTransfer(t *testing.T) {
 			case dstResult := <-dstResultChan:
 				require.Equal(t, data.expectSuccess, dstResult)
 				if data.expectSuccess {
-					expectedLen := testutil.GetBstoreLen(ctx, t, data.expectedBlockstoreResult)
 					receivedLen := testutil.GetBstoreLen(ctx, t, dstBlockstore)
 					require.Equal(t, expectedLen, receivedLen)
 				} else {
