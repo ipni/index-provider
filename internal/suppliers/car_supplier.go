@@ -134,6 +134,9 @@ func (cs *CarSupplier) getPath(contextID []byte) (path string, err error) {
 
 func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
 	path, err := cs.getPath(contextID)
+	if err != nil {
+		return nil, err
+	}
 
 	cr, err := car.OpenReader(path, cs.opts...)
 	if err != nil {
