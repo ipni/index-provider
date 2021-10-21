@@ -31,16 +31,16 @@ func NewReadOnlyBlockstores() *ReadOnlyBlockstores {
 	}
 }
 
-func (r *ReadOnlyBlockstores) Track(key string, bs bstore.Blockstore) (bool, error) {
+func (r *ReadOnlyBlockstores) Track(key string, bs bstore.Blockstore) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, ok := r.stores[key]; ok {
-		return false, nil
+		return false
 	}
 
 	r.stores[key] = bs
-	return true, nil
+	return true
 }
 
 func (r *ReadOnlyBlockstores) Get(key string) (bstore.Blockstore, error) {
