@@ -7,6 +7,7 @@ import (
 	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
@@ -39,7 +40,10 @@ func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	e, err := engine.New(context.Background(), priv, dt, h, store, "test/topic", nil)
+	ingestCfg := config.Ingest{
+		PubSubTopic: "test/topic",
+	}
+	e, err := engine.New(context.Background(), ingestCfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
 	cs := suppliers.NewCarSupplier(e, store, car.ZeroLengthSectionAsEOF(false))
 	err = cardatatransfer.StartCarDataTransfer(dt, cs)
