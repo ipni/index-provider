@@ -68,7 +68,7 @@ func setupClient(ctx context.Context, p peer.ID, t *testing.T) (datatransfer.Man
 }
 
 func TestRetrievalRoundTrip(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Initialize everything
@@ -96,7 +96,8 @@ func TestRetrievalRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	var receivedMd stiapi.Metadata
-	receivedMd.UnmarshalBinary(r.Ad.Metadata.Bytes())
+	err = receivedMd.UnmarshalBinary(r.Ad.Metadata.Bytes())
+	require.NoError(t, err)
 	dtm, err := metadata.FromIndexerMetadata(receivedMd)
 	require.NoError(t, err)
 	fv1, err := metadata.DecodeFilecoinV1Data(dtm)
@@ -118,8 +119,10 @@ func TestRetrievalRoundTrip(t *testing.T) {
 			resultChan <- true
 		}
 	})
-	clientDt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
-	clientDt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+	err = clientDt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
+	require.NoError(t, err)
+	err = clientDt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+	require.NoError(t, err)
 	_, err = clientDt.OpenPullDataChannel(ctx, sh.ID(), proposal, roots[0], selectorparse.CommonSelector_ExploreAllRecursively)
 	require.NoError(t, err)
 

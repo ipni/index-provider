@@ -398,7 +398,9 @@ func clean(ls legs.LegSubscriber, e *Engine, cncl context.CancelFunc) func() {
 	return func() {
 		cncl()
 		ls.Close()
-		e.Shutdown(context.Background())
+		if err := e.Shutdown(context.Background()); err != nil {
+			panic(err.Error())
+		}
 	}
 }
 
