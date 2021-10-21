@@ -15,7 +15,7 @@ $(BIN): vet test
 lint:
 	golangci-lint run
 
-mock: interface.go
+mock/interface.go: interface.go
 	mockgen --source interface.go --destination mock/interface.go --package mock_provider
 
 test: mock
