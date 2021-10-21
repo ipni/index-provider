@@ -27,8 +27,7 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 	require.True(t, stores.IsNotFound(err))
 
 	// Add a read-only blockstore
-	ok, err := tracker.Track(k1, rdOnlyBS1)
-	require.NoError(t, err)
+	ok := tracker.Track(k1, rdOnlyBS1)
 	require.True(t, ok)
 
 	// Get the blockstore using its key
@@ -40,8 +39,7 @@ func TestReadOnlyStoreTracker(t *testing.T) {
 	require.Equal(t, len1, lenGot)
 
 	// Call GetOrOpen with a different CAR file
-	ok, err = tracker.Track(k2, rdOnlyBS2)
-	require.NoError(t, err)
+	ok = tracker.Track(k2, rdOnlyBS2)
 	require.True(t, ok)
 
 	// Verify the blockstore is different

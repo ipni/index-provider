@@ -57,7 +57,10 @@ func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) 
 	if err != nil {
 		return err
 	}
-	dt.RegisterVoucherResultType(&DealResponse{})
+	err = dt.RegisterVoucherResultType(&DealResponse{})
+	if err != nil {
+		return err
+	}
 	err = dt.RegisterTransportConfigurer(&DealProposal{}, cdt.transportConfigurer)
 	if err != nil {
 		return err
@@ -143,7 +146,6 @@ func (cdt *carDataTransfer) ValidatePull(isRestart bool, _ datatransfer.ChannelI
 }
 
 func (cdt *carDataTransfer) attemptAcceptDeal(providerDealID ProviderDealID, proposal *DealProposal) (DealStatus, error) {
-
 	if proposal.PieceCID == nil {
 		return DealStatusErrored, errors.New("must specific piece CID")
 	}
