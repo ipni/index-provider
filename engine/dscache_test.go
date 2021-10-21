@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
+	"runtime"
 	"testing"
 	"time"
 
@@ -12,7 +14,17 @@ import (
 )
 
 func TestDsCache(t *testing.T) {
-	tmpDir := t.TempDir()
+	var tmpDir string
+	var err error
+	if runtime.GOOS == "windows" {
+		tmpDir, err = ioutil.TempDir("", "dscache_test")
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		tmpDir = t.TempDir()
+	}
+
 	ldstore, err := lds.NewDatastore(tmpDir, nil)
 	if err != nil {
 		panic(err)

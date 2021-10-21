@@ -260,18 +260,6 @@ func (e *Engine) vanillaLinkSystem() ipld.LinkSystem {
 	return lsys
 }
 
-// Linksystem used to generate links from a list of cids without
-// persisting anything in the process.
-func noStoreLinkSystem() ipld.LinkSystem {
-	lsys := cidlink.DefaultLinkSystem()
-	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
-		return io.Discard, func(lnk ipld.Link) error {
-			return nil
-		}, nil
-	}
-	return lsys
-}
-
 // decodeIPLDNode from a reaed
 // This is used to get the ipld.Node from a set of raw bytes.
 func decodeIPLDNode(r io.Reader) (ipld.Node, error) {
