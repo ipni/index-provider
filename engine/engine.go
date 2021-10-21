@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	dt "github.com/filecoin-project/go-data-transfer"
@@ -13,7 +14,6 @@ import (
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	dssync "github.com/ipfs/go-datastore/sync"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -24,12 +24,6 @@ import (
 var log = logging.Logger("provider/engine")
 
 var _ provider.Interface = (*Engine)(nil)
-
-// TODO: Consider including this constant as config or options
-// in provider so they are conigurable.
-
-// maxIngestChunk is the maximum number of entries to include in each chunk of ingestion linked list.
-const maxIngestChunk = 100
 
 // Engine is an implementation of the core reference provider interface
 type Engine struct {
@@ -44,42 +38,68 @@ type Engine struct {
 	lsys ipld.LinkSystem
 	// cachelsys is used to track the linked lists through ingestion
 	cachelsys ipld.LinkSystem
-	cache     datastore.Batching
+	cache     datastore.Datastore
 	// ds is the datastore used for persistence of different assets (advertisements,
 	// indexed data, etc.)
-	ds datastore.Batching
-	lp legs.LegPublisher
+	ds        datastore.Batching
+	lp        legs.LegPublisher
+	pubCancel context.CancelFunc
+
 	// pubsubtopic where the provider will push advertisements
-	pubSubTopic string
+	pubSubTopic     string
+	linkedChunkSize int
 
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
 	cblk sync.Mutex
 }
 
-// New creates a new engine
-func New(ctx context.Context, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, pubSubTopic string, addrs []string) (*Engine, error) {
+// New creates a new engine.  The context is only used for canceling the call
+// to New.
+func New(ctx context.Context, ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, addrs []string) (*Engine, error) {
+	// Replace any zero-values with defaults.
+	ingestCfg.Defaults()
+
 	if len(addrs) == 0 {
 		addrs = []string{h.Addrs()[0].String()}
 		log.Infof("Retrieval address not configured, using %s", addrs[0])
 	}
 
-	var err error
+	dsCache, err := newDsCache(ctx, ds, ingestCfg.LinkCacheSize)
+	if err != nil {
+		return nil, err
+	}
+
+	if ingestCfg.PurgeLinkCache {
+		dsCache.Clear()
+	}
+
+	if dsCache.Cap() > ingestCfg.LinkCacheSize {
+		log.Infow("Link cache expanded to hold previously cached links", "new_size", dsCache.Cap())
+	}
+
 	// TODO(security): We should not keep the privkey decoded here.
 	// We should probably unlock it and lock it every time we need it.
 	// Once we start encrypting the key locally.
 	e := &Engine{
-		host:        h,
-		ds:          ds,
-		privKey:     privKey,
-		pubSubTopic: pubSubTopic,
-		cache:       dssync.MutexWrap(datastore.NewMapDatastore()),
-		addrs:       addrs,
+		host:            h,
+		ds:              ds,
+		privKey:         privKey,
+		pubSubTopic:     ingestCfg.PubSubTopic,
+		linkedChunkSize: ingestCfg.LinkedChunkSize,
+
+		cache: dsCache,
+		addrs: addrs,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()
 	e.lsys = e.mkLinkSystem()
-	e.lp, err = legs.NewPublisherFromExisting(ctx, dt, h, pubSubTopic, e.lsys)
+
+	// Create a context that is used to cancel the publisher on shutdown if
+	// closing it takes too long.
+	var pubCtx context.Context
+	pubCtx, e.pubCancel = context.WithCancel(context.Background())
+	e.lp, err = legs.NewPublisherFromExisting(pubCtx, dt, h, e.pubSubTopic, e.lsys)
 	if err != nil {
 		log.Errorf("Error initializing publisher in engine: %s", err)
 		return nil, err
@@ -95,7 +115,7 @@ func NewFromConfig(ctx context.Context, cfg config.Config, dt dt.Manager, host h
 		log.Errorf("Error decoding private key from provider: %s", err)
 		return nil, err
 	}
-	return New(ctx, privKey, dt, host, ds, cfg.Ingest.PubSubTopic, cfg.ProviderServer.RetrievalMultiaddrs)
+	return New(ctx, cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
 }
 
 // PublishLocal stores the advertisement in the local datastore.
@@ -157,7 +177,23 @@ func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, e
 }
 
 func (e *Engine) Shutdown(ctx context.Context) error {
-	return e.lp.Close()
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			e.pubCancel()
+		case <-done:
+		}
+	}()
+	err := e.lp.Close()
+	if err != nil {
+		err = fmt.Errorf("error closing leg publisher: %w", err)
+	}
+	close(done)
+	if cerr := e.cache.Close(); cerr != nil {
+		log.Errorf("Error closing link cache: %s", cerr)
+	}
+	return err
 }
 
 func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
@@ -218,7 +254,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		}
 		// Generate the linked list ipld.Link that is added to the
 		// advertisement and used for ingestion.
-		lnk, err := generateChunks(e.cachelsys, mhIter, maxIngestChunk)
+		lnk, err := e.generateChunks(mhIter)
 		if err != nil {
 			log.Errorf("Error generating link from list of CIDs for contextID (%s): %s", string(contextID), err)
 			return cid.Undef, err

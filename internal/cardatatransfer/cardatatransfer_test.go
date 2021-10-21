@@ -171,7 +171,8 @@ func TestCarDataTransfer(t *testing.T) {
 			dstBlockstore := bstore.NewBlockstore(dstStore)
 			lsys := storeutil.LinkSystemForBlockstore(dstBlockstore)
 			dstDt := testutil.SetupDataTransferOnHost(t, dstHost, dstStore, lsys)
-			mn.LinkAll()
+			err = mn.LinkAll()
+			require.NoError(t, err)
 
 			var expectedLen int
 			// read blockstore length ahead of time
@@ -194,8 +195,10 @@ func TestCarDataTransfer(t *testing.T) {
 					dstResultChan <- true
 				}
 			})
-			dstDt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
-			dstDt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+			err = dstDt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
+			require.NoError(t, err)
+			err = dstDt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+			require.NoError(t, err)
 			_, err = dstDt.OpenPullDataChannel(ctx, srcHost.ID(), data.voucher, data.root, data.selector)
 			require.NoError(t, err)
 

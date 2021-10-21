@@ -9,6 +9,6 @@ const (
 type Datastore struct {
 	// Type is the type of datastore
 	Type string
-	// Dir is the directory withing the config root where the datastore is kept
+	// Dir is the directory within the config root where the datastore is kept
 	Dir string
 }

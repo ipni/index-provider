@@ -122,7 +122,7 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Starting provider core
-	eng, err := engine.New(ctx, privKey, dt, h, ds, cfg.Ingest.PubSubTopic, cfg.ProviderServer.RetrievalMultiaddrs)
+	eng, err := engine.New(ctx, cfg.Ingest, privKey, dt, h, ds, cfg.ProviderServer.RetrievalMultiaddrs)
 	if err != nil {
 		return err
 	}
@@ -176,31 +176,31 @@ func daemonCommand(cctx *cli.Context) error {
 
 	log.Infow("Shutting down daemon")
 
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	go func() {
 		// Wait for context to be canceled. If timeout, then exit with error.
-		<-ctx.Done()
-		if ctx.Err() == context.DeadlineExceeded {
-			fmt.Fprintln(cctx.App.ErrWriter, "Timed out on shutdown, terminating...")
+		<-shutdownCtx.Done()
+		if shutdownCtx.Err() == context.DeadlineExceeded {
+			fmt.Println("Timed out on shutdown, terminating...")
 			os.Exit(-1)
 		}
 	}()
 
-	if err := eng.Shutdown(ctx); err != nil {
-		log.Errorw("Error closing provider core", "err", err)
+	if err = eng.Shutdown(shutdownCtx); err != nil {
+		log.Errorf("Error closing provider core: %s", err)
 		finalErr = ErrDaemonStop
 	}
 
 	if err := os.RemoveAll(tmpDir); err != nil {
-		log.Errorw("Error cleaning up temporary files", "err", err)
+		log.Errorf("Error cleaning up temporary files: %s", err)
 		finalErr = ErrCleanupFiles
 	}
 	// cancel libp2p server
 	cancelp2p()
 
-	if err := adminSvr.Shutdown(ctx); err != nil {
-		log.Errorw("Error shutting down admin server", "err", err)
+	if err = adminSvr.Shutdown(shutdownCtx); err != nil {
+		log.Errorw("Error shutting down admin server: %s", err)
 		finalErr = ErrDaemonStop
 	}
 	log.Infow("node stopped")

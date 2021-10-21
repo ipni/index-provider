@@ -26,7 +26,9 @@ func InitWithIdentity(identity Identity) (*Config, error) {
 			Dir:  defaultDatastoreDir,
 		},
 		Ingest: Ingest{
-			PubSubTopic: defaultIngestPubSubTopic,
+			LinkCacheSize:   defaultLinkCacheSize,
+			LinkedChunkSize: defaultLinkedChunkSize,
+			PubSubTopic:     defaultPubSubTopic,
 		},
 		ProviderServer: ProviderServer{
 			ListenMultiaddr: defaultNodeMultiaddr,
