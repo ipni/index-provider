@@ -25,18 +25,12 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Supply CAR.
-	var contextID []byte
-	var advId cid.Cid
+	var advID cid.Cid
 	var err error
 	ctx := context.Background()
-	if req.hasId() {
-		contextID = req.Key
-		log.Info("Storing car with specified contextID")
-		advId, err = h.cs.PutWithID(ctx, req.Key, req.Path, req.Metadata)
-	} else {
-		log.Info("Storing CAR and generating contextID")
-		contextID, advId, err = h.cs.Put(ctx, req.Path, req.Metadata)
-	}
+
+	log.Info("Storing CAR and generating key")
+	advID, err = h.cs.Put(ctx, req.Key, req.Path, req.Metadata)
 
 	// Respond with cause of failure.
 	if err != nil {
@@ -46,13 +40,9 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infow("Stored CAR", "path", req.Path, "contextID", contextID)
+	log.Infow("Stored CAR", "path", req.Path, "contextID", req.Key)
 
 	// Respond with successful import results.
-	resp := &ImportCarRes{contextID, advId}
+	resp := &ImportCarRes{req.Key, advID}
 	respond(w, http.StatusOK, resp)
-}
-
-func (req *ImportCarReq) hasId() bool {
-	return len(req.Key) != 0
 }

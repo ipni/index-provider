@@ -2,23 +2,23 @@ package suppliers
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
+	"io"
 	"path/filepath"
 
-	"github.com/filecoin-project/indexer-reference-provider"
+	provider "github.com/filecoin-project/indexer-reference-provider"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	bstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multicodec"
 )
 
 const (
 	carSupplierDatastorePrefix = "car_supplier://"
-	carPathDatastoreKeyPrefix  = carSupplierDatastorePrefix + "car_path/"
 	carIdDatastoreKeyPrefix    = carSupplierDatastorePrefix + "car_id/"
 )
 
@@ -47,36 +47,13 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 	return cs
 }
 
-// Put makes the CAR at given path suppliable by this supplier. The return CID
-// can then be used via Supply to get an iterator over CIDs that belong to the
-// CAR. The ID is generated based on the content of the CAR.  When the CAR ID
-// is already known, PutWithID should be used instead.
-//
-// This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(ctx context.Context, path string, metadata stiapi.Metadata) ([]byte, cid.Cid, error) {
-	// Clean path to CAR.
-	path = filepath.Clean(path)
-
-	// Generate an ID for the CAR at given path.
-	id, err := generateId(path)
-	if err != nil {
-		return nil, cid.Undef, err
-	}
-
-	c, err := cs.PutWithID(ctx, id, path, metadata)
-	if err != nil {
-		return nil, cid.Undef, err
-	}
-	return id, c, nil
-}
-
-// PutWithID makes the CAR at the given path, and identified by the given ID,
+// Put makes the CAR at the given path, and identified by the given ID,
 // suppliable by this supplier. The return CID can then be used via Supply to
 // get an iterator over CIDs that belong to the CAR. When the CAR ID is not
 // known, Put should be used instead.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) PutWithID(ctx context.Context, contextID []byte, path string, metadata stiapi.Metadata) (cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, metadata stiapi.Metadata) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 
@@ -84,11 +61,6 @@ func (cs *CarSupplier) PutWithID(ctx context.Context, contextID []byte, path str
 	carIdKey := toCarIdKey(contextID)
 	err := cs.ds.Put(carIdKey, []byte(path))
 	if err != nil {
-		return cid.Undef, err
-	}
-
-	// Store mapping of path to CAR ID, used to lookup the CAR by path when it is removed.
-	if err = cs.ds.Put(toPathKey(path), contextID); err != nil {
 		return cid.Undef, err
 	}
 
@@ -102,22 +74,17 @@ func toCarIdKey(contextID []byte) datastore.Key {
 // Remove removes the CAR at the given path from the list of suppliable CID
 // iterators. If the CAR at given path is not known, this function will return
 // an error.  This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata stiapi.Metadata) (cid.Cid, error) {
-	// Clean path.
-	path = filepath.Clean(path)
-
-	// Find the CAR ID that corresponds to the given path
-	pathKey := toPathKey(path)
-	key, err := cs.getIdFromPathKey(pathKey)
-	if err != nil {
-		if err == datastore.ErrNotFound {
-			err = ErrNotFound
-		}
-		return cid.Undef, err
-	}
+func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, error) {
 
 	// Delete mapping of CAR ID to path.
-	carIdKey := toCarIdKey(key)
+	carIdKey := toCarIdKey(contextID)
+	has, err := cs.ds.Has(carIdKey)
+	if err != nil {
+		return cid.Undef, err
+	}
+	if !has {
+		return cid.Undef, ErrNotFound
+	}
 	if err := cs.ds.Delete(carIdKey); err != nil {
 		// TODO improve error handling logic
 		// we shouldn't typically get NotFound error here.
@@ -126,15 +93,7 @@ func (cs *CarSupplier) Remove(ctx context.Context, path string, metadata stiapi.
 		return cid.Undef, err
 	}
 
-	// Delete mapping of path to CAR ID.
-	if err := cs.ds.Delete(pathKey); err != nil {
-		// TODO improve error handling logic
-		// we shouldn't typically get NotFound error here.
-		// If we do then a put must have failed prematurely
-		// See what we can do to opportunistically heal the datastore.
-		return cid.Undef, err
-	}
-	return cs.eng.NotifyRemove(ctx, key)
+	return cs.eng.NotifyRemove(ctx, contextID)
 }
 
 // Callback supplies an iterator over CIDs of the CAR file that corresponds to
@@ -147,15 +106,37 @@ func (cs *CarSupplier) Callback(_ context.Context, contextID []byte) (provider.M
 	return provider.CarMultihashIterator(idx)
 }
 
-func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
+// ClosableBlockstore is a blockstore that can be closed
+type ClosableBlockstore interface {
+	bstore.Blockstore
+	io.Closer
+}
+
+// ReadOnlyBlockstore returns a CAR blockstore interface for the given blockstore key
+func (cs *CarSupplier) ReadOnlyBlockstore(contextID []byte) (ClosableBlockstore, error) {
+	path, err := cs.getPath(contextID)
+	if err != nil {
+		return nil, err
+	}
+	return blockstore.OpenReadOnly(path, cs.opts...)
+}
+
+func (cs *CarSupplier) getPath(contextID []byte) (path string, err error) {
 	b, err := cs.ds.Get(toCarIdKey(contextID))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			err = ErrNotFound
 		}
+		return "", err
+	}
+	return string(b), nil
+}
+
+func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
+	path, err := cs.getPath(contextID)
+	if err != nil {
 		return nil, err
 	}
-	path := string(b)
 
 	cr, err := car.OpenReader(path, cs.opts...)
 	if err != nil {
@@ -192,22 +173,4 @@ func (cs *CarSupplier) generateIterableIndex(cr *car.Reader) (index.IterableInde
 // After calling Close this supplier is no longer usable.
 func (cs *CarSupplier) Close() error {
 	return cs.ds.Close()
-}
-
-func (cs *CarSupplier) getIdFromPathKey(pathKey datastore.Key) ([]byte, error) {
-	return cs.ds.Get(pathKey)
-}
-
-func generateId(path string) ([]byte, error) {
-	// Simply hash the path given as the contextID.
-	return sha256.New().Sum([]byte(path)), nil
-}
-
-func toPathKey(path string) datastore.Key {
-	// Hash the path to get a fixed length string as key, regardless of how long the path is.
-	pathHash := sha256.New().Sum([]byte(path))
-	encPathHash := base64.StdEncoding.EncodeToString(pathHash)
-
-	// Prefix the hash with some constant for namespacing and debug readability.
-	return datastore.NewKey(carPathDatastoreKeyPrefix + encPathHash)
 }

@@ -11,24 +11,20 @@ import (
 
 	"github.com/ipfs/go-cid"
 
+	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	"github.com/filecoin-project/indexer-reference-provider/mock"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	mock_provider "github.com/filecoin-project/indexer-reference-provider/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/require"
 )
 
-const testProtocolID = 0x300000
-
 func Test_importCarHandler(t *testing.T) {
 	wantKey := []byte("lobster")
-	wantMetadata := stiapi.Metadata{
-		ProtocolID: testProtocolID,
-		Data:       []byte("munch"),
-	}
+	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
+	require.NoError(t, err)
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
@@ -76,10 +72,8 @@ func Test_importCarHandler(t *testing.T) {
 
 func Test_importCarHandlerFail(t *testing.T) {
 	wantKey := []byte("lobster")
-	wantMetadata := stiapi.Metadata{
-		ProtocolID: testProtocolID,
-		Data:       []byte("munch"),
-	}
+	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
+	require.NoError(t, err)
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,

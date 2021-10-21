@@ -11,17 +11,13 @@ import (
 	provider "github.com/filecoin-project/indexer-reference-provider"
 	"github.com/ipfs/go-cid"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
-	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
-	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
+	"github.com/filecoin-project/indexer-reference-provider/testutil"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
-	gsimpl "github.com/ipfs/go-graphsync/impl"
-	gsnet "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -110,16 +106,7 @@ func mkEngine(t *testing.T) *Engine {
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	gn := gsnet.NewFromLibp2pHost(h)
-	gs := gsimpl.New(context.Background(), gn, cidlink.DefaultLinkSystem())
-	tp := gstransport.NewTransport(h.ID(), gs)
-	dtNet := dtnetwork.NewFromLibp2pHost(h)
-	tmpDir := t.TempDir()
-	dt, err := datatransfer.NewDataTransfer(store, tmpDir, dtNet, tp)
-	require.NoError(t, err)
-
-	err = dt.Start(context.Background())
-	require.NoError(t, err)
+	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
 	engine, err := New(context.Background(), priv, dt, h, store, testTopic, nil)
 	require.NoError(t, err)
 	return engine

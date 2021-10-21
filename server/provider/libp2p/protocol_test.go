@@ -2,22 +2,17 @@ package p2pserver_test
 
 import (
 	"context"
-	"io/ioutil"
 	"testing"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
-	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
-	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/libp2pserver"
 	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
+	"github.com/filecoin-project/indexer-reference-provider/testutil"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	p2pclient "github.com/filecoin-project/storetheindex/providerclient/libp2p"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
-	gsimpl "github.com/ipfs/go-graphsync/impl"
-	gsnet "github.com/ipfs/go-graphsync/network"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p"
@@ -31,38 +26,23 @@ import (
 // Metadata protocol in reserved range.
 const testMetadataProto = 0x300000
 
-func mkEngine(t *testing.T, h host.Host, testTopic string) (*engine.Engine, error) {
+func mkEngine(t *testing.T, h host.Host, testTopic string) *engine.Engine {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	gsnet := gsnet.NewFromLibp2pHost(h)
-	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
-	tp := gstransport.NewTransport(h.ID(), gs)
-	dtNet := dtnetwork.NewFromLibp2pHost(h)
-	tmpDir, err := ioutil.TempDir("", "indexer-dt-dir")
-	if err != nil {
-		return nil, err
-	}
-	dt, err := datatransfer.NewDataTransfer(store, tmpDir, dtNet, tp)
-	if err != nil {
-		return nil, err
-	}
-	err = dt.Start(context.Background())
-	if err != nil {
-		return nil, err
-	}
+	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
 	mhs, _ := utils.RandomMultihashes(10)
 	e, err := engine.New(context.Background(), priv, dt, h, store, testTopic, nil)
+	require.NoError(t, err)
 	e.RegisterCallback(utils.ToCallback(mhs))
-	return e, err
+	return e
 }
 
 func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.Host, *engine.Engine) {
 	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
-	e, err := mkEngine(t, h, "test/topic")
-	require.NoError(t, err)
+	e := mkEngine(t, h, "test/topic")
 	s := p2pserver.New(ctx, h, e)
 	return s, h, e
 }

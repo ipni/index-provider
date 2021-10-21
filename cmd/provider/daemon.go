@@ -13,6 +13,7 @@ import (
 	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/engine"
+	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
 	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
@@ -128,6 +129,12 @@ func daemonCommand(cctx *cli.Context) error {
 
 	// Instantiate CAR supplier and register it as a callback onto the engine.
 	cs := suppliers.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOFFlagValue))
+
+	// Start serving CAR files for retrieval requests
+	err = cardatatransfer.StartCarDataTransfer(dt, cs)
+	if err != nil {
+		return err
+	}
 
 	// Starting provider p2p server
 	p2pserver.New(ctx, h, eng)

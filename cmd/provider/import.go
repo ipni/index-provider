@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
 	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/urfave/cli/v2"
@@ -39,19 +41,29 @@ var (
 )
 
 func beforeImportCar(cctx *cli.Context) error {
-	if cctx.IsSet(metadataFlag.Name) {
-		decoded, err := base64.StdEncoding.DecodeString(metadataFlagValue)
-		if err != nil {
-			return errors.New("metadata is not a valid base64 encoded string")
-		}
-		metadata.Data = decoded
-	}
 	if cctx.IsSet(keyFlag.Name) {
 		decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)
 		if err != nil {
 			return errors.New("key is not a valid base64 encoded string")
 		}
 		key = decoded
+	} else {
+		key = sha256.New().Sum([]byte(carPathFlagValue))
+	}
+	if cctx.IsSet(metadataFlag.Name) {
+		decoded, err := base64.StdEncoding.DecodeString(metadataFlagValue)
+		if err != nil {
+			return errors.New("metadata is not a valid base64 encoded string")
+		}
+		metadata.Data = decoded
+	} else {
+		// if no metadata is set, generate metadata that is compatible for filecoin retrieval base
+		// on the context ID
+		var err error
+		metadata, err = cardatatransfer.MetadataFromContextID(key)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
