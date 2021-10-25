@@ -25,7 +25,6 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p"
 	"github.com/multiformats/go-multiaddr"
-	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/urfave/cli/v2"
 )
 
@@ -140,28 +139,18 @@ func daemonCommand(cctx *cli.Context) error {
 	p2pserver.New(ctx, h, eng)
 	log.Infow("libp2p servers initialized", "host_id", h.ID())
 
-	maddr, err := multiaddr.NewMultiaddr(cfg.AdminServer.ListenMultiaddr)
-	if err != nil {
-		return fmt.Errorf("bad admin address in config %s: %s", cfg.AdminServer.ListenMultiaddr, err)
-	}
-	adminAddr, err := manet.ToNetAddr(maddr)
-	if err != nil {
-		return err
-	}
 	adminSvr, err := adminserver.New(
-		adminAddr.String(),
+		cfg.AdminServer,
 		h,
 		eng,
-		cs,
-		adminserver.ReadTimeout(cfg.AdminServer.ReadTimeout),
-		adminserver.WriteTimeout(cfg.AdminServer.WriteTimeout))
+		cs)
 	if err != nil {
 		return err
 	}
-	log.Infow("admin server initialized", "address", adminAddr)
+	log.Infow("admin server initialized", "address", cfg.AdminServer.ListenMultiaddr)
 
 	errChan := make(chan error, 1)
-	fmt.Fprintf(cctx.App.ErrWriter, "Starting admin server on %s ...", adminAddr.String())
+	fmt.Fprintf(cctx.App.ErrWriter, "Starting admin server on %s ...", cfg.AdminServer.ListenMultiaddr)
 	go func() {
 		errChan <- adminSvr.Start()
 	}()

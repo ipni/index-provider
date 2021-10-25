@@ -75,7 +75,6 @@ func toCarIdKey(contextID []byte) datastore.Key {
 // iterators. If the CAR at given path is not known, this function will return
 // an error.  This function accepts both CARv1 and CARv2 formats.
 func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, error) {
-
 	// Delete mapping of CAR ID to path.
 	carIdKey := toCarIdKey(contextID)
 	has, err := cs.ds.Has(carIdKey)

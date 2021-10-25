@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/filecoin-project/indexer-reference-provider/config"
+
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/gorilla/mux"
@@ -21,13 +23,11 @@ type Server struct {
 	e      *engine.Engine
 }
 
-func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier, options ...ServerOption) (*Server, error) {
-	var cfg serverConfig
-	if err := cfg.apply(append([]ServerOption{serverDefaults}, options...)...); err != nil {
+func New(cfg config.AdminServer, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier) (*Server, error) {
+	listen, err := cfg.ListenNetAddr()
+	if err != nil {
 		return nil, err
 	}
-	var err error
-
 	l, err := net.Listen("tcp", listen)
 	if err != nil {
 		return nil, err
@@ -36,8 +36,8 @@ func New(listen string, h host.Host, e *engine.Engine, cs *suppliers.CarSupplier
 	r := mux.NewRouter().StrictSlash(true)
 	server := &http.Server{
 		Handler:      r,
-		WriteTimeout: cfg.apiWriteTimeout,
-		ReadTimeout:  cfg.apiReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
 	}
 	s := &Server{server, l, h, e}
 
