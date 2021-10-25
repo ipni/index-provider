@@ -1,4 +1,0 @@
-# initialization succeeds.
-provider init
-! stderr .
-stdout 'generating ED25519 keypair...done\npeer identity:'
