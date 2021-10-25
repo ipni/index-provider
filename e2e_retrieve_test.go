@@ -33,7 +33,7 @@ import (
 )
 
 func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.Host, *suppliers.CarSupplier, *engine.Engine) {
-	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.
 	ingestCfg := config.Ingest{
 		PubSubTopic: "test/topic",
 	}
-	e, err := engine.New(context.Background(), ingestCfg, priv, dt, h, store, nil)
+	e, err := engine.New(ctx, ingestCfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
 	cs := suppliers.NewCarSupplier(e, store, car.ZeroLengthSectionAsEOF(false))
 	err = cardatatransfer.StartCarDataTransfer(dt, cs)
@@ -57,7 +57,7 @@ func setupClient(ctx context.Context, p peer.ID, t *testing.T) (datatransfer.Man
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	blockStore := blockstore.NewBlockstore(store)
 	lsys := storeutil.LinkSystemForBlockstore(blockStore)
-	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
@@ -112,10 +112,10 @@ func TestRetrievalRoundTrip(t *testing.T) {
 	}
 	resultChan := make(chan bool, 1)
 	clientDt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
-		if channelState.Status() == datatransfer.Cancelled || channelState.Status() == datatransfer.Failed {
+		switch channelState.Status() {
+		case datatransfer.Failed, datatransfer.Cancelled:
 			resultChan <- false
-		}
-		if channelState.Status() == datatransfer.Completed {
+		case datatransfer.Completed:
 			resultChan <- true
 		}
 	})
