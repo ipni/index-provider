@@ -17,6 +17,7 @@ type Config struct {
 	Ingest         Ingest
 	ProviderServer ProviderServer
 	AdminServer    AdminServer
+	Bootstrap      Bootstrap
 }
 
 const (
@@ -89,11 +90,14 @@ func Load(filePath string) (*Config, error) {
 	defer f.Close()
 
 	var cfg Config
-	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
+	if err = json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failure to decode config: %s", err)
 	}
 
-	return &cfg, err
+	// Replace any zero-values with defaults.
+	cfg.Ingest.defaults()
+
+	return &cfg, nil
 }
 
 // Save writes the json-serialized config to the specified path

@@ -21,8 +21,8 @@ type Ingest struct {
 	PurgeLinkCache bool
 }
 
-// Defaults replaces zero-values in the config with default values.
-func (cfg *Ingest) Defaults() {
+// defaults replaces zero-values in the config with default values.
+func (cfg *Ingest) defaults() {
 	if cfg.LinkCacheSize == 0 {
 		cfg.LinkCacheSize = defaultLinkCacheSize
 	}

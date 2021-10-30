@@ -20,6 +20,7 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
 	gsnet "github.com/ipfs/go-graphsync/network"
+	"github.com/ipfs/go-ipfs/core/bootstrap"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -66,7 +67,7 @@ func daemonCommand(cctx *cli.Context) error {
 	ctx, cancelp2p := context.WithCancel(cctx.Context)
 	defer cancelp2p()
 
-	privKey, err := cfg.Identity.DecodePrivateKey("")
+	peerID, privKey, err := cfg.Identity.Decode()
 	if err != nil {
 		return err
 	}
@@ -154,6 +155,25 @@ func daemonCommand(cctx *cli.Context) error {
 	go func() {
 		errChan <- adminSvr.Start()
 	}()
+
+	// If there are bootstrap peers and bootstrapping is enabled, then try to
+	// connect to the minimum set of peers.
+	if len(cfg.Bootstrap.Peers) != 0 && cfg.Bootstrap.MinimumPeers != 0 {
+		addrs, err := cfg.Bootstrap.PeerAddrs()
+		if err != nil {
+			return fmt.Errorf("bad bootstrap peer: %s", err)
+		}
+
+		bootCfg := bootstrap.BootstrapConfigWithPeers(addrs)
+		bootCfg.MinPeerThreshold = cfg.Bootstrap.MinimumPeers
+
+		bootstrapper, err := bootstrap.Bootstrap(peerID, h, nil, bootCfg)
+		if err != nil {
+			return fmt.Errorf("bootstrap failed: %s", err)
+		}
+		defer bootstrapper.Close()
+	}
+
 	var finalErr error
 	// Keep process running.
 	select {

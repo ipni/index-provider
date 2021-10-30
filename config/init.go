@@ -21,6 +21,10 @@ func Init(out io.Writer) (*Config, error) {
 func InitWithIdentity(identity Identity) (*Config, error) {
 	return &Config{
 		Identity: identity,
+		Bootstrap: Bootstrap{
+			Peers:        defaultBootstrapPeers(),
+			MinimumPeers: defaultMinimumPeers,
+		},
 		Datastore: Datastore{
 			Type: defaultDatastoreType,
 			Dir:  defaultDatastoreDir,
