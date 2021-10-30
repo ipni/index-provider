@@ -57,9 +57,6 @@ type Engine struct {
 // New creates a new engine.  The context is only used for canceling the call
 // to New.
 func New(ctx context.Context, ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, addrs []string) (*Engine, error) {
-	// Replace any zero-values with defaults.
-	ingestCfg.Defaults()
-
 	if len(addrs) == 0 {
 		addrs = []string{h.Addrs()[0].String()}
 		log.Infof("Retrieval address not configured, using %s", addrs[0])
