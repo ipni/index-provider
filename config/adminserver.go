@@ -9,15 +9,15 @@ import (
 
 const (
 	defaultAdminServerAddr = "/ip4/127.0.0.1/tcp/3102"
-	defaultReadTimeout     = 30 * time.Second
-	defaultWriteTimeout    = 30 * time.Second
+	defaultReadTimeout     = Duration(30 * time.Second)
+	defaultWriteTimeout    = Duration(30 * time.Second)
 )
 
 type AdminServer struct {
 	// Admin is the admin API listen address
 	ListenMultiaddr string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
+	ReadTimeout     Duration
+	WriteTimeout    Duration
 }
 
 func (as *AdminServer) ListenNetAddr() (string, error) {
