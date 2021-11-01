@@ -4,9 +4,9 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/filecoin-project/indexer-reference-provider/config"
-
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/gorilla/mux"
@@ -36,8 +36,8 @@ func New(cfg config.AdminServer, h host.Host, e *engine.Engine, cs *suppliers.Ca
 	r := mux.NewRouter().StrictSlash(true)
 	server := &http.Server{
 		Handler:      r,
-		WriteTimeout: cfg.WriteTimeout,
-		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: time.Duration(cfg.WriteTimeout),
+		ReadTimeout:  time.Duration(cfg.ReadTimeout),
 	}
 	s := &Server{server, l, h, e}
 
