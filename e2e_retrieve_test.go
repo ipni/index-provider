@@ -7,6 +7,7 @@ import (
 	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	provider "github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/config"
 	"github.com/filecoin-project/indexer-reference-provider/engine"
 	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
@@ -132,4 +133,62 @@ func TestRetrievalRoundTrip(t *testing.T) {
 	case result := <-resultChan:
 		require.True(t, result)
 	}
+}
+
+func TestReimportCar(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Initialize everything
+	s, sh, cs, _ := setupServer(ctx, t)
+	_, c := setupClient(ctx, s.ID(), t)
+	err := c.ConnectAddrs(ctx, sh.Addrs()...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	contextID := []byte("applesauce")
+	md, err := cardatatransfer.MetadataFromContextID(contextID)
+	require.NoError(t, err)
+	adv, err := cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	require.NoError(t, err)
+
+	// Get first advertisement
+	r, err := c.GetAdv(ctx, adv)
+	require.NoError(t, err)
+
+	var receivedMd stiapi.Metadata
+	err = receivedMd.UnmarshalBinary(r.Ad.Metadata.Bytes())
+	require.NoError(t, err)
+
+	// Check the reimporting CAR with same contextID and metadata does not
+	// result in advertisement.
+	_, err = cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	require.Equal(t, err, provider.ErrAlreadyAdvertised)
+
+	// Test that reimporting CAR with same contextID and different metadata generates new advertisement.
+	contextID2 := []byte("applesauce2")
+	md2, err := cardatatransfer.MetadataFromContextID(contextID2)
+	require.NoError(t, err)
+	adv2, err := cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md2)
+	require.NoError(t, err)
+
+	// Get second advertisement
+	r2, err := c.GetAdv(ctx, adv2)
+	require.NoError(t, err)
+
+	var receivedMd2 stiapi.Metadata
+	err = receivedMd2.UnmarshalBinary(r2.Ad.Metadata.Bytes())
+	require.NoError(t, err)
+
+	require.False(t, receivedMd2.Equal(receivedMd))
+
+	// Check that both advertisements have the same entries link.
+	lnk, err := r.Ad.Entries.AsLink()
+	require.NoError(t, err)
+	lnk2, err := r2.Ad.Entries.AsLink()
+	require.NoError(t, err)
+	linkCid := lnk.(cidlink.Link).Cid
+	linkCid2 := lnk2.(cidlink.Link).Cid
+	require.True(t, linkCid.Equals(linkCid2))
 }

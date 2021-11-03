@@ -21,9 +21,15 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 )
 
-var log = logging.Logger("provider/engine")
+const (
+	keyToCidMapPrefix      = "map/keyCid/"
+	cidToKeyMapPrefix      = "map/cidKey/"
+	keyToMetadataMapPrefix = "map/keyMD/"
+	latestAdvKey           = "sync/adv/"
+)
 
-var _ provider.Interface = (*Engine)(nil)
+var dsLatestAdvKey = datastore.NewKey(latestAdvKey)
+var log = logging.Logger("provider/engine")
 
 // Engine is an implementation of the core reference provider interface
 type Engine struct {
@@ -53,6 +59,8 @@ type Engine struct {
 	cb   provider.Callback
 	cblk sync.Mutex
 }
+
+var _ provider.Interface = (*Engine)(nil)
 
 // New creates a new engine.  The context is only used for canceling the call
 // to New.
@@ -209,7 +217,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 	}
 	adv, ok := n.(schema.Advertisement)
 	if !ok {
-		log.Errorf("Stored IPLD node for cid %q", c)
+		log.Errorf("Stored IPLD node for cid %q is not advertisement", c)
 		return nil, errors.New("stored IPLD node not of advertisement type")
 	}
 	return adv, nil
@@ -240,43 +248,74 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		return cid.Undef, provider.ErrNoCallback
 	}
 
+	c, err := e.getKeyCidMap(contextID)
+	if err != nil {
+		if err != datastore.ErrNotFound {
+			log.Errorf("Could not get mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
+			return cid.Undef, err
+		}
+	}
+
 	// If we are not removing, we need to generate the link for the list
 	// of CIDs from the contextID using the callback, and store the relationship
 	if !isRm {
-		log.Info("Generating linked list of CIDs for advertisement")
-		// Call the callback
-		mhIter, err := e.cb(ctx, contextID)
-		if err != nil {
-			return cid.Undef, err
-		}
-		// Generate the linked list ipld.Link that is added to the
-		// advertisement and used for ingestion.
-		lnk, err := e.generateChunks(mhIter)
-		if err != nil {
-			log.Errorf("Error generating link from list of CIDs for contextID (%s): %s", string(contextID), err)
-			return cid.Undef, err
-		}
-		cidsLnk = lnk.(cidlink.Link)
+		// If no previously-published ad for this context ID.
+		if c == cid.Undef {
+			log.Info("Generating linked list of CIDs for advertisement")
+			// Call the callback
+			mhIter, err := e.cb(ctx, contextID)
+			if err != nil {
+				return cid.Undef, err
+			}
+			// Generate the linked list ipld.Link that is added to the
+			// advertisement and used for ingestion.
+			lnk, err := e.generateChunks(mhIter)
+			if err != nil {
+				log.Errorf("Error generating link from list of CIDs for contextID (%s): %s", string(contextID), err)
+				return cid.Undef, err
+			}
+			cidsLnk = lnk.(cidlink.Link)
 
-		// Store the relationship between contextID and CID of the advertised
-		// list of Cids
-		err = e.putKeyCidMap(contextID, cidsLnk.Cid)
-		if err != nil {
-			log.Errorf("Could not set mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
+			// Store the relationship between contextID and CID of the advertised
+			// list of Cids.
+			err = e.putKeyCidMap(contextID, cidsLnk.Cid)
+			if err != nil {
+				log.Errorf("Could not set mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
+				return cid.Undef, err
+			}
+		} else {
+			// Lookup metadata for this contextID.
+			prevMetadata, err := e.getKeyMetadataMap(contextID)
+			if err != nil {
+				if err != datastore.ErrNotFound {
+					log.Errorf("Could not get metadata for existing chain: %s", err)
+					return cid.Undef, err
+				}
+				log.Warn("No metadata for existing chain, generating new advertisement")
+			}
+
+			if metadata.Equal(prevMetadata) {
+				// Metadata is the same; no change, no need for new advertisement.
+				return cid.Undef, provider.ErrAlreadyAdvertised
+			}
+
+			// Linked list is the same, but metadata is different, so generate
+			// new advertisement with same linked list, but new metadata.
+			cidsLnk = cidlink.Link{Cid: c}
+		}
+
+		if err = e.putKeyMetadataMap(contextID, metadata); err != nil {
+			log.Errorf("Could not set mapping between contextID (%s) and metadata: %s", string(contextID), err)
 			return cid.Undef, err
 		}
 	} else {
+		if c == cid.Undef {
+			return cid.Undef, provider.ErrContextIDNotFound
+		}
 		log.Info("Generating removal list for advertisement")
+
 		// If we are removing, we already know the relationship key-cid of the
 		// list, so we can add it right away in the advertisement.
-		c, err := e.getKeyCidMap(contextID)
-		if err != nil {
-			log.Errorf("Could not get mapping between contextID and CID of linked list (%s): %s", string(contextID), err)
-			if err == datastore.ErrNotFound {
-				return cid.Undef, provider.ErrContextIDNotFound
-			}
-			return cid.Undef, err
-		}
 		cidsLnk = cidlink.Link{Cid: c}
 		// And if we are removing it means we probably do not have the list of
 		// CIDs anymore, so we can remove the entry from the datastore.
@@ -288,6 +327,11 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		err = e.deleteCidKeyMap(c)
 		if err != nil {
 			log.Errorf("Failed deleting Cid-Key map for lookup cid (%s): %s", c, err)
+			return cid.Undef, err
+		}
+		err = e.deleteKeyMetadataMap(contextID)
+		if err != nil {
+			log.Errorf("Failed deleting Key-Metadata map for contextID (%s): %s", string(contextID), err)
 			return cid.Undef, err
 		}
 	}
@@ -321,4 +365,77 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		return cid.Undef, err
 	}
 	return e.Publish(ctx, adv)
+}
+
+func (e *Engine) putKeyCidMap(contextID []byte, c cid.Cid) error {
+	// We need to store the map Key-Cid to know what CidLink to put
+	// in advertisement when we notify a removal.
+	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
+	if err != nil {
+		return err
+	}
+	// And the other way around when graphsync ios making a request,
+	// so the callback in the linksystem knows to what contextID we are referring.
+	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
+}
+
+func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
+	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
+	if err != nil {
+		return cid.Undef, err
+	}
+	_, d, err := cid.CidFromBytes(b)
+	return d, err
+}
+
+func (e *Engine) deleteKeyCidMap(contextID []byte) error {
+	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
+}
+
+func (e *Engine) deleteCidKeyMap(c cid.Cid) error {
+	return e.ds.Delete(datastore.NewKey(cidToKeyMapPrefix + c.String()))
+}
+
+func (e *Engine) getCidKeyMap(c cid.Cid) ([]byte, error) {
+	return e.ds.Get(datastore.NewKey(cidToKeyMapPrefix + c.String()))
+}
+
+func (e *Engine) putKeyMetadataMap(contextID []byte, metadata stiapi.Metadata) error {
+	data, err := metadata.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	return e.ds.Put(datastore.NewKey(keyToMetadataMapPrefix+string(contextID)), data)
+}
+
+func (e *Engine) getKeyMetadataMap(contextID []byte) (stiapi.Metadata, error) {
+	data, err := e.ds.Get(datastore.NewKey(keyToMetadataMapPrefix + string(contextID)))
+	if err != nil {
+		return stiapi.Metadata{}, err
+	}
+	var metadata stiapi.Metadata
+	if err = metadata.UnmarshalBinary(data); err != nil {
+		return stiapi.Metadata{}, err
+	}
+	return metadata, nil
+}
+
+func (e *Engine) deleteKeyMetadataMap(contextID []byte) error {
+	return e.ds.Delete(datastore.NewKey(keyToMetadataMapPrefix + string(contextID)))
+}
+
+func (e *Engine) putLatestAdv(advID []byte) error {
+	return e.ds.Put(dsLatestAdvKey, advID)
+}
+
+func (e *Engine) getLatestAdv() (cid.Cid, error) {
+	b, err := e.ds.Get(dsLatestAdvKey)
+	if err != nil {
+		if err == datastore.ErrNotFound {
+			return cid.Undef, nil
+		}
+		return cid.Undef, err
+	}
+	_, c, err := cid.CidFromBytes(b)
+	return c, err
 }

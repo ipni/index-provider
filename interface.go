@@ -45,6 +45,9 @@ type Interface interface {
 	// is protocol dependant.  The metadata must at least specify a protocol
 	// ID, but its data is optional.
 	//
+	// If both the contextID and metadata are the same as a previous call to
+	// NotifyPut, then ErrAlreadyAdvertised is returned.
+	//
 	// This function returns the ID of the advertisement published.
 	NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error)
 

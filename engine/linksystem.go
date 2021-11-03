@@ -15,12 +15,6 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-const (
-	latestAdvKey      = "sync/adv/"
-	keyToCidMapPrefix = "map/keyCid/"
-	cidToKeyMapPrefix = "map/cidKey/"
-)
-
 // Creates the main engine linksystem.
 func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
@@ -280,43 +274,6 @@ func isAdvertisement(n ipld.Node) bool {
 	return indexID != nil
 }
 
-func (e *Engine) putLatestAdv(advID []byte) error {
-	return e.ds.Put(datastore.NewKey(latestAdvKey), advID)
-}
-
-func (e *Engine) putKeyCidMap(contextID []byte, c cid.Cid) error {
-	// We need to store the map Key-Cid to know what CidLink to put
-	// in advertisement when we notify a removal.
-	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
-	if err != nil {
-		return err
-	}
-	// And the other way around when graphsync ios making a request,
-	// so the callback in the linksystem knows to what contextID we are referring.
-	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
-}
-
-func (e *Engine) deleteKeyCidMap(contextID []byte) error {
-	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
-}
-
-func (e *Engine) deleteCidKeyMap(c cid.Cid) error {
-	return e.ds.Delete(datastore.NewKey(cidToKeyMapPrefix + c.String()))
-}
-
-func (e *Engine) getCidKeyMap(c cid.Cid) ([]byte, error) {
-	return e.ds.Get(datastore.NewKey(cidToKeyMapPrefix + c.String()))
-}
-
-func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
-	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
-	if err != nil {
-		return cid.Undef, err
-	}
-	_, d, err := cid.CidFromBytes(b)
-	return d, err
-}
-
 // get an entry from cache.
 func (e *Engine) getCacheEntry(c cid.Cid) ([]byte, error) {
 	b, err := e.cache.Get(datastore.NewKey(c.String()))
@@ -327,16 +284,4 @@ func (e *Engine) getCacheEntry(c cid.Cid) ([]byte, error) {
 		return nil, err
 	}
 	return b, err
-}
-
-func (e *Engine) getLatestAdv() (cid.Cid, error) {
-	b, err := e.ds.Get(datastore.NewKey(latestAdvKey))
-	if err != nil {
-		if err == datastore.ErrNotFound {
-			return cid.Undef, nil
-		}
-		return cid.Undef, err
-	}
-	_, c, err := cid.CidFromBytes(b)
-	return c, err
 }

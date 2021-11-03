@@ -49,8 +49,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 
 // Put makes the CAR at the given path, and identified by the given ID,
 // suppliable by this supplier. The return CID can then be used via Supply to
-// get an iterator over CIDs that belong to the CAR. When the CAR ID is not
-// known, Put should be used instead.
+// get an iterator over CIDs that belong to the CAR.
 //
 // This function accepts both CARv1 and CARv2 formats.
 func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, metadata stiapi.Metadata) (cid.Cid, error) {
