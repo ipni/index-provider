@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/filecoin-project/indexer-reference-provider"
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
 	"github.com/ipfs/go-cid"
 )
@@ -34,6 +35,13 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with cause of failure.
 	if err != nil {
+		if err == provider.ErrAlreadyAdvertised {
+			msg := "CAR already advertised"
+			log.Infow(msg, "path", req.Path)
+			errRes := newErrorResponse(msg)
+			respond(w, http.StatusConflict, errRes)
+			return
+		}
 		log.Errorw("failed to put CAR", "err", err, "path", req.Path)
 		errRes := newErrorResponse("failed to supply CAR. %v", err)
 		respond(w, http.StatusInternalServerError, errRes)
