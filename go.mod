@@ -4,9 +4,9 @@ go 1.16
 
 require (
 	github.com/filecoin-project/go-data-transfer v1.11.4
-	github.com/filecoin-project/go-legs v0.0.0-20211112111427-68d536862db9
+	github.com/filecoin-project/go-legs v0.0.0-20211125094504-5fdf15090c48
 	github.com/filecoin-project/go-state-types v0.1.0
-	github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99
+	github.com/filecoin-project/storetheindex v0.0.0-20211126125638-1f013514c397
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.6.0
