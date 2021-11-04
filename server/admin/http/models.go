@@ -39,3 +39,16 @@ type (
 		AdvId cid.Cid `json:"adv_id"`
 	}
 )
+
+type (
+	// RemoveCarReq represents a request for removing a CAR file.
+	RemoveCarReq struct {
+		// The key associated to the CAR.
+		Key []byte `json:"key"`
+	}
+	// RemoveCarRes represents the response to a RemoveCarReq
+	RemoveCarRes struct {
+		// The CID of the advertisement generated as a result of removal.
+		AdvId cid.Cid `json:"adv_id"`
+	}
+)

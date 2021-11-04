@@ -11,12 +11,16 @@ var (
 	_ io.ReaderFrom = (*ErrorRes)(nil)
 	_ io.ReaderFrom = (*ImportCarReq)(nil)
 	_ io.ReaderFrom = (*ImportCarRes)(nil)
+	_ io.ReaderFrom = (*RemoveCarReq)(nil)
+	_ io.ReaderFrom = (*RemoveCarRes)(nil)
 	_ io.ReaderFrom = (*ConnectReq)(nil)
 	_ io.ReaderFrom = (*ConnectRes)(nil)
 
 	_ io.WriterTo = (*ErrorRes)(nil)
 	_ io.WriterTo = (*ImportCarReq)(nil)
 	_ io.WriterTo = (*ImportCarRes)(nil)
+	_ io.WriterTo = (*RemoveCarReq)(nil)
+	_ io.WriterTo = (*RemoveCarRes)(nil)
 	_ io.WriterTo = (*ConnectReq)(nil)
 	_ io.WriterTo = (*ConnectRes)(nil)
 )
@@ -42,6 +46,22 @@ func (er *ImportCarRes) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (er *ImportCarRes) ReadFrom(r io.Reader) (int64, error) {
+	return unmarshalAsJson(r, er)
+}
+
+func (er *RemoveCarReq) WriteTo(w io.Writer) (int64, error) {
+	return marshalToJson(w, er)
+}
+
+func (er *RemoveCarReq) ReadFrom(r io.Reader) (int64, error) {
+	return unmarshalAsJson(r, er)
+}
+
+func (er *RemoveCarRes) WriteTo(w io.Writer) (int64, error) {
+	return marshalToJson(w, er)
+}
+
+func (er *RemoveCarRes) ReadFrom(r io.Reader) (int64, error) {
 	return unmarshalAsJson(r, er)
 }
 
