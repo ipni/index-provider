@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/filecoin-project/go-data-transfer v1.11.4
 	github.com/filecoin-project/index-provider v0.0.0-20211115210313-7957526f5b07
-	github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99
+	github.com/filecoin-project/storetheindex v0.0.0-20211126125638-1f013514c397
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-ds-leveldb v0.4.2
 	github.com/ipfs/go-graphsync v0.10.4
