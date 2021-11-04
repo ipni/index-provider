@@ -51,6 +51,11 @@ func New(cfg config.AdminServer, h host.Host, e *engine.Engine, cs *suppliers.Ca
 		Methods(http.MethodPost).
 		Headers("Content-Type", "application/json")
 
+	rcHandler := &removeCarHandler{cs}
+	r.HandleFunc("/admin/remove/car", rcHandler.handle).
+		Methods(http.MethodPost).
+		Headers("Content-Type", "application/json")
+
 	return s, nil
 }
 
