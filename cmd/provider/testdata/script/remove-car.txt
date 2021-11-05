@@ -1,0 +1,18 @@
+# invalid usage prints USAGE
+! provider remove car
+stderr 'Required flag "listen-admin" not set'
+stdout 'USAGE'
+
+! provider remove car -l fish
+stderr 'either key or input must be set'
+! stdout .
+
+# invalid arguments have expected error message
+! provider remove car -l fish -i lobster -k barreleye
+stderr 'only one of key or input must be set'
+! stdout .
+
+# invald admin server address has expected error
+! provider remove car -l http://localhost:45678 -i lobster
+stderr 'Post "http://localhost:45678/admin/remove/car": dial tcp'
+! stdout .

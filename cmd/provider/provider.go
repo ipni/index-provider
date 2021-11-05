@@ -48,6 +48,7 @@ func run() int {
 			ConnectCmd,
 			ImportCmd,
 			RegisterCmd,
+			RemoveCmd,
 		},
 	}
 

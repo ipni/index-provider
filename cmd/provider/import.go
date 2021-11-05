@@ -26,7 +26,7 @@ var ImportCmd = &cli.Command{
 }
 
 var (
-	key             []byte
+	importCarKey    []byte
 	importCarSubCmd = &cli.Command{
 		Name:    "car",
 		Aliases: []string{"c"},
@@ -46,9 +46,9 @@ func beforeImportCar(cctx *cli.Context) error {
 		if err != nil {
 			return errors.New("key is not a valid base64 encoded string")
 		}
-		key = decoded
+		importCarKey = decoded
 	} else {
-		key = sha256.New().Sum([]byte(carPathFlagValue))
+		importCarKey = sha256.New().Sum([]byte(carPathFlagValue))
 	}
 	if cctx.IsSet(metadataFlag.Name) {
 		decoded, err := base64.StdEncoding.DecodeString(metadataFlagValue)
@@ -60,7 +60,7 @@ func beforeImportCar(cctx *cli.Context) error {
 		// if no metadata is set, generate metadata that is compatible for filecoin retrieval base
 		// on the context ID
 		var err error
-		metadata, err = cardatatransfer.MetadataFromContextID(key)
+		metadata, err = cardatatransfer.MetadataFromContextID(importCarKey)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func beforeImportCar(cctx *cli.Context) error {
 func doImportCar(cctx *cli.Context) error {
 	req := adminserver.ImportCarReq{
 		Path:     carPathFlagValue,
-		Key:      key,
+		Key:      importCarKey,
 		Metadata: metadata,
 	}
 
