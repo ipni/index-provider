@@ -98,6 +98,12 @@ var importCarFlags = []cli.Flag{
 	keyFlag,
 }
 
+var removeCarFlags = []cli.Flag{
+	adminAPIFlag,
+	optionalCarPathFlag,
+	keyFlag,
+}
+
 var (
 	metadataFlagValue string
 	metadataFlag      = &cli.StringFlag{
@@ -128,6 +134,16 @@ var (
 		Usage:       "Path to the CAR file to import",
 		Destination: &carPathFlagValue,
 		Required:    true,
+	}
+)
+
+var (
+	optionalCarPathFlagValue string
+	optionalCarPathFlag      = &cli.StringFlag{
+		Name:        "input",
+		Aliases:     []string{"i"},
+		Usage:       "The CAR file path.",
+		Destination: &optionalCarPathFlagValue,
 	}
 )
 
