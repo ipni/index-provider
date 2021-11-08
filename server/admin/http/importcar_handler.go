@@ -2,6 +2,7 @@ package adminserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/filecoin-project/indexer-reference-provider"
@@ -14,14 +15,14 @@ type importCarHandler struct {
 }
 
 func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
-	log.Info("Received import CAR request")
+	log.Info("received import CAR request")
 
 	// Decode request.
 	var req ImportCarReq
 	if _, err := req.ReadFrom(r.Body); err != nil {
-		log.Errorw("cannot unmarshal request", "err", err)
-		errRes := newErrorResponse("failed to unmarshal request. %v", err)
-		respond(w, http.StatusBadRequest, errRes)
+		msg := fmt.Sprintf("failed to unmarshal request: %v", err)
+		log.Errorw(msg, "err", err)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
@@ -30,7 +31,7 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	var err error
 	ctx := context.Background()
 
-	log.Info("Storing CAR and generating key")
+	log.Info("importing CAR")
 	advID, err = h.cs.Put(ctx, req.Key, req.Path, req.Metadata)
 
 	// Respond with cause of failure.
@@ -38,17 +39,16 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 		if err == provider.ErrAlreadyAdvertised {
 			msg := "CAR already advertised"
 			log.Infow(msg, "path", req.Path)
-			errRes := newErrorResponse(msg)
-			respond(w, http.StatusConflict, errRes)
+			http.Error(w, msg, http.StatusConflict)
 			return
 		}
-		log.Errorw("failed to put CAR", "err", err, "path", req.Path)
-		errRes := newErrorResponse("failed to supply CAR. %v", err)
-		respond(w, http.StatusInternalServerError, errRes)
+		msg := fmt.Sprintf("failed to import CAR: %v", err)
+		log.Errorw(msg, "err", err, "path", req.Path)
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
-	log.Infow("Stored CAR", "path", req.Path, "contextID", req.Key)
+	log.Infow("imported CAR successfully", "path", req.Path, "contextID", req.Key)
 
 	// Respond with successful import results.
 	resp := &ImportCarRes{req.Key, advID}

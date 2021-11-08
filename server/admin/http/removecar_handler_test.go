@@ -84,11 +84,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	respBytes, err := ioutil.ReadAll(rr.Body)
 	require.NoError(t, err)
-
-	var resp ErrorRes
-	err = json.Unmarshal(respBytes, &resp)
-	require.NoError(t, err)
-	require.Equal(t, "failed to remove CAR. fish", resp.Message)
+	require.Equal(t, "failed to remove CAR: fish\n", string(respBytes))
 }
 
 func Test_removeCarHandler_NonExistingCarIsNotFound(t *testing.T) {

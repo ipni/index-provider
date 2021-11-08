@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -19,43 +17,21 @@ var ConnectCmd = &cli.Command{
 
 func connectCommand(cctx *cli.Context) error {
 	iaddr := cctx.String("indexermaddr")
-	adminaddr := cctx.String("listen-admin")
-	data, err := json.Marshal(&adminserver.ConnectReq{Maddr: iaddr})
-	if err != nil {
-		return err
-	}
-	reqURL := adminaddr + "/admin/connect"
-	req, err := http.NewRequestWithContext(cctx.Context, http.MethodPost, reqURL, bytes.NewBuffer(data))
-	if err != nil {
-		return err
-	}
-	return sendRequest(cctx, req)
-}
-
-func sendRequest(cctx *cli.Context, req *http.Request) error {
-	cl := &http.Client{}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := cl.Do(req)
+	req := &adminserver.ConnectReq{Maddr: iaddr}
+	resp, err := doHttpPostReq(cctx.Context, adminAPIFlagValue+"/admin/connect", req)
 	if err != nil {
 		return err
 	}
 	// Handle failed requests
 	if resp.StatusCode != http.StatusOK {
-		statusText := http.StatusText(resp.StatusCode)
-		var errRes adminserver.ErrorRes
-		if _, err := errRes.ReadFrom(resp.Body); err != nil {
-			return fmt.Errorf(
-				"failed to connect to peer with response %s. cannot decode error response: %v",
-				http.StatusText(resp.StatusCode), err)
-		}
-		return fmt.Errorf("%s %s", statusText, errRes.Message)
+		return errFromHttpResp(resp)
 	}
 
-	log.Infof("Successfully connected to peer")
+	log.Infof("connected to peer successfully")
 	var res adminserver.ConnectRes
 	if _, err := res.ReadFrom(resp.Body); err != nil {
-		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
+		return fmt.Errorf("received OK response from server but cannot decode response body: %w", err)
 	}
-	_, err = cctx.App.Writer.Write([]byte("Successfully connected to Peer"))
+	_, err = cctx.App.Writer.Write([]byte("Connected to peer successfully"))
 	return err
 }

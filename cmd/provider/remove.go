@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -71,36 +70,16 @@ func doRemoveCar(cctx *cli.Context) error {
 	req := adminserver.RemoveCarReq{
 		Key: removeCarKey,
 	}
-
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	bodyReader := bytes.NewReader(reqBody)
-	httpReq, err := http.NewRequestWithContext(cctx.Context, http.MethodPost, adminAPIFlagValue+"/admin/remove/car", bodyReader)
-	if err != nil {
-		return err
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	cl := &http.Client{}
-	resp, err := cl.Do(httpReq)
+	resp, err := doHttpPostReq(cctx.Context, adminAPIFlagValue+"/admin/remove/car", req)
 	if err != nil {
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		statusText := http.StatusText(resp.StatusCode)
-		var errRes adminserver.ErrorRes
-		if _, err := errRes.ReadFrom(resp.Body); err != nil {
-			return fmt.Errorf(
-				"failed to remove car, server responsed with %s. cannot decode error response: %v",
-				http.StatusText(resp.StatusCode), err)
-		}
-		return fmt.Errorf("%s %s", statusText, errRes.Message)
+		return errFromHttpResp(resp)
 	}
 
-	log.Info("Successfully removed car", "key", removeCarKey)
+	log.Info("removed car successfully", "key", removeCarKey)
 	var res adminserver.RemoveCarRes
 	if _, err := res.ReadFrom(resp.Body); err != nil {
 		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
