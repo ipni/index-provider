@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -57,7 +56,7 @@ func beforeImportCar(cctx *cli.Context) error {
 		}
 		metadata.Data = decoded
 	} else {
-		// if no metadata is set, generate metadata that is compatible for filecoin retrieval base
+		// If no metadata is set, generate metadata that is compatible for FileCoin retrieval base
 		// on the context ID
 		var err error
 		metadata, err = cardatatransfer.MetadataFromContextID(importCarKey)
@@ -74,36 +73,15 @@ func doImportCar(cctx *cli.Context) error {
 		Key:      importCarKey,
 		Metadata: metadata,
 	}
-
-	reqBody, err := json.Marshal(req)
+	resp, err := doHttpPostReq(cctx.Context, adminAPIFlagValue+"/admin/import/car", req)
 	if err != nil {
 		return err
 	}
-	bodyReader := bytes.NewReader(reqBody)
-	httpReq, err := http.NewRequestWithContext(cctx.Context, http.MethodPost, adminAPIFlagValue+"/admin/import/car", bodyReader)
-	if err != nil {
-		return err
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	cl := &http.Client{}
-	resp, err := cl.Do(httpReq)
-	if err != nil {
-		return err
-	}
-
 	if resp.StatusCode != http.StatusOK {
-		statusText := http.StatusText(resp.StatusCode)
-		var errRes adminserver.ErrorRes
-		if _, err := errRes.ReadFrom(resp.Body); err != nil {
-			return fmt.Errorf(
-				"failed to import car, server responsed with %s. cannot decode error response: %v",
-				http.StatusText(resp.StatusCode), err)
-		}
-		return fmt.Errorf("%s %s", statusText, errRes.Message)
+		return errFromHttpResp(resp)
 	}
 
-	log.Infof("Successfully imported car")
+	log.Infof("imported car successfully")
 	var res adminserver.ImportCarRes
 	if _, err := res.ReadFrom(resp.Body); err != nil {
 		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)

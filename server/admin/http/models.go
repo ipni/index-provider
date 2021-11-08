@@ -5,12 +5,6 @@ import (
 	"github.com/ipfs/go-cid"
 )
 
-// ErrorRes represents a response that captures information about failure to handle a request.
-type ErrorRes struct {
-	// The human-readable message that provides hints about the failure cause.
-	Message string `json:"message"`
-}
-
 type (
 	// ConnectReq request to connect to a given multiaddr.
 	ConnectReq struct {

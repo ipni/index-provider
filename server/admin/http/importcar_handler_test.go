@@ -108,11 +108,7 @@ func Test_importCarHandlerFail(t *testing.T) {
 
 	respBytes, err := ioutil.ReadAll(rr.Body)
 	require.NoError(t, err)
-
-	var resp ErrorRes
-	err = json.Unmarshal(respBytes, &resp)
-	require.NoError(t, err)
-	require.Equal(t, "failed to supply CAR. fish", resp.Message)
+	require.Equal(t, "failed to import CAR: fish\n", string(respBytes))
 }
 
 func Test_importCarAlreadyAdvertised(t *testing.T) {
@@ -153,9 +149,5 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 
 	respBytes, err := ioutil.ReadAll(rr.Body)
 	require.NoError(t, err)
-
-	var resp ErrorRes
-	err = json.Unmarshal(respBytes, &resp)
-	require.NoError(t, err)
-	require.Equal(t, "CAR already advertised", resp.Message)
+	require.Equal(t, "CAR already advertised\n", string(respBytes))
 }

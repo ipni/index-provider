@@ -8,7 +8,6 @@ import (
 )
 
 var (
-	_ io.ReaderFrom = (*ErrorRes)(nil)
 	_ io.ReaderFrom = (*ImportCarReq)(nil)
 	_ io.ReaderFrom = (*ImportCarRes)(nil)
 	_ io.ReaderFrom = (*RemoveCarReq)(nil)
@@ -16,7 +15,6 @@ var (
 	_ io.ReaderFrom = (*ConnectReq)(nil)
 	_ io.ReaderFrom = (*ConnectRes)(nil)
 
-	_ io.WriterTo = (*ErrorRes)(nil)
 	_ io.WriterTo = (*ImportCarReq)(nil)
 	_ io.WriterTo = (*ImportCarRes)(nil)
 	_ io.WriterTo = (*RemoveCarReq)(nil)
@@ -24,14 +22,6 @@ var (
 	_ io.WriterTo = (*ConnectReq)(nil)
 	_ io.WriterTo = (*ConnectRes)(nil)
 )
-
-func (er *ErrorRes) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
-}
-
-func (er *ErrorRes) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
-}
 
 func (er *ImportCarReq) WriteTo(w io.Writer) (int64, error) {
 	return marshalToJson(w, er)

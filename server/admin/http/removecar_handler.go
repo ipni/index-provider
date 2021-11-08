@@ -2,6 +2,7 @@ package adminserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
@@ -12,19 +13,20 @@ type removeCarHandler struct {
 }
 
 func (h *removeCarHandler) handle(w http.ResponseWriter, r *http.Request) {
-	log.Info("Received remove CAR request")
+	log.Info("received remove CAR request")
 
 	// Decode request.
 	var req RemoveCarReq
 	if _, err := req.ReadFrom(r.Body); err != nil {
-		log.Errorw("cannot unmarshal request", "err", err)
-		errRes := newErrorResponse("failed to unmarshal request. %v", err)
-		respond(w, http.StatusBadRequest, errRes)
+		msg := fmt.Sprintf("failed to unmarshal request. %v", err)
+		log.Errorw(msg, "err", err)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 	if len(req.Key) == 0 {
-		errRes := newErrorResponse("key must be specified")
-		respond(w, http.StatusBadRequest, errRes)
+		msg := "key must be specified"
+		log.Debug(msg)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
@@ -36,14 +38,14 @@ func (h *removeCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	// Respond with cause of failure.
 	if err != nil {
 		if err == suppliers.ErrNotFound {
-			log.Errorw("CAR not found for given context ID", "contextID", req.Key)
-			errRes := newErrorResponse("No CAR file found for the given Key")
-			respond(w, http.StatusNotFound, errRes)
+			msg := "no CAR file found for the given Key"
+			log.Errorw(msg, "contextID", req.Key)
+			http.Error(w, msg, http.StatusNotFound)
 			return
 		}
-		log.Errorw("failed to remove CAR", "err", err, "key", req.Key)
-		errRes := newErrorResponse("failed to remove CAR. %v", err)
-		respond(w, http.StatusInternalServerError, errRes)
+		msg := fmt.Sprintf("failed to remove CAR: %v", err)
+		log.Errorw(msg, "err", err, "key", req.Key)
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
