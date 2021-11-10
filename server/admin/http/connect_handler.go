@@ -44,7 +44,7 @@ func (s *Server) connectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond success case.
-	log.Info("connected to peer successfully", "addrInfo", addrInfo)
+	log.Infow("Connected to peer successfully", "addrInfo", addrInfo)
 	var resp ConnectRes
 	respond(w, http.StatusOK, &resp)
 }
