@@ -44,7 +44,9 @@ func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.
 	ingestCfg := config.Ingest{
 		PubSubTopic: "test/topic",
 	}
-	e, err := engine.New(ctx, ingestCfg, priv, dt, h, store, nil)
+	e, err := engine.New(ingestCfg, priv, dt, h, store, nil)
+	require.NoError(t, err)
+	err = e.Start(ctx)
 	require.NoError(t, err)
 	cs := suppliers.NewCarSupplier(e, store, car.ZeroLengthSectionAsEOF(false))
 	err = cardatatransfer.StartCarDataTransfer(dt, cs)

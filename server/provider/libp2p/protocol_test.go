@@ -37,7 +37,9 @@ func mkEngine(t *testing.T, h host.Host, testTopic string) *engine.Engine {
 	ingestCfg := config.Ingest{
 		PubSubTopic: testTopic,
 	}
-	e, err := engine.New(context.Background(), ingestCfg, priv, dt, h, store, nil)
+	e, err := engine.New(ingestCfg, priv, dt, h, store, nil)
+	require.NoError(t, err)
+	err = e.Start(context.Background())
 	require.NoError(t, err)
 	e.RegisterCallback(utils.ToCallback(mhs))
 	return e

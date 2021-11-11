@@ -37,6 +37,8 @@ type Engine struct {
 	privKey crypto.PrivKey
 	// host is the libp2p host running the provider process
 	host host.Host
+	// dataTransfer is the data transfer module used by legs
+	dataTransfer dt.Manager
 	// addrs is a list of multiaddr strings which are the addresses advertised
 	// for content retrieval
 	addrs []string
@@ -55,6 +57,11 @@ type Engine struct {
 	pubSubTopic     string
 	linkedChunkSize int
 
+	// purgeLinkCache indicates whether to purge the link cache on startup
+	purgeLinkCache bool
+	// linkCacheSize is the capacity of the link cache LRU
+	linkCacheSize int
+
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
 	cblk sync.Mutex
@@ -64,23 +71,10 @@ var _ provider.Interface = (*Engine)(nil)
 
 // New creates a new engine.  The context is only used for canceling the call
 // to New.
-func New(ctx context.Context, ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, addrs []string) (*Engine, error) {
+func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, addrs []string) (*Engine, error) {
 	if len(addrs) == 0 {
 		addrs = []string{h.Addrs()[0].String()}
 		log.Infof("Retrieval address not configured, using %s", addrs[0])
-	}
-
-	dsCache, err := newDsCache(ctx, ds, ingestCfg.LinkCacheSize)
-	if err != nil {
-		return nil, err
-	}
-
-	if ingestCfg.PurgeLinkCache {
-		dsCache.Clear()
-	}
-
-	if dsCache.Cap() > ingestCfg.LinkCacheSize {
-		log.Infow("Link cache expanded to hold previously cached links", "new_size", dsCache.Cap())
 	}
 
 	// TODO(security): We should not keep the privkey decoded here.
@@ -88,39 +82,61 @@ func New(ctx context.Context, ingestCfg config.Ingest, privKey crypto.PrivKey, d
 	// Once we start encrypting the key locally.
 	e := &Engine{
 		host:            h,
+		dataTransfer:    dt,
 		ds:              ds,
 		privKey:         privKey,
 		pubSubTopic:     ingestCfg.PubSubTopic,
 		linkedChunkSize: ingestCfg.LinkedChunkSize,
+		purgeLinkCache:  ingestCfg.PurgeLinkCache,
+		linkCacheSize:   ingestCfg.LinkCacheSize,
 
-		cache: dsCache,
 		addrs: addrs,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()
 	e.lsys = e.mkLinkSystem()
 
-	// Create a context that is used to cancel the publisher on shutdown if
-	// closing it takes too long.
-	var pubCtx context.Context
-	pubCtx, e.pubCancel = context.WithCancel(context.Background())
-	e.lp, err = legs.NewPublisherFromExisting(pubCtx, dt, h, e.pubSubTopic, e.lsys)
-	if err != nil {
-		log.Errorf("Error initializing publisher in engine: %s", err)
-		return nil, err
-	}
 	return e, nil
 }
 
 // NewFromConfig creates a reference provider engine with the corresponding config.
-func NewFromConfig(ctx context.Context, cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching) (*Engine, error) {
+func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching) (*Engine, error) {
 	log.Info("Starting new reference provider engine")
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {
 		log.Errorf("Error decoding private key from provider: %s", err)
 		return nil, err
 	}
-	return New(ctx, cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+	return New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+}
+
+func (e *Engine) Start(ctx context.Context) error {
+	// Create datastore cache
+	dsCache, err := newDsCache(ctx, e.ds, e.linkCacheSize)
+	if err != nil {
+		return err
+	}
+
+	if e.purgeLinkCache {
+		dsCache.Clear()
+	}
+
+	if dsCache.Cap() > e.linkCacheSize {
+		log.Infow("Link cache expanded to hold previously cached links", "new_size", dsCache.Cap())
+	}
+
+	e.cache = dsCache
+
+	// Create a context that is used to cancel the publisher on shutdown if
+	// closing it takes too long.
+	var pubCtx context.Context
+	pubCtx, e.pubCancel = context.WithCancel(context.Background())
+	e.lp, err = legs.NewPublisherFromExisting(pubCtx, e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
+	if err != nil {
+		log.Errorf("Error initializing publisher in engine: %s", err)
+		return err
+	}
+	return nil
 }
 
 // PublishLocal stores the advertisement in the local datastore.
