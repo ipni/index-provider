@@ -111,7 +111,9 @@ func mkEngine(t *testing.T) *Engine {
 		PubSubTopic: testTopic,
 	}
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	engine, err := New(context.Background(), ingestCfg, priv, dt, h, store, nil)
+	engine, err := New(ingestCfg, priv, dt, h, store, nil)
+	require.NoError(t, err)
+	err = engine.Start(context.Background())
 	require.NoError(t, err)
 	return engine
 }
