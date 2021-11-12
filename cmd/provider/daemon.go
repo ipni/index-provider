@@ -105,9 +105,9 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	gsnet := gsnet.NewFromLibp2pHost(h)
-	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
-	tp := gstransport.NewTransport(h.ID(), gs)
 	dtNet := dtnetwork.NewFromLibp2pHost(h)
+	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
+	tp := gstransport.NewTransport(h.ID(), gs, dtNet)
 	tmpDir, err := ioutil.TempDir("", "indexer-dt-dir")
 	if err != nil {
 		return err
