@@ -69,9 +69,9 @@ func OpenSampleCar(t *testing.T, carFileName string) *blockstore.ReadOnly {
 // SetupDataTransferOnHost generates a data transfer instance for the given libp2p host
 func SetupDataTransferOnHost(t *testing.T, h host.Host, store datastore.Batching, lsys ipld.LinkSystem) datatransfer.Manager {
 	gsnet := gsnet.NewFromLibp2pHost(h)
-	gs := gsimpl.New(context.Background(), gsnet, lsys)
-	tp := gstransport.NewTransport(h.ID(), gs)
 	dtNet := dtnetwork.NewFromLibp2pHost(h)
+	gs := gsimpl.New(context.Background(), gsnet, lsys)
+	tp := gstransport.NewTransport(h.ID(), gs, dtNet)
 	tmpDir := t.TempDir()
 	dt, err := dtimpl.NewDataTransfer(store, tmpDir, dtNet, tp)
 	require.NoError(t, err)

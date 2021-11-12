@@ -60,7 +60,7 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 func mkMockSubscriber(t *testing.T, h host.Host) legs.LegSubscriber {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	lsys := mkLinkSystem(store)
-	ls, err := legs.NewSubscriber(context.Background(), h, store, lsys, testTopic)
+	ls, err := legs.NewSubscriber(context.Background(), h, store, lsys, testTopic, nil)
 	require.NoError(t, err)
 	return ls
 }
