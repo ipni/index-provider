@@ -22,7 +22,7 @@ type Config struct {
 
 const (
 	// DefaultPathName is the default config dir name
-	DefaultPathName = ".reference-provider"
+	DefaultPathName = ".index-provider"
 	// DefaultPathRoot is the path to the default config dir location.
 	DefaultPathRoot = "~/" + DefaultPathName
 	// DefaultConfigFile is the filename of the configuration file

@@ -1,10 +1,10 @@
 Indexer Reference Provider :loudspeaker:
 =======================
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](https://protocol.ai)
-[![Go Reference](https://pkg.go.dev/badge/github.com/filecoin-project/indexer-reference-provider.svg)](https://pkg.go.dev/github.com/filecoin-project/indexer-reference-provider)
-[![Coverage Status](https://codecov.io/gh/filecoin-project/indexer-reference-provider/branch/main/graph/badge.svg)](https://codecov.io/gh/filecoin-project/indexer-reference-provider/branch/main)
+[![Go Reference](https://pkg.go.dev/badge/github.com/filecoin-project/index-provider.svg)](https://pkg.go.dev/github.com/filecoin-project/index-provider)
+[![Coverage Status](https://codecov.io/gh/filecoin-project/index-provider/branch/main/graph/badge.svg)](https://codecov.io/gh/filecoin-project/index-provider/branch/main)
 
-> A reference implementation of indexer data provider
+> A reference implementation of index data provider
 
 This repo provides a reference data provider implementation that can be used to advertise content to
 indexer nodes and serve retreival requests over graphsync.
@@ -22,13 +22,13 @@ Prerequisite:
 To use the provider as a Go library, execute:
 
 ```shell
-go get github.com/filecoin-project/indexer-reference-provider
+go get github.com/filecoin-project/index-provider
 ```
 
 To install the latest runnable version of the provider service, execute:
 
 ```shell
-go install github.com/filecoin-project/indexer-reference-provider/cmd/provider@latest
+go install github.com/filecoin-project/index-provider/cmd/provider@latest
 ```
 
 ## Running Provider Service
@@ -41,7 +41,7 @@ provider init
 
 Initialization generates a default configuration for the provider instance along with a randomly
 generated identity keypair. The configuration is stored at user home
-under `.reference-provider/config` in JSON format. The root configuration path can be overridden by
+under `.index-provider/config` in JSON format. The root configuration path can be overridden by
 setting the `PROVIDER_PATH` environment variable
 
 Once initialized, start the service daemon by executing:
