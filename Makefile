@@ -1,4 +1,4 @@
-BIN := indexer-reference-provider
+BIN := index-provider
 
 .PHONY: all build clean test
 

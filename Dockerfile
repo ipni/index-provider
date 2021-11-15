@@ -14,6 +14,6 @@ RUN if test "${INIT_PROVIDER}" = 'false'; then /go/bin/provider init; else echo 
 
 FROM gcr.io/distroless/base-debian11
 COPY --from=build /go/bin/provider /
-COPY --from=build /root/.reference-provider* /root/.reference-provider
+COPY --from=build /root/.index-provider* /root/.index-provider
 ENTRYPOINT ["/provider"]
 CMD ["daemon"]
