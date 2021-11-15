@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/filecoin-project/indexer-reference-provider/config"
+	"github.com/filecoin-project/index-provider/config"
 	"github.com/urfave/cli/v2"
 )
 

@@ -30,10 +30,10 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-	"github.com/filecoin-project/indexer-reference-provider/metadata"
-	"github.com/filecoin-project/indexer-reference-provider/testutil"
+	"github.com/filecoin-project/index-provider/cardatatransfer"
+	"github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/index-provider/supplier"
+	"github.com/filecoin-project/index-provider/testutil"
 )
 
 func TestCarDataTransfer(t *testing.T) {
@@ -54,7 +54,7 @@ func TestCarDataTransfer(t *testing.T) {
 	missingCid := testutil.GenerateCids(1)[0]
 	missingContextID := []byte("notFound")
 
-	supplier := &fakeSupplier{blockstores: make(map[string]suppliers.ClosableBlockstore)}
+	supplier := &fakeSupplier{blockstores: make(map[string]supplier.ClosableBlockstore)}
 	supplier.blockstores[string(contextID1)] = rdOnlyBS1
 	supplier.blockstores[string(contextID2)] = rdOnlyBS2
 
@@ -219,10 +219,10 @@ func TestCarDataTransfer(t *testing.T) {
 }
 
 type fakeSupplier struct {
-	blockstores map[string]suppliers.ClosableBlockstore
+	blockstores map[string]supplier.ClosableBlockstore
 }
 
-func (fs *fakeSupplier) ReadOnlyBlockstore(contextID []byte) (suppliers.ClosableBlockstore, error) {
+func (fs *fakeSupplier) ReadOnlyBlockstore(contextID []byte) (supplier.ClosableBlockstore, error) {
 	bs, ok := fs.blockstores[string(contextID)]
 	if !ok {
 		return nil, errors.New("Not found!")

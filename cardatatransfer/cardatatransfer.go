@@ -17,9 +17,9 @@ import (
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer/stores"
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-	"github.com/filecoin-project/indexer-reference-provider/metadata"
+	"github.com/filecoin-project/index-provider/cardatatransfer/stores"
+	"github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/index-provider/supplier"
 )
 
 var log = logging.Logger("car-data-transfer")
@@ -33,7 +33,7 @@ func init() {
 }
 
 type BlockStoreSupplier interface {
-	ReadOnlyBlockstore(contextID []byte) (suppliers.ClosableBlockstore, error)
+	ReadOnlyBlockstore(contextID []byte) (supplier.ClosableBlockstore, error)
 }
 
 type carDataTransfer struct {

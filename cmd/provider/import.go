@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
-	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
+	"github.com/filecoin-project/index-provider/cardatatransfer"
+	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/urfave/cli/v2"
 )

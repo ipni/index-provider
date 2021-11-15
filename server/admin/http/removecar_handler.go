@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
+	"github.com/filecoin-project/index-provider/supplier"
 )
 
 type removeCarHandler struct {
-	cs *suppliers.CarSupplier
+	cs *supplier.CarSupplier
 }
 
 func (h *removeCarHandler) handle(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +37,7 @@ func (h *removeCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with cause of failure.
 	if err != nil {
-		if err == suppliers.ErrNotFound {
+		if err == supplier.ErrNotFound {
 			msg := "no CAR file found for the given Key"
 			log.Errorw(msg, "contextID", req.Key)
 			http.Error(w, msg, http.StatusNotFound)

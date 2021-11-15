@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/filecoin-project/indexer-reference-provider"
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
+	"github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/ipfs/go-cid"
 )
 
 type importCarHandler struct {
-	cs *suppliers.CarSupplier
+	cs *supplier.CarSupplier
 }
 
 func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {

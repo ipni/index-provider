@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/filecoin-project/indexer-reference-provider/metadata"
-	"github.com/filecoin-project/indexer-reference-provider/testutil"
+	"github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/require"
 )
