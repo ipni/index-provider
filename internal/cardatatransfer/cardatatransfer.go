@@ -81,7 +81,7 @@ func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
 	}
 	filecoinV1Metadata := &metadata.FilecoinV1Data{
 		PieceCID:      pieceCid,
-		IsFree:        true,
+		VerifiedDeal:  true,
 		FastRetrieval: true,
 	}
 	dataTransferMetadata, err := filecoinV1Metadata.Encode(metadata.GraphSyncV1)

@@ -70,8 +70,8 @@ const (
 type FilecoinV1Data struct {
 	// PieceCID identifies the piece this data can be found in
 	PieceCID cid.Cid
-	// Free indicates if the retrieval is free
-	IsFree bool
+	// VerifiedDeal indicates if the deal is verified
+	VerifiedDeal bool
 	// FastRetrieval indicates whether the provider claims there is an unsealed copy
 	FastRetrieval bool
 }
@@ -86,7 +86,7 @@ func init() {
 	ts.Accumulate(schema.SpawnStruct("FilecoinV1Data",
 		[]schema.StructField{
 			schema.SpawnStructField("PieceCID", "Link", false, false),
-			schema.SpawnStructField("IsFree", "Bool", false, false),
+			schema.SpawnStructField("VerifiedDeal", "Bool", false, false),
 			schema.SpawnStructField("FastRetrieval", "Bool", false, false),
 		},
 		schema.SpawnStructRepresentationMap(nil),

@@ -15,22 +15,22 @@ func TestRoundTripDataTransferFilecoin(t *testing.T) {
 	filecoinV1Datas := []*metadata.FilecoinV1Data{
 		{
 			PieceCID:      cids[0],
-			IsFree:        false,
+			VerifiedDeal:  false,
 			FastRetrieval: false,
 		},
 		{
 			PieceCID:      cids[1],
-			IsFree:        false,
+			VerifiedDeal:  false,
 			FastRetrieval: true,
 		},
 		{
 			PieceCID:      cids[2],
-			IsFree:        true,
+			VerifiedDeal:  true,
 			FastRetrieval: true,
 		},
 		{
 			PieceCID:      cids[3],
-			IsFree:        true,
+			VerifiedDeal:  true,
 			FastRetrieval: true,
 		},
 	}
@@ -54,7 +54,7 @@ func TestFormatDetection(t *testing.T) {
 	cids := testutil.GenerateCids(1)
 	filecoinV1Data := &metadata.FilecoinV1Data{
 		PieceCID:      cids[0],
-		IsFree:        false,
+		VerifiedDeal:  false,
 		FastRetrieval: false,
 	}
 	dataTransferMetadata, err := filecoinV1Data.Encode(metadata.GraphSyncV1)
