@@ -1,4 +1,4 @@
-package suppliers
+package supplier
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	mock_provider "github.com/filecoin-project/indexer-reference-provider/mock"
+	mock_provider "github.com/filecoin-project/index-provider/mock"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
@@ -29,11 +29,11 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 	}{
 		{
 			"CARv1ReturnsExpectedCIDs",
-			"../../testdata/sample-v1.car",
+			"../testdata/sample-v1.car",
 		},
 		{
 			"CARv2ReturnsExpectedCIDs",
-			"../../testdata/sample-wrapped-v2.car",
+			"../testdata/sample-wrapped-v2.car",
 		},
 	}
 	metadata := stiapi.Metadata{
@@ -113,7 +113,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 }
 
 func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
-	path := "../../testdata/sample-wrapped-v2.car"
+	path := "../testdata/sample-wrapped-v2.car"
 	rng := rand.New(rand.NewSource(1413))
 
 	ctx := context.Background()

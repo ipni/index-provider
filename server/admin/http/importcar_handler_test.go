@@ -9,11 +9,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	provider "github.com/filecoin-project/indexer-reference-provider"
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	mock_provider "github.com/filecoin-project/indexer-reference-provider/mock"
+	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/cardatatransfer"
+	mock_provider "github.com/filecoin-project/index-provider/mock"
+	"github.com/filecoin-project/index-provider/supplier"
+	"github.com/filecoin-project/index-provider/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -41,7 +41,7 @@ func Test_importCarHandler(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := importCarHandler{cs}
 
@@ -90,7 +90,7 @@ func Test_importCarHandlerFail(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := importCarHandler{cs}
 
@@ -131,7 +131,7 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := importCarHandler{cs}
 

@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	provider "github.com/filecoin-project/indexer-reference-provider"
+	provider "github.com/filecoin-project/index-provider"
 	v0 "github.com/filecoin-project/storetheindex/api/v0"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"

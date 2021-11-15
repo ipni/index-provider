@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/version"
+	"github.com/filecoin-project/index-provider/version"
 	"github.com/urfave/cli/v2"
 )
 

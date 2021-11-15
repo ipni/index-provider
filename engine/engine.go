@@ -8,8 +8,8 @@ import (
 
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
-	provider "github.com/filecoin-project/indexer-reference-provider"
-	"github.com/filecoin-project/indexer-reference-provider/config"
+	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/config"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"

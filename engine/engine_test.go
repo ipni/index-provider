@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	provider "github.com/filecoin-project/indexer-reference-provider"
+	provider "github.com/filecoin-project/index-provider"
 	"github.com/ipfs/go-cid"
 
 	"github.com/filecoin-project/go-legs"
-	"github.com/filecoin-project/indexer-reference-provider/config"
-	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	"github.com/filecoin-project/indexer-reference-provider/testutil"
+	"github.com/filecoin-project/index-provider/config"
+	"github.com/filecoin-project/index-provider/testutil"
+	"github.com/filecoin-project/index-provider/utils"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
@@ -408,6 +408,6 @@ func clean(ls legs.LegSubscriber, e *Engine, cncl context.CancelFunc) func() {
 
 func skipFlaky(t *testing.T) {
 	if os.Getenv("DONT_SKIP") == "" {
-		t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/indexer-reference-provider/issues/12")
+		t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/index-provider/issues/12")
 	}
 }

@@ -1,4 +1,4 @@
-package suppliers
+package supplier
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"path/filepath"
 
-	provider "github.com/filecoin-project/indexer-reference-provider"
+	provider "github.com/filecoin-project/index-provider"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"

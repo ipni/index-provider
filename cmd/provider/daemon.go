@@ -11,12 +11,12 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/indexer-reference-provider/config"
-	"github.com/filecoin-project/indexer-reference-provider/engine"
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-	adminserver "github.com/filecoin-project/indexer-reference-provider/server/admin/http"
-	p2pserver "github.com/filecoin-project/indexer-reference-provider/server/provider/libp2p"
+	"github.com/filecoin-project/index-provider/cardatatransfer"
+	"github.com/filecoin-project/index-provider/config"
+	"github.com/filecoin-project/index-provider/engine"
+	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
+	p2pserver "github.com/filecoin-project/index-provider/server/provider/libp2p"
+	"github.com/filecoin-project/index-provider/supplier"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
 	gsnet "github.com/ipfs/go-graphsync/network"
@@ -133,7 +133,7 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Instantiate CAR supplier and register it as a callback onto the engine.
-	cs := suppliers.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOFFlagValue))
+	cs := supplier.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOFFlagValue))
 
 	// Start serving CAR files for retrieval requests
 	err = cardatatransfer.StartCarDataTransfer(dt, cs)

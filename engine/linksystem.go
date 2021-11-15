@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/filecoin-project/indexer-reference-provider"
+	"github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"

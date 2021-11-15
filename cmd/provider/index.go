@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/filecoin-project/indexer-reference-provider/config"
+	"github.com/filecoin-project/index-provider/config"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/ipfs/go-cid"

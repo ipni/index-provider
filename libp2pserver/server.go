@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/p2putil"
+	"github.com/filecoin-project/index-provider/p2putil"
 	"github.com/gogo/protobuf/proto"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"

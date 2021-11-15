@@ -11,10 +11,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/filecoin-project/indexer-reference-provider/internal/cardatatransfer"
-	"github.com/filecoin-project/indexer-reference-provider/internal/suppliers"
-	"github.com/filecoin-project/indexer-reference-provider/internal/utils"
-	mock_provider "github.com/filecoin-project/indexer-reference-provider/mock"
+	"github.com/filecoin-project/index-provider/cardatatransfer"
+	mock_provider "github.com/filecoin-project/index-provider/mock"
+	"github.com/filecoin-project/index-provider/supplier"
+	"github.com/filecoin-project/index-provider/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -30,7 +30,7 @@ func Test_removeCarHandler(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := removeCarHandler{cs}
 
@@ -65,7 +65,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := removeCarHandler{cs}
 
@@ -95,7 +95,7 @@ func Test_removeCarHandler_NonExistingCarIsNotFound(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := removeCarHandler{cs}
 
@@ -113,7 +113,7 @@ func Test_removeCarHandler_UnspecifiedKeyIsBadRequest(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := removeCarHandler{cs}
 
@@ -131,7 +131,7 @@ func Test_removeCarHandler_InvalidJsonIsBadRequest(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterCallback(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
-	cs := suppliers.NewCarSupplier(mockEng, ds)
+	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := removeCarHandler{cs}
 
@@ -156,7 +156,7 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 	return req
 }
 
-func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *suppliers.CarSupplier) {
+func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *supplier.CarSupplier) {
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(key)
 	require.NoError(t, err)
 	wantCid := requireRandomCid(t)
