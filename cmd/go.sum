@@ -210,8 +210,6 @@ github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe h
 github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
 github.com/filecoin-project/go-statestore v0.1.0 h1:t56reH59843TwXHkMcwyuayStBIiWBRilQjQ+5IiwdQ=
 github.com/filecoin-project/go-statestore v0.1.0/go.mod h1:LFc9hD+fRxPqiHiaqUEZOinUJB4WARkRfNl10O7kTnI=
-github.com/filecoin-project/index-provider v0.0.0-20211115210313-7957526f5b07 h1:JmZpvDu7pVTw2DeCmLtajG6QXJHkmEfyLRq58AZ4wfc=
-github.com/filecoin-project/index-provider v0.0.0-20211115210313-7957526f5b07/go.mod h1:KjDlF2WskcLtRYzYs6uVWGTxTfP0CgmeyAFD9w4QY0I=
 github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99 h1:qdlA/LrP6UeYFkyXdZzzQaaUNvKXjRIP5j86peIzgvI=
 github.com/filecoin-project/storetheindex v0.0.0-20211019180831-2704585e5f99/go.mod h1:IwKNyPe59SXmss9mKhx2GzkJXTBSmSjl1FiQTwFdsus=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
