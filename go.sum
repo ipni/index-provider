@@ -386,9 +386,8 @@ github.com/ipfs/bbloom v0.0.4/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyq
 github.com/ipfs/go-bitswap v0.1.0/go.mod h1:FFJEf18E9izuCqUtHxbWEvq+reg7o4CW5wSAE1wsxj0=
 github.com/ipfs/go-bitswap v0.1.2/go.mod h1:qxSWS4NXGs7jQ6zQvoPY3+NmOfHHG47mhkiLzBpJQIs=
 github.com/ipfs/go-bitswap v0.1.8/go.mod h1:TOWoxllhccevbWFUR2N7B1MTSVVge1s6XSMiCSA4MzM=
+github.com/ipfs/go-bitswap v0.3.4 h1:AhJhRrG8xkxh6x87b4wWs+4U4y3DVB3doI8yFNqgQME=
 github.com/ipfs/go-bitswap v0.3.4/go.mod h1:4T7fvNv/LmOys+21tnLzGKncMeeXUYUd1nUiJ2teMvI=
-github.com/ipfs/go-bitswap v0.4.0 h1:bLiqrpef1na4wdqGLqHKv954s1zz6KFghfmQWCPjBik=
-github.com/ipfs/go-bitswap v0.4.0/go.mod h1:J2sAsp9UKxLgHDektSy3y3Q9OfQjM9sjhKBR1dlwrMg=
 github.com/ipfs/go-block-format v0.0.1/go.mod h1:DK/YYcsSUIVAFNwo/KZCdIIbpN0ROH/baNLgayt4pFc=
 github.com/ipfs/go-block-format v0.0.2/go.mod h1:AWR46JfpcObNfg3ok2JHDUfdiHRgWhJgCQF+KIgOPJY=
 github.com/ipfs/go-block-format v0.0.3 h1:r8t66QstRp/pd/or4dpnbVfXT5Gt7lOqRvC+/dDTpMc=
@@ -514,7 +513,6 @@ github.com/ipfs/go-metrics-interface v0.0.1/go.mod h1:6s6euYU4zowdslK0GKHmqaIZ3j
 github.com/ipfs/go-peertaskqueue v0.1.0/go.mod h1:Jmk3IyCcfl1W3jTW3YpghSwSEC6IJ3Vzz/jUmWw8Z0U=
 github.com/ipfs/go-peertaskqueue v0.1.1/go.mod h1:Jmk3IyCcfl1W3jTW3YpghSwSEC6IJ3Vzz/jUmWw8Z0U=
 github.com/ipfs/go-peertaskqueue v0.2.0/go.mod h1:5/eNrBEbtSKWCG+kQK8K8fGNixoYUnr+P7jivavs9lY=
-github.com/ipfs/go-peertaskqueue v0.4.0/go.mod h1:KL9F49hXJMoXCad8e5anivjN+kWdr+CyGcyh4K6doLc=
 github.com/ipfs/go-peertaskqueue v0.6.0 h1:BT1/PuNViVomiz1PnnP5+WmKsTNHrxIDvkZrkj4JhOg=
 github.com/ipfs/go-peertaskqueue v0.6.0/go.mod h1:M/akTIE/z1jGNXMU7kFB4TeSEFvj68ow0Rrb04donIU=
 github.com/ipfs/go-unixfs v0.2.2-0.20190827150610-868af2e9e5cb/go.mod h1:IwAAgul1UQIcNZzKPYZWOCijryFBeCV79cNubPzol+k=
@@ -631,7 +629,6 @@ github.com/libp2p/go-libp2p v0.7.4/go.mod h1:oXsBlTLF1q7pxr+9w6lqzS1ILpyHsaBPniV
 github.com/libp2p/go-libp2p v0.8.1/go.mod h1:QRNH9pwdbEBpx5DTJYg+qxcVaDMAz3Ee/qDKwXujH5o=
 github.com/libp2p/go-libp2p v0.13.0/go.mod h1:pM0beYdACRfHO1WcJlp65WXyG2A6NqYM+t2DTVAJxMo=
 github.com/libp2p/go-libp2p v0.14.0/go.mod h1:dsQrWLAoIn+GkHPN/U+yypizkHiB9tnv79Os+kSgQ4Q=
-github.com/libp2p/go-libp2p v0.14.3/go.mod h1:d12V4PdKbpL0T1/gsUNN8DfgMuRPDX8bS2QxCZlwRH0=
 github.com/libp2p/go-libp2p v0.15.0 h1:jbMbdmtizfpvl1+oQuGJzfGhttAtuxUCavF3enwFncg=
 github.com/libp2p/go-libp2p v0.15.0/go.mod h1:8Ljmwon0cZZYKrOCjFeLwQEK8bqR42dOheUZ1kSKhP0=
 github.com/libp2p/go-libp2p-autonat v0.1.0/go.mod h1:1tLf2yXxiE/oKGtDwPYWTSYG3PtvYlJmg7NeVtPRqH8=
@@ -720,9 +717,8 @@ github.com/libp2p/go-libp2p-pnet v0.2.0/go.mod h1:Qqvq6JH/oMZGwqs3N1Fqhv8NVhrdYc
 github.com/libp2p/go-libp2p-pubsub v0.5.4 h1:rHl9/Xok4zX3zgi0pg0XnUj9Xj2OeXO8oTu85q2+YA8=
 github.com/libp2p/go-libp2p-pubsub v0.5.4/go.mod h1:gVOzwebXVdSMDQBTfH8ACO5EJ4SQrvsHqCmYsCZpD0E=
 github.com/libp2p/go-libp2p-quic-transport v0.10.0/go.mod h1:RfJbZ8IqXIhxBRm5hqUEJqjiiY8xmEuq3HUDS993MkA=
+github.com/libp2p/go-libp2p-quic-transport v0.11.2 h1:p1YQDZRHH4Cv2LPtHubqlQ9ggz4CKng/REZuXZbZMhM=
 github.com/libp2p/go-libp2p-quic-transport v0.11.2/go.mod h1:wlanzKtIh6pHrq+0U3p3DY9PJfGqxMgPaGKaK5LifwQ=
-github.com/libp2p/go-libp2p-quic-transport v0.12.0 h1:7IjDH4XNkmJbOMD+mxRloTe4LzMTq+vqvm2nYNL1N7M=
-github.com/libp2p/go-libp2p-quic-transport v0.12.0/go.mod h1:EKHqxZbWE/FhDJZ6ebyZ/4v3X9zyuuuKIN0XR9vANT0=
 github.com/libp2p/go-libp2p-record v0.1.0/go.mod h1:ujNc8iuE5dlKWVy6wuL6dd58t0n7xI4hAIl8pE6wu5Q=
 github.com/libp2p/go-libp2p-record v0.1.1/go.mod h1:VRgKajOyMVgP/F0L5g3kH7SVskp17vFi2xheb5uMJtg=
 github.com/libp2p/go-libp2p-record v0.1.3 h1:R27hoScIhQf/A8XJZ8lYpnqh9LatJ5YbHs28kCIfql0=
@@ -824,7 +820,6 @@ github.com/libp2p/go-tcp-transport v0.1.0/go.mod h1:oJ8I5VXryj493DEJ7OsBieu8fcg2
 github.com/libp2p/go-tcp-transport v0.1.1/go.mod h1:3HzGvLbx6etZjnFlERyakbaYPdfjg2pWP97dFZworkY=
 github.com/libp2p/go-tcp-transport v0.2.0/go.mod h1:vX2U0CnWimU4h0SGSEsg++AzvBcroCGYw28kh94oLe0=
 github.com/libp2p/go-tcp-transport v0.2.1/go.mod h1:zskiJ70MEfWz2MKxvFB/Pv+tPIB1PpPUrHIWQ8aFw7M=
-github.com/libp2p/go-tcp-transport v0.2.3/go.mod h1:9dvr03yqrPyYGIEN6Dy5UvdJZjyPFvl1S/igQ5QD1SU=
 github.com/libp2p/go-tcp-transport v0.2.7/go.mod h1:lue9p1b3VmZj1MhhEGB/etmvF/nBQ0X9CW2DutBT3MM=
 github.com/libp2p/go-tcp-transport v0.2.8 h1:aLjX+Nkz+kIz3uA56WtlGKRSAnKDvnqKmv1qF4EyyE4=
 github.com/libp2p/go-tcp-transport v0.2.8/go.mod h1:64rSfVidkYPLqbzpcN2IwHY4pmgirp67h++hZ/rcndQ=
