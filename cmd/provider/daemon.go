@@ -206,6 +206,11 @@ func daemonCommand(cctx *cli.Context) error {
 		finalErr = ErrDaemonStop
 	}
 
+	if err = ds.Close(); err != nil {
+		log.Errorf("Error closing provider datastore: %s", err)
+		finalErr = ErrDaemonStop
+	}
+
 	if err := os.RemoveAll(tmpDir); err != nil {
 		log.Errorf("Error cleaning up temporary files: %s", err)
 		finalErr = ErrCleanupFiles

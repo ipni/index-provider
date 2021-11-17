@@ -20,6 +20,8 @@ type dsCache struct {
 	lock   sync.RWMutex
 }
 
+var _ ds.Datastore = (*dsCache)(nil)
+
 // newDsCache creates a new dsCache instance.  The context is only used cancel
 // a call to this function while it is accessing the data store.
 func newDsCache(ctx context.Context, dstore ds.Datastore, capacity int) (*dsCache, error) {
@@ -110,20 +112,11 @@ func (c *dsCache) Sync(key ds.Key) error {
 	return c.dstore.Sync(key)
 }
 
-// Close implements datastore interface.
+// Close syncs the cache entries but does not close the underlying datastore.
+// This is because dsCache wraps an existing datastore and does not construct it, and the wrapped
+// datastore may be in use elsewhere.
 func (c *dsCache) Close() error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if c.dstore == nil {
-		return nil
-	}
-
-	if err := c.dstore.Close(); err != nil {
-		return err
-	}
-	c.dstore = nil
-	return nil
+	return c.Sync(ds.NewKey(linksCachePath))
 }
 
 // Query implements datastore interface.
