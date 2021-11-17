@@ -2,14 +2,19 @@ package config
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestPath(t *testing.T) {
-	const (
-		dir    = "vstore"
+	const dir = "vstore"
+
+	var absdir string
+	if runtime.GOOS == "windows" {
+		absdir = "c:\\tmp\vstore"
+	} else {
 		absdir = "/tmp/vstore"
-	)
+	}
 
 	path, err := Path("", dir)
 	if err != nil {
