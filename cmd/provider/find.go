@@ -54,7 +54,10 @@ func findCommand(cctx *cli.Context) error {
 	for i := range resp.MultihashResults {
 		fmt.Println("   Multihash:", resp.MultihashResults[i].Multihash.B58String(), "==>")
 		for _, pr := range resp.MultihashResults[i].ProviderResults {
-			fmt.Println("       Provider:", pr.Provider, "Proto:", pr.Metadata.ProtocolID, "Data:", string(pr.Metadata.Data))
+			fmt.Println("       Provider:", pr.Provider)
+			fmt.Println("       ContextID:", string(pr.ContextID))
+			fmt.Println("       Proto:", pr.Metadata.ProtocolID)
+			fmt.Println("       Metadata:", string(pr.Metadata.Data))
 		}
 	}
 
