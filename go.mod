@@ -6,7 +6,7 @@ require (
 	github.com/filecoin-project/go-data-transfer v1.11.4
 	github.com/filecoin-project/go-legs v0.0.0-20211130223251-403a83b8d02d
 	github.com/filecoin-project/go-state-types v0.1.0
-	github.com/filecoin-project/storetheindex v0.0.0-20211130225648-1f494f16c57b
+	github.com/filecoin-project/storetheindex v0.0.0-20211201165140-0676bdcf0a0b
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.6.0
