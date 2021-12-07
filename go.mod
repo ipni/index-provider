@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/filecoin-project/go-data-transfer v1.11.4
-	github.com/filecoin-project/go-legs v0.0.0-20211130223251-403a83b8d02d
+	github.com/filecoin-project/go-legs v0.0.0-20211208174824-4fde0cc99a8d
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/filecoin-project/storetheindex v0.0.0-20211201165140-0676bdcf0a0b
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
