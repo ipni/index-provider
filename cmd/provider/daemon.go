@@ -122,7 +122,7 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Starting provider core
-	eng, err := engine.New(cfg.Ingest, privKey, dt, h, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+	eng, err := engine.NewFromConfig(*cfg, dt, h, ds)
 	if err != nil {
 		return err
 	}

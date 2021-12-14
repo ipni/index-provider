@@ -9,4 +9,6 @@ type ProviderServer struct {
 	ListenMultiaddr string
 	// RetrievalMultiaddrs are the addresses to advertise for data retrieval
 	RetrievalMultiaddrs []string
+	EnableHttpPublisher bool
+	HttpAddr            string
 }

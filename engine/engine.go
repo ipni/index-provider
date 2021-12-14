@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"sync"
 
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
+	httpLegs "github.com/filecoin-project/go-legs/http"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/config"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
@@ -65,6 +68,11 @@ type Engine struct {
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
 	cblk sync.Mutex
+
+	enableHttpPublisher bool
+	httpPublisher       legs.LegPublisher
+	httpListener        net.Listener
+	httpAddr            string
 }
 
 var _ provider.Interface = (*Engine)(nil)
@@ -107,7 +115,20 @@ func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastor
 		log.Errorf("Error decoding private key from provider: %s", err)
 		return nil, err
 	}
-	return New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+	e, err := New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+	if err != nil {
+		return nil, err
+	}
+
+	e.enableHttpPublisher = cfg.ProviderServer.EnableHttpPublisher
+	if e.enableHttpPublisher {
+		if cfg.ProviderServer.HttpAddr == "" {
+			e.httpAddr = ":0"
+		} else {
+			e.httpAddr = cfg.ProviderServer.HttpAddr
+		}
+	}
+	return e, nil
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -136,6 +157,23 @@ func (e *Engine) Start(ctx context.Context) error {
 		log.Errorf("Error initializing publisher in engine: %s", err)
 		return err
 	}
+
+	if e.enableHttpPublisher {
+		e.httpPublisher, err = httpLegs.NewPublisher(ctx, e.ds, e.lsys)
+		if err != nil {
+			log.Errorf("Error initializing http publisher in engine: %s", err)
+			return err
+		}
+
+		e.httpListener, err = net.Listen("tcp", e.httpAddr)
+		if err != nil {
+			return err
+		}
+		log.Infof("HTTP publisher listening on %s", e.httpListener.Addr().String())
+
+		go http.Serve(e.httpListener, e.httpPublisher.(http.Handler))
+	}
+
 	return nil
 }
 
@@ -174,6 +212,12 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	}
 
 	log.Infow("Publishing advertisement in pubsub channel", "cid", c.String())
+	if e.enableHttpPublisher {
+		err = e.httpPublisher.UpdateRoot(ctx, c)
+		if err != nil {
+			return cid.Undef, err
+		}
+	}
 	// Use legPublisher to publish the advertisement.
 	return c, e.lp.UpdateRoot(ctx, c)
 }
@@ -206,15 +250,35 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 		case <-done:
 		}
 	}()
-	err := e.lp.Close()
-	if err != nil {
-		err = fmt.Errorf("error closing leg publisher: %w", err)
+
+	lpErr := e.lp.Close()
+	if lpErr != nil {
+		lpErr = fmt.Errorf("error closing leg publisher: %w", lpErr)
 	}
+
+	var httpErr error
+	if e.enableHttpPublisher {
+		listenerErr := e.httpListener.Close()
+		if listenerErr != nil {
+			log.Errorf("Error closing http listener: %s", listenerErr)
+		}
+
+		httpErr = e.httpPublisher.Close()
+		if httpErr != nil {
+			httpErr = fmt.Errorf("error closing http publisher: %w", httpErr)
+		}
+	}
+
 	close(done)
 	if cerr := e.cache.Close(); cerr != nil {
 		log.Errorf("Error closing link cache: %s", cerr)
 	}
-	return err
+
+	if lpErr != nil {
+		return lpErr
+	}
+
+	return httpErr
 }
 
 func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
