@@ -136,6 +136,8 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
+			
+			go e.StoreAdvertisementInS3(c.String(), buf.Bytes())
 			return e.ds.Put(datastore.NewKey(c.String()), buf.Bytes())
 		}, nil
 	}
