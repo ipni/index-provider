@@ -15,7 +15,6 @@ import (
 	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/engine"
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
-	p2pserver "github.com/filecoin-project/index-provider/server/provider/libp2p"
 	"github.com/filecoin-project/index-provider/supplier"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
@@ -140,10 +139,6 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// Starting provider p2p server
-	p2pserver.New(ctx, h, eng)
-	log.Infow("libp2p servers initialized", "host_id", h.ID())
 
 	adminSvr, err := adminserver.New(
 		cfg.AdminServer,

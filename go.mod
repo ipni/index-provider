@@ -7,7 +7,6 @@ require (
 	github.com/filecoin-project/go-legs v0.0.0-20211130223251-403a83b8d02d
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/filecoin-project/storetheindex v0.0.0-20211201165140-0676bdcf0a0b
-	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.7.4
@@ -23,7 +22,6 @@ require (
 	github.com/ipld/go-ipld-prime v0.14.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
-	github.com/libp2p/go-msgio v0.0.6
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/multiformats/go-multicodec v0.3.1-0.20210902112759-1539a079fd61
