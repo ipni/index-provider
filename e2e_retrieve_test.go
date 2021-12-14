@@ -7,22 +7,23 @@ import (
 	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-legs"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/engine"
-	"github.com/filecoin-project/index-provider/libp2pserver"
 	"github.com/filecoin-project/index-provider/metadata"
-	p2pserver "github.com/filecoin-project/index-provider/server/provider/libp2p"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/filecoin-project/index-provider/testutil"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
-	p2pclient "github.com/filecoin-project/storetheindex/providerclient/libp2p"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync/storeutil"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipld/go-car/v2"
+	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p"
@@ -33,54 +34,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupServer(ctx context.Context, t *testing.T) (*libp2pserver.Server, host.Host, *supplier.CarSupplier, *engine.Engine) {
-	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-	require.NoError(t, err)
-	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
-	require.NoError(t, err)
-	store := dssync.MutexWrap(datastore.NewMapDatastore())
-
-	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	ingestCfg := config.Ingest{
-		PubSubTopic: "test/topic",
-	}
-	e, err := engine.New(ingestCfg, priv, dt, h, store, nil)
-	require.NoError(t, err)
-	err = e.Start(ctx)
-	require.NoError(t, err)
-	cs := supplier.NewCarSupplier(e, store, car.ZeroLengthSectionAsEOF(false))
-	err = cardatatransfer.StartCarDataTransfer(dt, cs)
-	require.NoError(t, err)
-	s := p2pserver.New(ctx, h, e)
-
-	return s, h, cs, e
-}
-
-func setupClient(ctx context.Context, p peer.ID, t *testing.T) (datatransfer.Manager, *p2pclient.Client) {
-	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	blockStore := blockstore.NewBlockstore(store)
-	lsys := storeutil.LinkSystemForBlockstore(blockStore)
-	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-	require.NoError(t, err)
-
-	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
-
-	c, err := p2pclient.New(h, p)
-	require.NoError(t, err)
-	return dt, c
-}
+const testTopic = "test/topic"
 
 func TestRetrievalRoundTrip(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Initialize everything
-	s, sh, cs, _ := setupServer(ctx, t)
-	clientDt, c := setupClient(ctx, s.ID(), t)
-	err := c.ConnectAddrs(ctx, sh.Addrs()...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newTestServer(t, ctx)
+	client := newTestClient(t, ctx)
+	disseminateNetworkState(server.h, client.h)
 
 	carBs := testutil.OpenSampleCar(t, "sample-v1-2.car")
 	roots, err := carBs.Roots()
@@ -91,15 +54,17 @@ func TestRetrievalRoundTrip(t *testing.T) {
 	contextID := []byte("applesauce")
 	md, err := cardatatransfer.MetadataFromContextID(contextID)
 	require.NoError(t, err)
-	adv, err := cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	adv, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
 	// Get first advertisement
-	r, err := c.GetAdv(ctx, adv)
+	r := client.getAdvViaLegs(t, ctx, adv, server.h.ID())
+
+	mdb, err := r.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
 	var receivedMd stiapi.Metadata
-	err = receivedMd.UnmarshalBinary(r.Ad.Metadata.Bytes())
+	err = receivedMd.UnmarshalBinary(mdb)
 	require.NoError(t, err)
 	dtm, err := metadata.FromIndexerMetadata(receivedMd)
 	require.NoError(t, err)
@@ -113,26 +78,27 @@ func TestRetrievalRoundTrip(t *testing.T) {
 			PieceCID: &fv1.PieceCID,
 		},
 	}
-	resultChan := make(chan bool, 1)
-	clientDt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+	done := make(chan bool, 1)
+	unsub := client.dt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
 		switch channelState.Status() {
 		case datatransfer.Failed, datatransfer.Cancelled:
-			resultChan <- false
+			done <- false
 		case datatransfer.Completed:
-			resultChan <- true
+			done <- true
 		}
 	})
-	err = clientDt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
+	defer unsub()
+	err = client.dt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
 	require.NoError(t, err)
-	err = clientDt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+	err = client.dt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
 	require.NoError(t, err)
-	_, err = clientDt.OpenPullDataChannel(ctx, sh.ID(), proposal, roots[0], selectorparse.CommonSelector_ExploreAllRecursively)
+	_, err = client.dt.OpenPullDataChannel(ctx, server.h.ID(), proposal, roots[0], selectorparse.CommonSelector_ExploreAllRecursively)
 	require.NoError(t, err)
 
 	select {
 	case <-ctx.Done():
 		require.FailNow(t, "context closed")
-	case result := <-resultChan:
+	case result := <-done:
 		require.True(t, result)
 	}
 }
@@ -141,56 +107,150 @@ func TestReimportCar(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Initialize everything
-	s, sh, cs, _ := setupServer(ctx, t)
-	_, c := setupClient(ctx, s.ID(), t)
-	err := c.ConnectAddrs(ctx, sh.Addrs()...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	server := newTestServer(t, ctx)
+	client := newTestClient(t, ctx)
+	disseminateNetworkState(server.h, client.h)
 
 	contextID := []byte("applesauce")
 	md, err := cardatatransfer.MetadataFromContextID(contextID)
 	require.NoError(t, err)
-	adv, err := cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	adv, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
 	// Get first advertisement
-	r, err := c.GetAdv(ctx, adv)
+	r := client.getAdvViaLegs(t, ctx, adv, server.h.ID())
+	require.NoError(t, err)
+
+	mdb, err := r.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
 	var receivedMd stiapi.Metadata
-	err = receivedMd.UnmarshalBinary(r.Ad.Metadata.Bytes())
+	err = receivedMd.UnmarshalBinary(mdb)
 	require.NoError(t, err)
 
 	// Check the reimporting CAR with same contextID and metadata does not
 	// result in advertisement.
-	_, err = cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	_, err = server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.Equal(t, err, provider.ErrAlreadyAdvertised)
 
 	// Test that reimporting CAR with same contextID and different metadata generates new advertisement.
 	contextID2 := []byte("applesauce2")
 	md2, err := cardatatransfer.MetadataFromContextID(contextID2)
 	require.NoError(t, err)
-	adv2, err := cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md2)
+	adv2, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md2)
 	require.NoError(t, err)
 
 	// Get second advertisement
-	r2, err := c.GetAdv(ctx, adv2)
+	r2 := client.getAdvViaLegs(t, ctx, adv2, server.h.ID())
+	require.NoError(t, err)
+
+	mdb2, err := r2.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
 	var receivedMd2 stiapi.Metadata
-	err = receivedMd2.UnmarshalBinary(r2.Ad.Metadata.Bytes())
+	err = receivedMd2.UnmarshalBinary(mdb2)
 	require.NoError(t, err)
 
 	require.False(t, receivedMd2.Equal(receivedMd))
 
 	// Check that both advertisements have the same entries link.
-	lnk, err := r.Ad.Entries.AsLink()
+	lnk, err := r.FieldEntries().AsLink()
 	require.NoError(t, err)
-	lnk2, err := r2.Ad.Entries.AsLink()
+	lnk2, err := r2.FieldEntries().AsLink()
 	require.NoError(t, err)
 	linkCid := lnk.(cidlink.Link).Cid
 	linkCid2 := lnk2.(cidlink.Link).Cid
 	require.True(t, linkCid.Equals(linkCid2))
+}
+
+func disseminateNetworkState(hosts ...host.Host) {
+	for _, one := range hosts {
+		for _, other := range hosts {
+			if one.ID() != other.ID() {
+				one.Peerstore().AddAddrs(other.ID(), other.Addrs(), time.Hour)
+			}
+		}
+	}
+}
+
+type testServer struct {
+	h  host.Host
+	cs *supplier.CarSupplier
+	e  *engine.Engine
+}
+
+func newTestServer(t *testing.T, ctx context.Context) *testServer {
+	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	require.NoError(t, err)
+	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
+	require.NoError(t, err)
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+
+	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
+	ingestCfg := config.Ingest{
+		PubSubTopic: testTopic,
+	}
+	e, err := engine.New(ingestCfg, priv, dt, h, store, nil)
+	require.NoError(t, err)
+	require.NoError(t, e.Start(ctx))
+
+	cs := supplier.NewCarSupplier(e, store, car.ZeroLengthSectionAsEOF(false))
+	require.NoError(t, cardatatransfer.StartCarDataTransfer(dt, cs))
+
+	return &testServer{
+		h:  h,
+		cs: cs,
+		e:  e,
+	}
+}
+
+type testClient struct {
+	h    host.Host
+	dt   datatransfer.Manager
+	lsys ipld.LinkSystem
+}
+
+func newTestClient(t *testing.T, ctx context.Context) *testClient {
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	blockStore := blockstore.NewBlockstore(store)
+	lsys := storeutil.LinkSystemForBlockstore(blockStore)
+	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	require.NoError(t, err)
+
+	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
+	require.NoError(t, dt.RegisterVoucherResultType(&legs.VoucherResult{}))
+	require.NoError(t, dt.RegisterVoucherType(&legs.Voucher{}, nil))
+
+	return &testClient{
+		h:    h,
+		dt:   dt,
+		lsys: lsys,
+	}
+}
+
+func (tc *testClient) getAdvViaLegs(t *testing.T, ctx context.Context, adv cid.Cid, from peer.ID) schema.Advertisement {
+	done := make(chan bool, 1)
+	unsub := tc.dt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+		switch channelState.Status() {
+		case datatransfer.Failed, datatransfer.Cancelled:
+			t.Logf("%v", event)
+			done <- false
+		case datatransfer.Completed:
+			done <- true
+		}
+	})
+	defer unsub()
+
+	_, err := tc.dt.OpenPullDataChannel(ctx, from, &legs.Voucher{Head: &adv}, adv, selectorparse.CommonSelector_ExploreAllRecursively)
+	require.NoError(t, err)
+	select {
+	case <-ctx.Done():
+		require.FailNow(t, "context closed")
+	case result := <-done:
+		require.True(t, result)
+	}
+
+	adb, err := tc.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: adv}, schema.Type.Advertisement)
+	require.NoError(t, err)
+	return adb.(schema.Advertisement)
 }
