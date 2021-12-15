@@ -1,11 +1,16 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/mitchellh/go-homedir"
 )
 
@@ -34,6 +39,38 @@ var (
 	ErrInitialized    = errors.New("configuration file already exists")
 	ErrNotInitialized = errors.New("not initialized")
 )
+
+var log = logging.Logger("config")
+
+func fetchPeerIdFromS3(config *Config, bucket, key string) (error) {
+	log.Infof("downloading PeerID configuration from s3://%s/%s", bucket, key)
+
+	ctx := context.TODO()
+	cfg, err := awsConfig.LoadDefaultConfig(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	client := s3.NewFromConfig(cfg)
+	output, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key: aws.String(key),
+	})
+
+	if err != nil {
+		return err
+	}
+
+	var peer Identity
+	if err = json.NewDecoder(output.Body).Decode(&peer); err != nil {
+		return err
+	}
+
+	config.Identity = peer
+
+	return nil
+}
 
 // Filename returns the configuration file path given a configuration root
 // directory. If the configuration root directory is empty, use the default.
@@ -95,6 +132,16 @@ func Load(filePath string) (*Config, error) {
 	var cfg Config
 	if err = json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
+	}
+
+	peerIdS3Bucket := os.Getenv("PEER_ID_S3_BUCKET")
+	peerIdS3File := os.Getenv("PEER_ID_FILE")
+	if peerIdS3Bucket != "" && peerIdS3File != "" {
+		s3Err := fetchPeerIdFromS3(&cfg, peerIdS3Bucket, peerIdS3File)
+
+		if s3Err != nil {
+			return nil, s3Err
+		}
 	}
 
 	// Replace any zero-values with defaults.

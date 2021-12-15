@@ -1,11 +1,16 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
 	provider "github.com/filecoin-project/index-provider"
@@ -19,6 +24,7 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 const (
@@ -30,6 +36,7 @@ const (
 
 var dsLatestAdvKey = datastore.NewKey(latestAdvKey)
 var log = logging.Logger("provider/engine")
+var adsS3Bucket = aws.String(os.Getenv("ADS_S3_BUCKET"))
 
 // Engine is an implementation of the core reference provider interface
 type Engine struct {
@@ -65,6 +72,11 @@ type Engine struct {
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
 	cblk sync.Mutex
+
+	// SQS and S3 related stuff
+	s3RetrievalAddrs []ma.Multiaddr
+	s3Client *s3.Client
+	s3Ctx context.Context
 }
 
 var _ provider.Interface = (*Engine)(nil)
@@ -75,6 +87,12 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 	if len(addrs) == 0 {
 		addrs = []string{h.Addrs()[0].String()}
 		log.Infof("Retrieval address not configured, using %s", addrs[0])
+	}
+
+	s3RetrievalAddrs, err := getS3HttpAddrs()
+
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO(security): We should not keep the privkey decoded here.
@@ -90,7 +108,8 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		purgeLinkCache:  ingestCfg.PurgeLinkCache,
 		linkCacheSize:   ingestCfg.LinkCacheSize,
 
-		addrs: addrs,
+		addrs:            addrs,
+		s3RetrievalAddrs: s3RetrievalAddrs,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()
@@ -136,6 +155,17 @@ func (e *Engine) Start(ctx context.Context) error {
 		log.Errorf("Error initializing publisher in engine: %s", err)
 		return err
 	}
+
+	// Create a S3 client used for saving files
+	e.s3Ctx = pubCtx
+	cfg, err := awsConfig.LoadDefaultConfig(pubCtx)
+
+	if err != nil {
+		return err
+	}
+
+	e.s3Client = s3.NewFromConfig(cfg)
+
 	return nil
 }
 
@@ -175,7 +205,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 
 	log.Infow("Publishing advertisement in pubsub channel", "cid", c.String())
 	// Use legPublisher to publish the advertisement.
-	return c, e.lp.UpdateRoot(ctx, c)
+	return c, e.lp.UpdateRootWithAddresses(ctx, c, e.s3RetrievalAddrs)
 }
 
 func (e *Engine) RegisterCallback(cb provider.Callback) {
@@ -252,6 +282,23 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 		return cid.Undef, nil, err
 	}
 	return latestAdv, ad, nil
+}
+
+func (e *Engine) GetAdvertisementPublishingParameters() (crypto.PrivKey, ipld.LinkSystem) {
+	return e.privKey, e.lsys
+}
+
+func (e *Engine) StoreAdvertisementInS3(cid string, data []byte) {
+	_, err := e.s3Client.PutObject(e.s3Ctx, &s3.PutObjectInput{
+		Bucket: adsS3Bucket,
+		Key: aws.String(cid),
+		ContentType: aws.String("application/json"),
+		Body: bytes.NewReader(data),
+	})
+
+	if err != nil {
+		log.Errorf("Cannot store advertisement %s in S3: %s", cid, err)
+	}
 }
 
 func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metadata stiapi.Metadata, isRm bool) (cid.Cid, error) {
@@ -454,4 +501,16 @@ func (e *Engine) getLatestAdv() (cid.Cid, error) {
 	}
 	_, c, err := cid.CidFromBytes(b)
 	return c, err
+}
+
+func getS3HttpAddrs() ([]ma.Multiaddr, error) {
+	addr, err := ma.NewMultiaddr(fmt.Sprintf(
+		"/dns/%s.s3.%s.amazonaws.com/tcp/443/http", os.Getenv("ADS_S3_BUCKET"), os.Getenv("AWS_REGION"),
+	))
+
+	if err != nil {
+		return nil, err
+	}
+	
+	return []ma.Multiaddr{addr}, nil
 }

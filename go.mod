@@ -3,6 +3,10 @@ module github.com/filecoin-project/index-provider
 go 1.16
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.11.2
+	github.com/aws/aws-sdk-go-v2/config v1.11.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.21.0
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.13.1 // indirect
 	github.com/filecoin-project/go-data-transfer v1.11.4
 	github.com/filecoin-project/go-legs v0.0.0-20211130223251-403a83b8d02d
 	github.com/filecoin-project/go-state-types v0.1.0
@@ -26,6 +30,7 @@ require (
 	github.com/libp2p/go-msgio v0.0.6
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.4.1
+	github.com/multiformats/go-multibase v0.0.3 // indirect
 	github.com/multiformats/go-multicodec v0.3.1-0.20210902112759-1539a079fd61
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/stretchr/testify v1.7.0

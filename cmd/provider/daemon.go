@@ -16,6 +16,7 @@ import (
 	"github.com/filecoin-project/index-provider/engine"
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	p2pserver "github.com/filecoin-project/index-provider/server/provider/libp2p"
+	sqs "github.com/filecoin-project/index-provider/sqs"
 	"github.com/filecoin-project/index-provider/supplier"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
@@ -161,6 +162,15 @@ func daemonCommand(cctx *cli.Context) error {
 		errChan <- adminSvr.Start()
 	}()
 
+	// Starting provider SQS forwarder
+	forwarder, err := sqs.NewSQSForwarder(ctx, eng, h.ID().String())
+
+	if err != nil {
+		return err
+	}
+
+	forwarder.Start()
+
 	// If there are bootstrap peers and bootstrapping is enabled, then try to
 	// connect to the minimum set of peers.
 	if len(cfg.Bootstrap.Peers) != 0 && cfg.Bootstrap.MinimumPeers != 0 {
@@ -183,6 +193,8 @@ func daemonCommand(cctx *cli.Context) error {
 	// Keep process running.
 	select {
 	case <-cctx.Done():
+	case err = <-forwarder.ErrorChannel:
+		log.Errorw("failed SQS forwarding", "err", err)
 	case err = <-errChan:
 		log.Errorw("Failed to start server", "err", err)
 		finalErr = ErrDaemonStart
@@ -222,6 +234,12 @@ func daemonCommand(cctx *cli.Context) error {
 		log.Errorw("Error shutting down admin server: %s", err)
 		finalErr = ErrDaemonStop
 	}
+
+	if err = forwarder.Shutdown(); err != nil {
+		log.Errorw("Error shutting SQS forwarder: %s", err)
+		finalErr = ErrDaemonStop
+	}
+
 	log.Infow("node stopped")
 	return finalErr
 }
