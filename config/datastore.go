@@ -12,3 +12,11 @@ type Datastore struct {
 	// Dir is the directory within the config root where the datastore is kept
 	Dir string
 }
+
+// NewDatastore instantiates a new Datastore config with default values.
+func NewDatastore() Datastore {
+	return Datastore{
+		Type: defaultDatastoreType,
+		Dir:  defaultDatastoreDir,
+	}
+}

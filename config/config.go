@@ -98,7 +98,7 @@ func Load(filePath string) (*Config, error) {
 	}
 
 	// Replace any zero-values with defaults.
-	cfg.Ingest.defaults()
+	cfg.Ingest.overrideUnsetToDefaults()
 
 	return &cfg, nil
 }
