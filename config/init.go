@@ -20,28 +20,12 @@ func Init(out io.Writer) (*Config, error) {
 
 func InitWithIdentity(identity Identity) (*Config, error) {
 	return &Config{
-		Identity: identity,
-		Bootstrap: Bootstrap{
-			Peers:        defaultBootstrapPeers(),
-			MinimumPeers: defaultMinimumPeers,
-		},
-		Datastore: Datastore{
-			Type: defaultDatastoreType,
-			Dir:  defaultDatastoreDir,
-		},
-		Ingest: Ingest{
-			LinkCacheSize:   defaultLinkCacheSize,
-			LinkedChunkSize: defaultLinkedChunkSize,
-			PubSubTopic:     defaultPubSubTopic,
-		},
-		ProviderServer: ProviderServer{
-			ListenMultiaddr: defaultNodeMultiaddr,
-		},
-		AdminServer: AdminServer{
-			ListenMultiaddr: defaultAdminServerAddr,
-			ReadTimeout:     defaultReadTimeout,
-			WriteTimeout:    defaultWriteTimeout,
-		},
+		Identity:       identity,
+		Bootstrap:      NewBootstrap(),
+		Datastore:      NewDatastore(),
+		Ingest:         NewIngest(),
+		ProviderServer: NewProviderServer(),
+		AdminServer:    NewAdminServer(),
 	}, nil
 }
 

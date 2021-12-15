@@ -20,6 +20,15 @@ type AdminServer struct {
 	WriteTimeout    Duration
 }
 
+// NewAdminServer instantiates a new AdminServer config with default values.
+func NewAdminServer() AdminServer {
+	return AdminServer{
+		ListenMultiaddr: defaultAdminServerAddr,
+		ReadTimeout:     defaultReadTimeout,
+		WriteTimeout:    defaultWriteTimeout,
+	}
+}
+
 func (as *AdminServer) ListenNetAddr() (string, error) {
 	maddr, err := multiaddr.NewMultiaddr(as.ListenMultiaddr)
 	if err != nil {

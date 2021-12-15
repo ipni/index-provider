@@ -8,12 +8,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-const (
-	IdentityTag     = "Identity"
-	PrivKeyTag      = "PrivKey"
-	PrivKeySelector = IdentityTag + "." + PrivKeyTag
-)
-
 // Identity tracks the configuration of the local node's identity.
 type Identity struct {
 	PeerID  string

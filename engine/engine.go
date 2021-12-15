@@ -71,10 +71,10 @@ var _ provider.Interface = (*Engine)(nil)
 
 // New creates a new engine.  The context is only used for canceling the call
 // to New.
-func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, addrs []string) (*Engine, error) {
-	if len(addrs) == 0 {
-		addrs = []string{h.Addrs()[0].String()}
-		log.Infof("Retrieval address not configured, using %s", addrs[0])
+func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, retAddrs []string) (*Engine, error) {
+	if len(retAddrs) == 0 {
+		retAddrs = []string{h.Addrs()[0].String()}
+		log.Infof("Retrieval address not configured, using %s", retAddrs[0])
 	}
 
 	// TODO(security): We should not keep the privkey decoded here.
@@ -90,7 +90,7 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		purgeLinkCache:  ingestCfg.PurgeLinkCache,
 		linkCacheSize:   ingestCfg.LinkCacheSize,
 
-		addrs: addrs,
+		addrs: retAddrs,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()

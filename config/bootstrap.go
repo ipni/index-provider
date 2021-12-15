@@ -3,20 +3,17 @@ package config
 import (
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 )
 
-const (
-	defaultMinimumPeers     = 1
-	defaultBootstrapPeriod  = 30 * time.Second
-	defaulConnectionTimeout = defaultBootstrapPeriod / 3
-)
+const defaultMinimumPeers = 1
 
 // defaultBootstrapAddresses are the hardcoded bootstrap addresses.
 var defaultBootstrapAddresses = []string{}
+
+// ErrInvalidPeerAddr signals an address is not a valid peer address.
+var ErrInvalidPeerAddr = errors.New("invalid peer address")
 
 type Bootstrap struct {
 	// Peers is the local nodes's bootstrap peer addresses
@@ -27,8 +24,13 @@ type Bootstrap struct {
 	MinimumPeers int
 }
 
-// ErrInvalidPeerAddr signals an address is not a valid peer address.
-var ErrInvalidPeerAddr = errors.New("invalid peer address")
+// NewBootstrap instantiates a new Bootstrap config with default values.
+func NewBootstrap() Bootstrap {
+	return Bootstrap{
+		Peers:        defaultBootstrapPeers(),
+		MinimumPeers: defaultMinimumPeers,
+	}
+}
 
 // PeerAddrs returns the bootstrap peers as a list of AddrInfo.
 func (b Bootstrap) PeerAddrs() ([]peer.AddrInfo, error) {
