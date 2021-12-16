@@ -13,6 +13,7 @@ import (
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/filecoin-project/index-provider/engine"
+	"github.com/google/uuid"
 	logging "github.com/ipfs/go-log/v2"	
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -73,17 +74,35 @@ func (f *SQSForwarder) Start() {
 			}
 
 			totalMessages := len(response.Messages)
+			
 			if totalMessages > 0 {
-				multihashes := make([]string, len(response.Messages)) 
+				multihashes := make([]string, totalMessages) 
+				deleteMessagesInput := sqs.DeleteMessageBatchInput{
+					Entries: make([]types.DeleteMessageBatchRequestEntry, totalMessages),
+					QueueUrl: aws.String(f.QueueUrl),
+				}
 
 				for i, message := range(response.Messages) {
 					multihashes[i] = *message.Body 
+
+					deleteMessagesInput.Entries[i] = types.DeleteMessageBatchRequestEntry{
+						Id: aws.String(uuid.NewString()), 
+						ReceiptHandle: message.ReceiptHandle
+					}
 				}
 
 				// Advertise all multihashes
 				err = f.Publish(multihashes)
 
 				if err != nil {					
+					f.ErrorChannel <- err
+					return
+				}
+
+				// Now delete all messages processed
+				_, err = f.Client.DeleteMessageBatch(f.Context, &deleteMessagesInput)
+
+				if err != nil {
 					f.ErrorChannel <- err
 					return
 				}

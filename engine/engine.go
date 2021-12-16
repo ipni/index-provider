@@ -505,7 +505,7 @@ func (e *Engine) getLatestAdv() (cid.Cid, error) {
 
 func getS3HttpAddrs() ([]ma.Multiaddr, error) {
 	addr, err := ma.NewMultiaddr(fmt.Sprintf(
-		"/dns/%s.s3.%s.amazonaws.com/tcp/443/http", os.Getenv("ADS_S3_BUCKET"), os.Getenv("AWS_REGION"),
+		"/dns/%s.s3.%s.amazonaws.com/tcp/443/https", os.Getenv("ADS_S3_BUCKET"), os.Getenv("AWS_REGION"),
 	))
 
 	if err != nil {
