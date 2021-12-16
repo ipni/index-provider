@@ -75,8 +75,8 @@ type Engine struct {
 
 	// SQS and S3 related stuff
 	s3RetrievalAddrs []ma.Multiaddr
-	s3Client *s3.Client
-	s3Ctx context.Context
+	s3Client         *s3.Client
+	s3Ctx            context.Context
 }
 
 var _ provider.Interface = (*Engine)(nil)
@@ -205,7 +205,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 
 	log.Infow("Publishing advertisement in pubsub channel", "cid", c.String())
 	// Use legPublisher to publish the advertisement.
-	return c, e.lp.UpdateRootWithAddresses(ctx, c, e.s3RetrievalAddrs)
+	return c, e.lp.UpdateRootWithAddrs(ctx, c, e.s3RetrievalAddrs)
 }
 
 func (e *Engine) RegisterCallback(cb provider.Callback) {
@@ -290,10 +290,10 @@ func (e *Engine) GetAdvertisementPublishingParameters() (crypto.PrivKey, ipld.Li
 
 func (e *Engine) StoreAdvertisementInS3(cid string, data []byte) {
 	_, err := e.s3Client.PutObject(e.s3Ctx, &s3.PutObjectInput{
-		Bucket: adsS3Bucket,
-		Key: aws.String(cid),
+		Bucket:      adsS3Bucket,
+		Key:         aws.String(cid),
 		ContentType: aws.String("application/json"),
-		Body: bytes.NewReader(data),
+		Body:        bytes.NewReader(data),
 	})
 
 	if err != nil {
@@ -511,6 +511,6 @@ func getS3HttpAddrs() ([]ma.Multiaddr, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return []ma.Multiaddr{addr}, nil
 }

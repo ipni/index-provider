@@ -10,11 +10,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	"github.com/filecoin-project/index-provider/engine"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
-	"github.com/filecoin-project/index-provider/engine"
 	"github.com/google/uuid"
-	logging "github.com/ipfs/go-log/v2"	
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/multiformats/go-multibase"
@@ -22,14 +22,14 @@ import (
 )
 
 type SQSForwarder struct {
-	Context context.Context
-	PeerID string
-	Engine *engine.Engine
-	Client *sqs.Client
-	PrivKey crypto.PrivKey
-	Link ipld.LinkSystem
-	Multiaddrs []string
-	QueueUrl string
+	Context      context.Context
+	PeerID       string
+	Engine       *engine.Engine
+	Client       *sqs.Client
+	PrivKey      crypto.PrivKey
+	Link         ipld.LinkSystem
+	Multiaddrs   []string
+	QueueUrl     string
 	ErrorChannel chan error
 
 	lastAdvertisement schema.Link_Advertisement
@@ -43,7 +43,7 @@ func NewSQSForwarder(ctx context.Context, engine *engine.Engine, peerID string) 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	client := sqs.NewFromConfig(cfg)
 	privKey, link := engine.GetAdvertisementPublishingParameters()
 
@@ -54,16 +54,16 @@ func NewSQSForwarder(ctx context.Context, engine *engine.Engine, peerID string) 
 }
 
 func (f *SQSForwarder) Start() {
-	go func(){
+	go func() {
 		for {
 			// Receive messages from SQS
 			input := &sqs.ReceiveMessageInput{
 				MessageAttributeNames: []string{
 					string(types.QueueAttributeNameAll),
 				},
-				QueueUrl: aws.String(f.QueueUrl),
+				QueueUrl:            aws.String(f.QueueUrl),
 				MaxNumberOfMessages: 10,
-				VisibilityTimeout: 0,
+				VisibilityTimeout:   0,
 			}
 
 			response, err := f.Client.ReceiveMessage(f.Context, input)
@@ -74,27 +74,27 @@ func (f *SQSForwarder) Start() {
 			}
 
 			totalMessages := len(response.Messages)
-			
+
 			if totalMessages > 0 {
-				multihashes := make([]string, totalMessages) 
+				multihashes := make([]string, totalMessages)
 				deleteMessagesInput := sqs.DeleteMessageBatchInput{
-					Entries: make([]types.DeleteMessageBatchRequestEntry, totalMessages),
+					Entries:  make([]types.DeleteMessageBatchRequestEntry, totalMessages),
 					QueueUrl: aws.String(f.QueueUrl),
 				}
 
-				for i, message := range(response.Messages) {
-					multihashes[i] = *message.Body 
+				for i, message := range response.Messages {
+					multihashes[i] = *message.Body
 
 					deleteMessagesInput.Entries[i] = types.DeleteMessageBatchRequestEntry{
-						Id: aws.String(uuid.NewString()), 
-						ReceiptHandle: message.ReceiptHandle
+						Id:            aws.String(uuid.NewString()),
+						ReceiptHandle: message.ReceiptHandle,
 					}
 				}
 
 				// Advertise all multihashes
 				err = f.Publish(multihashes)
 
-				if err != nil {					
+				if err != nil {
 					f.ErrorChannel <- err
 					return
 				}
@@ -107,17 +107,17 @@ func (f *SQSForwarder) Start() {
 					return
 				}
 			} else {
-				// When no messages are received, wait 15 seconds before retrying			
+				// When no messages are received, wait 15 seconds before retrying
 				time.Sleep(15 * time.Second)
 			}
 		}
 	}()
 }
 
-func (f *SQSForwarder) Publish(multihashes []string) (error) {
+func (f *SQSForwarder) Publish(multihashes []string) error {
 	mhs := make([]multihash.Multihash, len(multihashes))
 
-	for i, rmhs := range(multihashes) {
+	for i, rmhs := range multihashes {
 		// We cant use multihash.FromB58String here since the JS implementation uses base58btc
 		_, bytes, err := multibase.Decode(rmhs)
 
@@ -149,7 +149,7 @@ func (f *SQSForwarder) Publish(multihashes []string) (error) {
 	}
 
 	cid, err := f.Engine.Publish(f.Context, adv)
-	
+
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (f *SQSForwarder) Publish(multihashes []string) (error) {
 		return err
 	}
 
-	for _, rmhs := range(multihashes) {
+	for _, rmhs := range multihashes {
 		log.Infof("Published multihash %s via CID %s", rmhs, cid)
 	}
 

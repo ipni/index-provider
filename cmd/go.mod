@@ -3,7 +3,6 @@ module github.com/filecoin-project/index-provider/cmd
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.13.1 // indirect
 	github.com/filecoin-project/go-data-transfer v1.11.4
 	github.com/filecoin-project/index-provider v0.0.0-20211115210313-7957526f5b07
 	github.com/filecoin-project/storetheindex v0.0.0-20211201165140-0676bdcf0a0b

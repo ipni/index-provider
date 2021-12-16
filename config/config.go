@@ -42,7 +42,7 @@ var (
 
 var log = logging.Logger("config")
 
-func fetchPeerIdFromS3(config *Config, bucket, key string) (error) {
+func fetchPeerIdFromS3(config *Config, bucket, key string) error {
 	log.Infof("downloading PeerID configuration from s3://%s/%s", bucket, key)
 
 	ctx := context.TODO()
@@ -55,7 +55,7 @@ func fetchPeerIdFromS3(config *Config, bucket, key string) (error) {
 	client := s3.NewFromConfig(cfg)
 	output, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
-		Key: aws.String(key),
+		Key:    aws.String(key),
 	})
 
 	if err != nil {
