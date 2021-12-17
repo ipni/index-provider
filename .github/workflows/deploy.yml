@@ -23,12 +23,14 @@ jobs:
       - name: Prepare image name
         run: |
           echo IMAGE_REPOSITORY=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]') >> $GITHUB_ENV
+          echo BUILD_DATE=$(date +%Y%m%d.%H%M) >> $GITHUB_ENV
       - name: Build Image
         uses: docker/build-push-action@v2
         with:
           push: true
           context: .
           tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}/app:${{ env.BUILD_DATE }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_REPOSITORY }}/app:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
