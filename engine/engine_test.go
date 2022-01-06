@@ -57,10 +57,10 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	return lsys
 }
 
-func mkMockSubscriber(t *testing.T, h host.Host) legs.LegSubscriber {
+func mkMockSubscriber(t *testing.T, h host.Host) *legs.Subscriber {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	lsys := mkLinkSystem(store)
-	ls, err := legs.NewSubscriber(context.Background(), h, store, lsys, testTopic, nil)
+	ls, err := legs.NewSubscriber(h, store, lsys, testTopic, nil)
 	require.NoError(t, err)
 	return ls
 }
@@ -207,7 +207,7 @@ func TestNotifyPublish(t *testing.T) {
 	lh := mkTestHost(t)
 	_, adv, advLnk := genRandomIndexAndAdv(t, e)
 	ls := mkMockSubscriber(t, lh)
-	watcher, cncl := ls.OnChange()
+	watcher, cncl := ls.OnSyncFinished()
 
 	t.Cleanup(clean(ls, e, cncl))
 
@@ -227,9 +227,9 @@ func TestNotifyPublish(t *testing.T) {
 	select {
 	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
-	case downstream := <-watcher:
-		if !downstream.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+	case syncFin := <-watcher:
+		if !syncFin.Cid.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
 		}
 	}
 
@@ -248,7 +248,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	// Create mockSubscriber
 	lh := mkTestHost(t)
 	ls := mkMockSubscriber(t, lh)
-	watcher, cncl := ls.OnChange()
+	watcher, cncl := ls.OnSyncFinished()
 
 	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
@@ -279,9 +279,9 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	select {
 	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
-	case downstream := <-watcher:
-		if !downstream.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+	case syncFin := <-watcher:
+		if !syncFin.Cid.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
 		}
 	}
 
@@ -296,9 +296,9 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	select {
 	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
-	case downstream := <-watcher:
-		if !downstream.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+	case syncFin := <-watcher:
+		if !syncFin.Cid.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
 		}
 		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
 	}
@@ -310,9 +310,9 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	select {
 	case <-time.After(time.Second * 10):
 		t.Fatal("timed out waiting for sync to propogate")
-	case downstream := <-watcher:
-		if !downstream.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+	case syncFin := <-watcher:
+		if !syncFin.Cid.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
 		}
 		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
 	}
@@ -332,7 +332,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	// Create mockSubscriber
 	lh := mkTestHost(t)
 	ls := mkMockSubscriber(t, lh)
-	watcher, cncl := ls.OnChange()
+	watcher, cncl := ls.OnSyncFinished()
 
 	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
@@ -359,9 +359,9 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	select {
 	case <-time.After(time.Second * 20):
 		t.Fatal("timed out waiting for sync to propogate")
-	case downstream := <-watcher:
-		if !downstream.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", downstream, c)
+	case syncFin := <-watcher:
+		if !syncFin.Cid.Equals(c) {
+			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
 		}
 	}
 
@@ -396,11 +396,11 @@ func TestLinkedStructure(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func clean(ls legs.LegSubscriber, e *Engine, cncl context.CancelFunc) func() {
+func clean(ls *legs.Subscriber, e *Engine, cncl context.CancelFunc) func() {
 	return func() {
 		cncl()
 		ls.Close()
-		if err := e.Shutdown(context.Background()); err != nil {
+		if err := e.Shutdown(); err != nil {
 			panic(err.Error())
 		}
 	}

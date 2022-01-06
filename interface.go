@@ -71,7 +71,7 @@ type Interface interface {
 	// Shutdown shuts down this provider, and blocks until all resources
 	// occupied by it are discared.  After calling this function the provider
 	// is no longer available for use.
-	Shutdown(context.Context) error
+	Shutdown() error
 }
 
 // MultihashIterator iterates over a list of multihashes.
