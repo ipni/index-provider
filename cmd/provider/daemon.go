@@ -196,7 +196,7 @@ func daemonCommand(cctx *cli.Context) error {
 		}
 	}()
 
-	if err = eng.Shutdown(shutdownCtx); err != nil {
+	if err = eng.Shutdown(); err != nil {
 		log.Errorf("Error closing provider core: %s", err)
 		finalErr = ErrDaemonStop
 	}

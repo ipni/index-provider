@@ -143,9 +143,9 @@ func (mr *MockInterfaceMockRecorder) RegisterCallback(arg0 interface{}) *gomock.
 }
 
 // Shutdown mocks base method.
-func (m *MockInterface) Shutdown(arg0 context.Context) error {
+func (m *MockInterface) Shutdown() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Shutdown", arg0)
+	ret := m.ctrl.Call(m, "Shutdown")
 	ret0, _ := ret[0].(error)
 	return ret0
 }

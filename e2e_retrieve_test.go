@@ -7,7 +7,7 @@ import (
 	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/go-legs/dtsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/config"
@@ -218,8 +218,8 @@ func newTestClient(t *testing.T, ctx context.Context) *testClient {
 	require.NoError(t, err)
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
-	require.NoError(t, dt.RegisterVoucherResultType(&legs.VoucherResult{}))
-	require.NoError(t, dt.RegisterVoucherType(&legs.Voucher{}, nil))
+	require.NoError(t, dt.RegisterVoucherResultType(&dtsync.VoucherResult{}))
+	require.NoError(t, dt.RegisterVoucherType(&dtsync.Voucher{}, nil))
 
 	return &testClient{
 		h:    h,
@@ -241,7 +241,7 @@ func (tc *testClient) getAdvViaLegs(t *testing.T, ctx context.Context, adv cid.C
 	})
 	defer unsub()
 
-	_, err := tc.dt.OpenPullDataChannel(ctx, from, &legs.Voucher{Head: &adv}, adv, selectorparse.CommonSelector_ExploreAllRecursively)
+	_, err := tc.dt.OpenPullDataChannel(ctx, from, &dtsync.Voucher{Head: &adv}, adv, selectorparse.CommonSelector_ExploreAllRecursively)
 	require.NoError(t, err)
 	select {
 	case <-ctx.Done():

@@ -8,6 +8,7 @@ import (
 
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/go-legs/dtsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/config"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
@@ -50,8 +51,7 @@ type Engine struct {
 	// ds is the datastore used for persistence of different assets (advertisements,
 	// indexed data, etc.)
 	ds        datastore.Batching
-	lp        legs.LegPublisher
-	pubCancel context.CancelFunc
+	publisher legs.Publisher
 
 	// pubsubtopic where the provider will push advertisements
 	pubSubTopic     string
@@ -127,11 +127,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.cache = dsCache
 
-	// Create a context that is used to cancel the publisher on shutdown if
-	// closing it takes too long.
-	var pubCtx context.Context
-	pubCtx, e.pubCancel = context.WithCancel(context.Background())
-	e.lp, err = legs.NewPublisherFromExisting(pubCtx, e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
+	e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
 	if err != nil {
 		log.Errorf("Error initializing publisher in engine: %s", err)
 		return err
@@ -175,7 +171,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 
 	log.Infow("Publishing advertisement in pubsub channel", "cid", c.String())
 	// Use legPublisher to publish the advertisement.
-	return c, e.lp.UpdateRoot(ctx, c)
+	return c, e.publisher.UpdateRoot(ctx, c)
 }
 
 func (e *Engine) RegisterCallback(cb provider.Callback) {
@@ -197,20 +193,11 @@ func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, e
 	return e.publishAdvForIndex(ctx, contextID, stiapi.Metadata{}, true)
 }
 
-func (e *Engine) Shutdown(ctx context.Context) error {
-	done := make(chan struct{})
-	go func() {
-		select {
-		case <-ctx.Done():
-			e.pubCancel()
-		case <-done:
-		}
-	}()
-	err := e.lp.Close()
+func (e *Engine) Shutdown() error {
+	err := e.publisher.Close()
 	if err != nil {
 		err = fmt.Errorf("error closing leg publisher: %w", err)
 	}
-	close(done)
 	if cerr := e.cache.Close(); cerr != nil {
 		log.Errorf("Error closing link cache: %s", cerr)
 	}
