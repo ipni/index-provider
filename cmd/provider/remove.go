@@ -44,25 +44,24 @@ specified, they key is simply calculated as the SHA_256 hash of the given path.`
 )
 
 func beforeRemoveCar(cctx *cli.Context) error {
-	keyFlagSet := cctx.IsSet(keyFlag.Name)
-	carPathFlagSet := cctx.IsSet(carPathFlag.Name)
-
-	if keyFlagSet && carPathFlagSet {
-		return fmt.Errorf("only one of %s or %s must be set", keyFlag.Name, carPathFlag.Name)
-	}
-	if !keyFlagSet && !carPathFlagSet {
-		return fmt.Errorf("either %s or %s must be set", keyFlag.Name, carPathFlag.Name)
-	}
-
-	if keyFlagSet {
-		decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)
-		if err != nil {
-			return errors.New("key is not a valid base64 encoded string")
+	if !cctx.IsSet(keyFlag.Name) {
+		if !cctx.IsSet(optionalCarPathFlag.Name) {
+			return fmt.Errorf("either %s or %s must be set", keyFlag.Name, optionalCarPathFlag.Name)
 		}
-		removeCarKey = decoded
-	} else {
-		removeCarKey = sha256.New().Sum([]byte(carPathFlagValue))
+		h := sha256.New()
+		h.Write([]byte(optionalCarPathFlagValue))
+		removeCarKey = h.Sum(nil)
+		return nil
 	}
+
+	if cctx.IsSet(optionalCarPathFlag.Name) {
+		return fmt.Errorf("only one of %s or %s must be set", keyFlag.Name, optionalCarPathFlag.Name)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)
+	if err != nil {
+		return errors.New("key is not a valid base64 encoded string")
+	}
+	removeCarKey = decoded
 	return nil
 }
 
@@ -79,15 +78,16 @@ func doRemoveCar(cctx *cli.Context) error {
 		return errFromHttpResp(resp)
 	}
 
-	log.Info("removed car successfully", "key", removeCarKey)
 	var res adminserver.RemoveCarRes
 	if _, err := res.ReadFrom(resp.Body); err != nil {
-		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
+		return fmt.Errorf("received ok response from server but cannot decode response body. %v", err)
 	}
 	var b bytes.Buffer
 	b.WriteString("Successfully removed CAR.\n")
 	b.WriteString("\t Advertisement ID: ")
 	b.WriteString(res.AdvId.String())
+	b.WriteString("\n\t Context ID: ")
+	b.WriteString(base64.StdEncoding.EncodeToString(removeCarKey))
 	b.WriteString("\n")
 	_, err = cctx.App.Writer.Write(b.Bytes())
 	return err

@@ -84,7 +84,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	respBytes, err := ioutil.ReadAll(rr.Body)
 	require.NoError(t, err)
-	require.Equal(t, "failed to remove CAR: fish\n", string(respBytes))
+	require.Equal(t, "error removing car: fish\n", string(respBytes))
 }
 
 func Test_removeCarHandler_NonExistingCarIsNotFound(t *testing.T) {
