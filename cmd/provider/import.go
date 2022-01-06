@@ -14,9 +14,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// TODO: This should change to a code that indicates graphsync.
-const providerProtocolID = 0x300001
-
 var ImportCmd = &cli.Command{
 	Name:        "import",
 	Aliases:     []string{"i"},
@@ -35,7 +32,7 @@ var (
 		Action:  doImportCar,
 	}
 	metadata = stiapi.Metadata{
-		ProtocolID: providerProtocolID,
+		ProtocolID: cardatatransfer.ContextIDCodec,
 	}
 )
 
@@ -86,12 +83,14 @@ func doImportCar(cctx *cli.Context) error {
 	log.Infof("imported car successfully")
 	var res adminserver.ImportCarRes
 	if _, err := res.ReadFrom(resp.Body); err != nil {
-		return fmt.Errorf("received OK response from server but cannot decode response body. %v", err)
+		return fmt.Errorf("received ok response from server but cannot decode response body. %v", err)
 	}
 	var b bytes.Buffer
 	b.WriteString("Successfully imported CAR.\n")
 	b.WriteString("\t Advertisement ID: ")
 	b.WriteString(res.AdvId.String())
+	b.WriteString("\n\t Context ID: ")
+	b.WriteString(base64.StdEncoding.EncodeToString(importCarKey))
 	b.WriteString("\n")
 	_, err = cctx.App.Writer.Write(b.Bytes())
 	return err

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
@@ -52,12 +53,12 @@ func findCommand(cctx *cli.Context) error {
 
 	fmt.Println("Content providers:")
 	for i := range resp.MultihashResults {
-		fmt.Println("   Multihash:", resp.MultihashResults[i].Multihash.B58String(), "==>")
+		fmt.Println("   Multihash:", resp.MultihashResults[i].Multihash.B58String())
 		for _, pr := range resp.MultihashResults[i].ProviderResults {
 			fmt.Println("       Provider:", pr.Provider)
-			fmt.Println("       ContextID:", string(pr.ContextID))
+			fmt.Println("       ContextID:", base64.StdEncoding.EncodeToString(pr.ContextID))
 			fmt.Println("       Proto:", pr.Metadata.ProtocolID)
-			fmt.Println("       Metadata:", string(pr.Metadata.Data))
+			fmt.Println("       Metadata:", base64.StdEncoding.EncodeToString(pr.Metadata.Data))
 		}
 	}
 

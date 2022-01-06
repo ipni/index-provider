@@ -2,6 +2,7 @@ package adminserver
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 
@@ -13,7 +14,7 @@ type removeCarHandler struct {
 }
 
 func (h *removeCarHandler) handle(w http.ResponseWriter, r *http.Request) {
-	log.Info("received remove CAR request")
+	log.Info("Received remove CAR request")
 
 	// Decode request.
 	var req RemoveCarReq
@@ -25,31 +26,30 @@ func (h *removeCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Key) == 0 {
 		msg := "key must be specified"
-		log.Debug(msg)
 		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
+	b64Key := base64.StdEncoding.EncodeToString(req.Key)
 	// Remove CAR.
-	ctx := context.Background()
-	log.Info("Removing CAR by key", "key", req.Key)
-	advID, err := h.cs.Remove(ctx, req.Key)
+	log.Infow("Removing CAR by key", "key", b64Key)
+	advID, err := h.cs.Remove(context.Background(), req.Key)
 
 	// Respond with cause of failure.
 	if err != nil {
 		if err == supplier.ErrNotFound {
-			msg := "no CAR file found for the given Key"
-			log.Errorw(msg, "contextID", req.Key)
-			http.Error(w, msg, http.StatusNotFound)
+			err = fmt.Errorf("provider has no car file for key %s", b64Key)
+			log.Error(err)
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		msg := fmt.Sprintf("failed to remove CAR: %v", err)
-		log.Errorw(msg, "err", err, "key", req.Key)
-		http.Error(w, msg, http.StatusInternalServerError)
+		log.Errorw("Failed to remove CAR", "err", err, "key", b64Key, "advertisement", advID)
+		err = fmt.Errorf("error removing car: %s", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Infow("removed CAR successfully", "contextID", req.Key)
+	log.Infow("Removed CAR successfully", "contextID", b64Key)
 
 	// Respond with successful remove result.
 	resp := &RemoveCarRes{AdvId: advID}
