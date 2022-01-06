@@ -48,7 +48,6 @@ func beforeRemoveCar(cctx *cli.Context) error {
 		if !cctx.IsSet(optionalCarPathFlag.Name) {
 			return fmt.Errorf("either %s or %s must be set", keyFlag.Name, optionalCarPathFlag.Name)
 		}
-		fmt.Println("carPathFlagValue:", optionalCarPathFlagValue)
 		h := sha256.New()
 		h.Write([]byte(optionalCarPathFlagValue))
 		removeCarKey = h.Sum(nil)
