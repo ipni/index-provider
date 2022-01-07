@@ -14,7 +14,7 @@ import (
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	mock_provider "github.com/filecoin-project/index-provider/mock"
 	"github.com/filecoin-project/index-provider/supplier"
-	"github.com/filecoin-project/index-provider/utils"
+	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -170,7 +170,7 @@ func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []by
 }
 
 func requireRandomCid(t *testing.T) cid.Cid {
-	randCids, err := utils.RandomCids(1)
+	randCids, err := testutil.RandomCids(1)
 	require.NoError(t, err)
 	return randCids[0]
 }

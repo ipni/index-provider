@@ -1,16 +1,17 @@
-BIN := index-provider
+BIN_SUBDIR := cmd/provider
 
 .PHONY: all build clean test
 
-all: build
+all: vet test build
 
-build: $(BIN)
+build: 
+	cd $(BIN_SUBDIR) && go build
 
 docker: Dockerfile clean
 	docker build . --force-rm -f Dockerfile -t indexer-reference-provider:$(shell git rev-parse --short HEAD)
 
-$(BIN): vet test
-	cd cmd/provider && go build -o ../../$(@)
+install:
+	cd $(BIN_SUBDIR) && go install
 
 lint:
 	golangci-lint run

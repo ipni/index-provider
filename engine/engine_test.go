@@ -8,15 +8,13 @@ import (
 	"testing"
 	"time"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/ipfs/go-cid"
-
 	"github.com/filecoin-project/go-legs"
+	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/testutil"
-	"github.com/filecoin-project/index-provider/utils"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
@@ -37,11 +35,36 @@ const (
 	protocolID = 0x300000
 )
 
+var _ provider.MultihashIterator = (*sliceMhIterator)(nil)
+
+type sliceMhIterator struct {
+	mhs    []mh.Multihash
+	offset int
+}
+
+func (s *sliceMhIterator) Next() (mh.Multihash, error) {
+	if s.offset < len(s.mhs) {
+		next := s.mhs[s.offset]
+		s.offset++
+		return next, nil
+	}
+	return nil, io.EOF
+}
+
+// toCallback simply returns the list of multihashes for
+// testing purposes. A more complex callback could read
+// from the CID index and return the list of multihashes.
+func toCallback(mhs []mh.Multihash) provider.Callback {
+	return func(_ context.Context, _ []byte) (provider.MultihashIterator, error) {
+		return &sliceMhIterator{mhs: mhs}, nil
+	}
+}
+
 func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
 		c := lnk.(cidlink.Link).Cid
-		val, err := ds.Get(datastore.NewKey(c.String()))
+		val, err := ds.Get(lctx.Ctx, datastore.NewKey(c.String()))
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +74,7 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			return ds.Put(datastore.NewKey(c.String()), buf.Bytes())
+			return ds.Put(lctx.Ctx, datastore.NewKey(c.String()), buf.Bytes())
 		}, nil
 	}
 	return lsys
@@ -66,16 +89,16 @@ func mkMockSubscriber(t *testing.T, h host.Host) *legs.Subscriber {
 }
 
 func mkTestHost(t *testing.T) host.Host {
-	h, err := libp2p.New(context.Background(), libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
 	return h
 }
 
 func TestToCallback(t *testing.T) {
-	wantMhs, err := utils.RandomMultihashes(10)
+	wantMhs, err := testutil.RandomMultihashes(10)
 	require.NoError(t, err)
 
-	subject := utils.ToCallback(wantMhs)
+	subject := toCallback(wantMhs)
 	mhIter, err := subject(context.Background(), []byte("fish"))
 	require.NoError(t, err)
 	var i int
@@ -92,9 +115,9 @@ func TestToCallback(t *testing.T) {
 
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	subject := mkEngine(t)
-	mhs, err := utils.RandomMultihashes(10)
+	mhs, err := testutil.RandomMultihashes(10)
 	require.NoError(t, err)
-	subject.RegisterCallback(utils.ToCallback(mhs))
+	subject.RegisterCallback(toCallback(mhs))
 	c, err := subject.NotifyRemove(context.Background(), []byte("unknown context ID"))
 	require.Equal(t, cid.Undef, c)
 	require.Equal(t, provider.ErrContextIDNotFound, err)
@@ -130,7 +153,7 @@ func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
 func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Link {
 	// Register a callback that returns the randomly generated
 	// list of cids.
-	e.RegisterCallback(utils.ToCallback(mhs))
+	e.RegisterCallback(toCallback(mhs))
 	// Use a random contextID for the list of cids.
 	contextID := []byte(mhs[0])
 	mhIter, err := e.cb(context.Background(), contextID)
@@ -140,7 +163,7 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 	// Store the relationship between contextID and CID
 	// of the advertised list of Cids so it is available
 	// for the engine.
-	err = e.putKeyCidMap(contextID, cidsLnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(context.Background(), contextID, cidsLnk.(cidlink.Link).Cid)
 	require.NoError(t, err)
 	return cidsLnk
 }
@@ -148,7 +171,7 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
-	mhs, err := utils.RandomMultihashes(10)
+	mhs, err := testutil.RandomMultihashes(10)
 	require.NoError(t, err)
 	p, err := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	require.NoError(t, err)
@@ -175,7 +198,7 @@ func TestPublishLocal(t *testing.T) {
 	// Check that the Cid has been generated successfully
 	require.Equal(t, advCid, advLnk.ToCid(), "advertisement CID from link and published CID not equal")
 	// Check that latest advertisement is set correctly
-	latest, err := e.getLatestAdv()
+	latest, err := e.getLatestAdv(ctx)
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid, "latest advertisement pointer not updated correctly")
 	// Publish new advertisement.
@@ -183,7 +206,7 @@ func TestPublishLocal(t *testing.T) {
 	advCid2, err := e.PublishLocal(ctx, adv2)
 	require.NoError(t, err)
 	// Latest advertisement should be updates and we are able to still fetch the previous one.
-	latest, err = e.getLatestAdv()
+	latest, err = e.getLatestAdv(ctx)
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid2, "latest advertisement pointer not updated correctly")
 	// Check that we can fetch the latest advertisement
@@ -259,7 +282,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Fail if not callback has been registered.
-	mhs, err := utils.RandomMultihashes(10)
+	mhs, err := testutil.RandomMultihashes(10)
 	require.NoError(t, err)
 	metadata := stiapi.Metadata{
 		ProtocolID: protocolID,
@@ -269,7 +292,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	require.Error(t, err, provider.ErrNoCallback)
 
 	// NotifyPut of cids
-	mhs, err = utils.RandomMultihashes(10)
+	mhs, err = testutil.RandomMultihashes(10)
 	require.NoError(t, err)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
@@ -286,7 +309,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 
 	// NotifyPut second time
-	mhs, err = utils.RandomMultihashes(10)
+	mhs, err = testutil.RandomMultihashes(10)
 	require.NoError(t, err)
 	cidsLnk = prepareMhsForCallback(t, e, mhs)
 	require.NoError(t, err)
@@ -320,7 +343,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 
 func TestRegisterCallback(t *testing.T) {
 	e := mkEngine(t)
-	e.RegisterCallback(utils.ToCallback([]mh.Multihash{}))
+	e.RegisterCallback(toCallback([]mh.Multihash{}))
 	require.NotNil(t, e.cb)
 }
 
@@ -343,9 +366,9 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	mhs, err := utils.RandomMultihashes(20)
+	mhs, err := testutil.RandomMultihashes(20)
 	require.NoError(t, err)
-	e.RegisterCallback(utils.ToCallback(mhs))
+	e.RegisterCallback(toCallback(mhs))
 	cidsLnk, _, err := schema.NewLinkedListOfMhs(e.lsys, mhs, nil)
 	require.NoError(t, err)
 	metadata := stiapi.Metadata{
@@ -375,10 +398,10 @@ func TestNotifyPutWithCallback(t *testing.T) {
 func TestLinkedStructure(t *testing.T) {
 	skipFlaky(t)
 	e := mkEngine(t)
-	mhs, err := utils.RandomMultihashes(200)
+	mhs, err := testutil.RandomMultihashes(200)
 	require.NoError(t, err)
 	// Register simple callback.
-	e.RegisterCallback(utils.ToCallback(mhs))
+	e.RegisterCallback(toCallback(mhs))
 	// Sample lookup key
 	k := []byte("a")
 
@@ -387,7 +410,7 @@ func TestLinkedStructure(t *testing.T) {
 	require.NoError(t, err)
 	lnk, err := e.generateChunks(mhIter)
 	require.NoError(t, err)
-	err = e.putKeyCidMap(k, lnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(context.Background(), k, lnk.(cidlink.Link).Cid)
 	require.NoError(t, err)
 	// Check if the linksystem is able to load it. Demonstrating and e2e
 	// flow, from generation and storage to lsys loading.

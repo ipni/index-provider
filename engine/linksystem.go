@@ -2,9 +2,11 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/engine/lrustore"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -24,7 +26,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 		// Get the node from main datastore. If it is in the
 		// main datastore it means it is an advertisement.
-		val, err := e.ds.Get(datastore.NewKey(c.String()))
+		val, err := e.ds.Get(lctx.Ctx, datastore.NewKey(c.String()))
 		if err != nil && err != datastore.ErrNotFound {
 			log.Errorf("Error getting object from datastore in linksystem: %s", err)
 			return nil, err
@@ -57,7 +59,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		log.Debugw("Checking cache for data", "cid", c)
 
 		// Check if the key is already cached.
-		b, err := e.getCacheEntry(c)
+		b, err := e.getCacheEntry(lctx.Ctx, c)
 		if err != nil {
 			log.Errorf("Error fetching cached list for Cid (%s): %s", c, err)
 			return nil, err
@@ -85,7 +87,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// not been generated and we need to get the relationship between the cid
 			// received and the contextID so the callback knows how to
 			// regenerate the list of CIDs.
-			key, err := e.getCidKeyMap(c)
+			key, err := e.getCidKeyMap(lctx.Ctx, c)
 			if err != nil {
 				log.Errorf("Error fetching relationship between CID and contextID: %s", err)
 				return nil, err
@@ -117,7 +119,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		}
 
 		// Return the linked list node.
-		val, err = e.getCacheEntry(c)
+		val, err = e.getCacheEntry(lctx.Ctx, c)
 		if err != nil {
 			log.Errorf("Error fetching cached list for CID (%s): %s", c, err)
 			return nil, err
@@ -132,11 +134,11 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 		return bytes.NewBuffer(val), nil
 	}
-	lsys.StorageWriteOpener = func(_ ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
+	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			return e.ds.Put(datastore.NewKey(c.String()), buf.Bytes())
+			return e.ds.Put(lctx.Ctx, datastore.NewKey(c.String()), buf.Bytes())
 		}, nil
 	}
 	return lsys
@@ -148,7 +150,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 	chunkSize := e.linkedChunkSize
 	mhs := make([]multihash.Multihash, 0, chunkSize)
 
-	dsc, isDsc := e.cache.(*dsCache)
+	dsc, isDsc := e.cache.(*lrustore.LRUStore)
 	var resized bool
 
 	var chunkLnk ipld.Link
@@ -167,7 +169,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 		if len(mhs) >= chunkSize {
 			// Cache needs to be large enough to store all links in a list.
 			if isDsc && dsc.Len() == dsc.Cap() {
-				dsc.Resize(dsc.Cap() * 2)
+				dsc.Resize(context.Background(), dsc.Cap()*2)
 			}
 			chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
 			if err != nil {
@@ -182,7 +184,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 	// Chunk remaining multihashes.
 	if len(mhs) != 0 {
 		if isDsc && dsc.Len() == dsc.Cap() {
-			dsc.Resize(dsc.Cap() * 2)
+			dsc.Resize(context.Background(), dsc.Cap()*2)
 		}
 		var err error
 		chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
@@ -195,7 +197,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 	// If the cache was resized to expand beyond its original capacity, then
 	// set its size to only as big as the number of links in this list.
 	if resized {
-		dsc.Resize(dsc.Len())
+		dsc.Resize(context.Background(), dsc.Len())
 		log.Infow("Link cache expanded to hold links", "new_size", dsc.Cap())
 	}
 
@@ -208,7 +210,7 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
 		c := lnk.(cidlink.Link).Cid
-		val, err := e.cache.Get(datastore.NewKey(c.String()))
+		val, err := e.cache.Get(lctx.Ctx, datastore.NewKey(c.String()))
 		if err != nil {
 			log.Errorf("Could not get cache entry for key %q", c)
 			return nil, err
@@ -219,7 +221,7 @@ func (e *Engine) cacheLinkSystem() ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			err := e.cache.Put(datastore.NewKey(c.String()), buf.Bytes())
+			err := e.cache.Put(lctx.Ctx, datastore.NewKey(c.String()), buf.Bytes())
 			if err != nil {
 				log.Errorf("Could not put cache entry for key %q", c)
 			}
@@ -238,7 +240,7 @@ func (e *Engine) vanillaLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
 		c := lnk.(cidlink.Link).Cid
-		val, err := e.ds.Get(datastore.NewKey(c.String()))
+		val, err := e.ds.Get(lctx.Ctx, datastore.NewKey(c.String()))
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +250,7 @@ func (e *Engine) vanillaLinkSystem() ipld.LinkSystem {
 		buf := bytes.NewBuffer(nil)
 		return buf, func(lnk ipld.Link) error {
 			c := lnk.(cidlink.Link).Cid
-			return e.ds.Put(datastore.NewKey(c.String()), buf.Bytes())
+			return e.ds.Put(lctx.Ctx, datastore.NewKey(c.String()), buf.Bytes())
 		}, nil
 	}
 	return lsys
@@ -275,8 +277,8 @@ func isAdvertisement(n ipld.Node) bool {
 }
 
 // get an entry from cache.
-func (e *Engine) getCacheEntry(c cid.Cid) ([]byte, error) {
-	b, err := e.cache.Get(datastore.NewKey(c.String()))
+func (e *Engine) getCacheEntry(ctx context.Context, c cid.Cid) ([]byte, error) {
+	b, err := e.cache.Get(ctx, datastore.NewKey(c.String()))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			return nil, nil

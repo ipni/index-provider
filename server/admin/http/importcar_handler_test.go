@@ -13,7 +13,7 @@ import (
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	mock_provider "github.com/filecoin-project/index-provider/mock"
 	"github.com/filecoin-project/index-provider/supplier"
-	"github.com/filecoin-project/index-provider/utils"
+	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -47,7 +47,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handle)
-	randCids, err := utils.RandomCids(1)
+	randCids, err := testutil.RandomCids(1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 
