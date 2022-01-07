@@ -180,7 +180,7 @@ type testServer struct {
 }
 
 func newTestServer(t *testing.T, ctx context.Context) *testServer {
-	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func newTestClient(t *testing.T, ctx context.Context) *testClient {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	blockStore := blockstore.NewBlockstore(store)
 	lsys := storeutil.LinkSystemForBlockstore(blockStore)
-	h, err := libp2p.New(ctx, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	require.NoError(t, err)
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)

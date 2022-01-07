@@ -58,7 +58,7 @@ func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, m
 
 	// Store mapping of CAR ID to path, used to instantiate CID iterator.
 	carIdKey := toCarIdKey(contextID)
-	err := cs.ds.Put(carIdKey, []byte(path))
+	err := cs.ds.Put(ctx, carIdKey, []byte(path))
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -76,14 +76,14 @@ func toCarIdKey(contextID []byte) datastore.Key {
 func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, error) {
 	// Delete mapping of CAR ID to path.
 	carIdKey := toCarIdKey(contextID)
-	has, err := cs.ds.Has(carIdKey)
+	has, err := cs.ds.Has(ctx, carIdKey)
 	if err != nil {
 		return cid.Undef, err
 	}
 	if !has {
 		return cid.Undef, ErrNotFound
 	}
-	if err := cs.ds.Delete(carIdKey); err != nil {
+	if err := cs.ds.Delete(ctx, carIdKey); err != nil {
 		// TODO improve error handling logic
 		// we shouldn't typically get NotFound error here.
 		// If we do then a put must have failed prematurely
@@ -96,8 +96,8 @@ func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, e
 
 // Callback supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) Callback(_ context.Context, contextID []byte) (provider.MultihashIterator, error) {
-	idx, err := cs.lookupIterableIndex(contextID)
+func (cs *CarSupplier) Callback(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	idx, err := cs.lookupIterableIndex(ctx, contextID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,15 +112,15 @@ type ClosableBlockstore interface {
 
 // ReadOnlyBlockstore returns a CAR blockstore interface for the given blockstore key
 func (cs *CarSupplier) ReadOnlyBlockstore(contextID []byte) (ClosableBlockstore, error) {
-	path, err := cs.getPath(contextID)
+	path, err := cs.getPath(context.TODO(), contextID)
 	if err != nil {
 		return nil, err
 	}
 	return blockstore.OpenReadOnly(path, cs.opts...)
 }
 
-func (cs *CarSupplier) getPath(contextID []byte) (path string, err error) {
-	b, err := cs.ds.Get(toCarIdKey(contextID))
+func (cs *CarSupplier) getPath(ctx context.Context, contextID []byte) (path string, err error) {
+	b, err := cs.ds.Get(ctx, toCarIdKey(contextID))
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			err = ErrNotFound
@@ -130,8 +130,8 @@ func (cs *CarSupplier) getPath(contextID []byte) (path string, err error) {
 	return string(b), nil
 }
 
-func (cs *CarSupplier) lookupIterableIndex(contextID []byte) (index.IterableIndex, error) {
-	path, err := cs.getPath(contextID)
+func (cs *CarSupplier) lookupIterableIndex(ctx context.Context, contextID []byte) (index.IterableIndex, error) {
+	path, err := cs.getPath(ctx, contextID)
 	if err != nil {
 		return nil, err
 	}

@@ -249,11 +249,11 @@ func copySelectorOutputToBlockstore(t *testing.T, sourceBs bstore.Blockstore, ro
 		if !ok {
 			return nil, fmt.Errorf("unsupported link type")
 		}
-		block, err := sourceBs.Get(asCidLink.Cid)
+		block, err := sourceBs.Get(lctx.Ctx, asCidLink.Cid)
 		if err != nil {
 			return nil, err
 		}
-		err = bsOutput.Put(block)
+		err = bsOutput.Put(lctx.Ctx, block)
 		if err != nil {
 			return nil, err
 		}

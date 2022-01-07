@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"math/rand"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	dtimpl "github.com/filecoin-project/go-data-transfer/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
@@ -20,6 +22,7 @@ import (
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,12 +30,46 @@ var blockGenerator = blocksutil.NewBlockGenerator()
 
 // GenerateCids produces n content identifiers.
 func GenerateCids(n int) []cid.Cid {
-	cids := make([]cid.Cid, 0, n)
+	cids := make([]cid.Cid, n)
 	for i := 0; i < n; i++ {
 		c := blockGenerator.Next().Cid()
-		cids = append(cids, c)
+		cids[i] = c
 	}
 	return cids
+}
+
+func RandomCids(n int) ([]cid.Cid, error) {
+	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prefix := schema.Linkproto.Prefix
+
+	cids := make([]cid.Cid, n)
+	for i := 0; i < n; i++ {
+		b := make([]byte, 10*n)
+		prng.Read(b)
+		c, err := prefix.Sum(b)
+		if err != nil {
+			return nil, err
+		}
+		cids[i] = c
+	}
+	return cids, nil
+}
+
+func RandomMultihashes(n int) ([]multihash.Multihash, error) {
+	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prefix := schema.Linkproto.Prefix
+
+	mhashes := make([]multihash.Multihash, n)
+	for i := 0; i < n; i++ {
+		b := make([]byte, 10*n)
+		prng.Read(b)
+		c, err := prefix.Sum(b)
+		if err != nil {
+			return nil, err
+		}
+		mhashes[i] = c.Hash()
+	}
+	return mhashes, nil
 }
 
 // ThisDir gets the current directory of the source file its called in

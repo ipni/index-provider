@@ -13,10 +13,12 @@ import (
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/config"
+	"github.com/filecoin-project/index-provider/engine/lrustore"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	dsn "github.com/ipfs/go-datastore/namespace"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -29,6 +31,7 @@ const (
 	cidToKeyMapPrefix      = "map/cidKey/"
 	keyToMetadataMapPrefix = "map/keyMD/"
 	latestAdvKey           = "sync/adv/"
+	linksCachePath         = "/cache/links"
 )
 
 var dsLatestAdvKey = datastore.NewKey(latestAdvKey)
@@ -114,13 +117,13 @@ func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastor
 
 func (e *Engine) Start(ctx context.Context) error {
 	// Create datastore cache
-	dsCache, err := newDsCache(ctx, e.ds, e.linkCacheSize)
+	dsCache, err := lrustore.New(ctx, dsn.Wrap(e.ds, datastore.NewKey(linksCachePath)), e.linkCacheSize)
 	if err != nil {
 		return err
 	}
 
 	if e.purgeLinkCache {
-		dsCache.Clear()
+		dsCache.Clear(ctx)
 	}
 
 	if dsCache.Cap() > e.linkCacheSize {
@@ -155,7 +158,7 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	// NOTE: The datastore should be thread-safe, if not we need a lock to
 	// protect races on this value.
 	log.Infow("Storing advertisement locally", "cid", c.String())
-	err = e.putLatestAdv(c.Bytes())
+	err = e.putLatestAdv(ctx, c.Bytes())
 	if err != nil {
 		log.Errorw("Error storing latest advertisement in blockstore", "err", err)
 		return cid.Undef, err
@@ -228,7 +231,7 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 
 func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
 	log.Info("Getting latest advertisement")
-	latestAdv, err := e.getLatestAdv()
+	latestAdv, err := e.getLatestAdv(ctx)
 	if err != nil {
 		log.Errorw("Failed to fetch latest advertisement from blockstore", "err", err)
 		return cid.Undef, nil, err
@@ -253,7 +256,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 
 	log := log.With("contextID", base64.StdEncoding.EncodeToString(contextID))
 
-	c, err := e.getKeyCidMap(contextID)
+	c, err := e.getKeyCidMap(ctx, contextID)
 	if err != nil {
 		if err != datastore.ErrNotFound {
 			log.Errorw("Could not get mapping between contextID and CID of linked list", "err", err)
@@ -283,14 +286,14 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 
 			// Store the relationship between contextID and CID of the advertised
 			// list of Cids.
-			err = e.putKeyCidMap(contextID, cidsLnk.Cid)
+			err = e.putKeyCidMap(ctx, contextID, cidsLnk.Cid)
 			if err != nil {
 				log.Errorw("Could not set mapping between contextID and CID of linked list", "err", err)
 				return cid.Undef, err
 			}
 		} else {
 			// Lookup metadata for this contextID.
-			prevMetadata, err := e.getKeyMetadataMap(contextID)
+			prevMetadata, err := e.getKeyMetadataMap(ctx, contextID)
 			if err != nil {
 				if err != datastore.ErrNotFound {
 					log.Errorw("Could not get metadata for existing chain", "err", err)
@@ -309,7 +312,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 			cidsLnk = cidlink.Link{Cid: c}
 		}
 
-		if err = e.putKeyMetadataMap(contextID, metadata); err != nil {
+		if err = e.putKeyMetadataMap(ctx, contextID, metadata); err != nil {
 			log.Errorw("Could not set mapping between contextID and metadata", "err", err)
 			return cid.Undef, err
 		}
@@ -321,17 +324,17 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 
 		// And if we are removing it means we probably do not have the list of
 		// CIDs anymore, so we can remove the entry from the datastore.
-		err = e.deleteKeyCidMap(contextID)
+		err = e.deleteKeyCidMap(ctx, contextID)
 		if err != nil {
 			log.Errorw("Failed deleting Key-Cid map for contextID", "err", err)
 			return cid.Undef, err
 		}
-		err = e.deleteCidKeyMap(c)
+		err = e.deleteCidKeyMap(ctx, c)
 		if err != nil {
 			log.Errorw("Failed deleting Cid-Key map for lookup cid", "cid", c, "err", err)
 			return cid.Undef, err
 		}
-		err = e.deleteKeyMetadataMap(contextID)
+		err = e.deleteKeyMetadataMap(ctx, contextID)
 		if err != nil {
 			log.Errorw("Failed deleting Key-Metadata map for contextID", "err", err)
 			return cid.Undef, err
@@ -351,7 +354,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 	}
 
 	// Get the latest advertisement that was generated
-	latestAdvID, err := e.getLatestAdv()
+	latestAdvID, err := e.getLatestAdv(ctx)
 	if err != nil {
 		log.Errorw("Could not get latest advertisement", "err", err)
 		return cid.Undef, err
@@ -381,20 +384,20 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 	return e.Publish(ctx, adv)
 }
 
-func (e *Engine) putKeyCidMap(contextID []byte, c cid.Cid) error {
+func (e *Engine) putKeyCidMap(ctx context.Context, contextID []byte, c cid.Cid) error {
 	// We need to store the map Key-Cid to know what CidLink to put
 	// in advertisement when we notify a removal.
-	err := e.ds.Put(datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
+	err := e.ds.Put(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
 	if err != nil {
 		return err
 	}
 	// And the other way around when graphsync ios making a request,
 	// so the callback in the linksystem knows to what contextID we are referring.
-	return e.ds.Put(datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
+	return e.ds.Put(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
 }
 
-func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
-	b, err := e.ds.Get(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
+func (e *Engine) getKeyCidMap(ctx context.Context, contextID []byte) (cid.Cid, error) {
+	b, err := e.ds.Get(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)))
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -402,28 +405,28 @@ func (e *Engine) getKeyCidMap(contextID []byte) (cid.Cid, error) {
 	return d, err
 }
 
-func (e *Engine) deleteKeyCidMap(contextID []byte) error {
-	return e.ds.Delete(datastore.NewKey(keyToCidMapPrefix + string(contextID)))
+func (e *Engine) deleteKeyCidMap(ctx context.Context, contextID []byte) error {
+	return e.ds.Delete(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)))
 }
 
-func (e *Engine) deleteCidKeyMap(c cid.Cid) error {
-	return e.ds.Delete(datastore.NewKey(cidToKeyMapPrefix + c.String()))
+func (e *Engine) deleteCidKeyMap(ctx context.Context, c cid.Cid) error {
+	return e.ds.Delete(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()))
 }
 
-func (e *Engine) getCidKeyMap(c cid.Cid) ([]byte, error) {
-	return e.ds.Get(datastore.NewKey(cidToKeyMapPrefix + c.String()))
+func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) ([]byte, error) {
+	return e.ds.Get(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()))
 }
 
-func (e *Engine) putKeyMetadataMap(contextID []byte, metadata stiapi.Metadata) error {
+func (e *Engine) putKeyMetadataMap(ctx context.Context, contextID []byte, metadata stiapi.Metadata) error {
 	data, err := metadata.MarshalBinary()
 	if err != nil {
 		return err
 	}
-	return e.ds.Put(datastore.NewKey(keyToMetadataMapPrefix+string(contextID)), data)
+	return e.ds.Put(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)), data)
 }
 
-func (e *Engine) getKeyMetadataMap(contextID []byte) (stiapi.Metadata, error) {
-	data, err := e.ds.Get(datastore.NewKey(keyToMetadataMapPrefix + string(contextID)))
+func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (stiapi.Metadata, error) {
+	data, err := e.ds.Get(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)))
 	if err != nil {
 		return stiapi.Metadata{}, err
 	}
@@ -434,16 +437,16 @@ func (e *Engine) getKeyMetadataMap(contextID []byte) (stiapi.Metadata, error) {
 	return metadata, nil
 }
 
-func (e *Engine) deleteKeyMetadataMap(contextID []byte) error {
-	return e.ds.Delete(datastore.NewKey(keyToMetadataMapPrefix + string(contextID)))
+func (e *Engine) deleteKeyMetadataMap(ctx context.Context, contextID []byte) error {
+	return e.ds.Delete(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)))
 }
 
-func (e *Engine) putLatestAdv(advID []byte) error {
-	return e.ds.Put(dsLatestAdvKey, advID)
+func (e *Engine) putLatestAdv(ctx context.Context, advID []byte) error {
+	return e.ds.Put(ctx, dsLatestAdvKey, advID)
 }
 
-func (e *Engine) getLatestAdv() (cid.Cid, error) {
-	b, err := e.ds.Get(dsLatestAdvKey)
+func (e *Engine) getLatestAdv(ctx context.Context) (cid.Cid, error) {
+	b, err := e.ds.Get(ctx, dsLatestAdvKey)
 	if err != nil {
 		if err == datastore.ErrNotFound {
 			return cid.Undef, nil
