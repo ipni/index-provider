@@ -3,15 +3,17 @@ package engine
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/go-legs/dtsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/config"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
@@ -27,13 +29,18 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	pubsubpb "github.com/libp2p/go-libp2p-pubsub/pb"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/blake2b"
 )
 
 const (
-	testTopic  = "indexer/test"
-	protocolID = 0x300000
+	testTopic                = "indexer/test"
+	protocolID               = 0x300000
+	syncFinishedTimeout      = time.Second * 20
+	pubSubPropagationTimeout = time.Second * 10
 )
 
 var _ provider.MultihashIterator = (*sliceMhIterator)(nil)
@@ -81,10 +88,11 @@ func mkLinkSystem(ds datastore.Batching) ipld.LinkSystem {
 	return lsys
 }
 
-func mkMockSubscriber(t *testing.T, h host.Host) *legs.Subscriber {
+func mkMockSubscriber(t *testing.T, h host.Host, tracer *testPubSubTracer) *legs.Subscriber {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	lsys := mkLinkSystem(store)
-	ls, err := legs.NewSubscriber(h, store, lsys, testTopic, nil)
+	pst := newTestTopic(t, h, testTopic, tracer)
+	ls, err := legs.NewSubscriber(h, store, lsys, testTopic, nil, legs.Topic(pst))
 	require.NoError(t, err)
 	return ls
 }
@@ -117,7 +125,7 @@ func TestToCallback(t *testing.T) {
 
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	subject := mkEngine(t)
+	subject := newTestEngine(t, nil)
 	mhs, err := testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 	subject.RegisterCallback(toCallback(mhs))
@@ -126,13 +134,13 @@ func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	require.Equal(t, provider.ErrContextIDNotFound, err)
 }
 
-func mkEngine(t *testing.T) *Engine {
+func newTestEngine(t *testing.T, tracer *testPubSubTracer) *Engine {
 	ingestCfg := config.NewIngest()
 	ingestCfg.PubSubTopic = testTopic
-	return mkEngineWithConfig(t, ingestCfg)
+	return mkEngineWithConfig(t, ingestCfg, tracer)
 }
 
-func mkEngineWithConfig(t *testing.T, cfg config.Ingest) *Engine {
+func mkEngineWithConfig(t *testing.T, cfg config.Ingest, tracer *testPubSubTracer) *Engine {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	h := mkTestHost(t)
@@ -142,9 +150,33 @@ func mkEngineWithConfig(t *testing.T, cfg config.Ingest) *Engine {
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
 	engine, err := New(cfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
+	if tracer != nil {
+		pst := newTestTopic(t, h, cfg.PubSubTopic, tracer)
+		engine.dtsyncOptions = []dtsync.Option{dtsync.Topic(pst)}
+	}
 	err = engine.Start(context.Background())
 	require.NoError(t, err)
+
 	return engine
+}
+
+func newTestTopic(t *testing.T, h host.Host, topic string, tracer *testPubSubTracer) *pubsub.Topic {
+	p, err := pubsub.NewGossipSub(context.Background(), h,
+		pubsub.WithPeerExchange(true),
+		pubsub.WithMessageIdFn(func(pmsg *pubsubpb.Message) string {
+			h, _ := blake2b.New256(nil)
+			h.Write(pmsg.Data)
+			return string(h.Sum(nil))
+		}),
+		pubsub.WithFloodPublish(true),
+		pubsub.WithDirectConnectTicks(100),
+		pubsub.WithEventTracer(tracer),
+	)
+	require.NoError(t, err)
+
+	pst, err := p.Join(topic)
+	require.NoError(t, err)
+	return pst
 }
 
 func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
@@ -152,27 +184,6 @@ func connectHosts(t *testing.T, srcHost, dstHost host.Host) {
 	dstHost.Peerstore().AddAddrs(srcHost.ID(), srcHost.Addrs(), time.Hour)
 	err := srcHost.Connect(context.Background(), dstHost.Peerstore().PeerInfo(dstHost.ID()))
 	require.NoError(t, err)
-}
-
-// Prepares list of multihashes so it can be used in callback and conveniently registered
-// in the engine.
-func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Link {
-	// Register a callback that returns the randomly generated
-	// list of cids.
-	e.RegisterCallback(toCallback(mhs))
-	// Use a random contextID for the list of cids.
-	contextID := []byte(mhs[0])
-	ctx := context.Background()
-	mhIter, err := e.cb(ctx, contextID)
-	require.NoError(t, err)
-	cidsLnk, err := e.entriesChunker.Chunk(ctx, mhIter)
-	require.NoError(t, err)
-	// Store the relationship between contextID and CID
-	// of the advertised list of Cids so it is available
-	// for the engine.
-	err = e.putKeyCidMap(ctx, contextID, cidsLnk.(cidlink.Link).Cid)
-	require.NoError(t, err)
-	return cidsLnk
 }
 
 func genRandomIndexAndAdv(t *testing.T, e *Engine, rng *rand.Rand) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
@@ -187,18 +198,21 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine, rng *rand.Rand) (ipld.Link, s
 		ProtocolID: protocolID,
 		Data:       []byte("test-metadata"),
 	}
-	cidsLnk := prepareMhsForCallback(t, e, mhs)
+
+	entries, err := e.entriesChunker.Chunk(context.TODO(), &sliceMhIterator{mhs: mhs})
+	require.NoError(t, err)
 	addrs := []string{"/ip4/127.0.0.1/tcp/3103"}
 	// Generate the advertisement.
-	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, cidsLnk, ctxID, metadata, false, p.String(), addrs)
+	adv, advLnk, err := schema.NewAdvertisementWithLink(e.lsys, priv, nil, entries, ctxID, metadata, false, p.String(), addrs)
 	require.NoError(t, err)
-	return cidsLnk, adv, advLnk
+	return entries, adv, advLnk
 }
 
 func TestPublishLocal(t *testing.T) {
 	ctx := context.Background()
 	rng := rand.New(rand.NewSource(1413))
-	e := mkEngine(t)
+	tracer := &testPubSubTracer{}
+	e := newTestEngine(t, tracer)
 
 	_, adv, advLnk := genRandomIndexAndAdv(t, e, rng)
 	advCid, err := e.PublishLocal(ctx, adv)
@@ -220,13 +234,11 @@ func TestPublishLocal(t *testing.T) {
 	// Check that we can fetch the latest advertisement
 	_, fetchAdv2, err := e.GetLatestAdv(ctx)
 	require.NoError(t, err)
-	fAdv2 := schema.Advertisement(fetchAdv2)
-	require.Equal(t, ipld.DeepEqual(fAdv2, adv2), true, "fetched advertisement is not equal to published one")
+	require.Equal(t, ipld.DeepEqual(fetchAdv2, adv2), true, "fetched advertisement is not equal to published one")
 	// Check that we can fetch previous ones
 	fetchAdv, err := e.GetAdv(ctx, advCid)
 	require.NoError(t, err)
-	fAdv := schema.Advertisement(fetchAdv)
-	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "fetched advertisement is not equal to published one")
+	require.Equal(t, ipld.DeepEqual(fetchAdv, adv), true, "fetched advertisement is not equal to published one")
 	// Check that latest can be republished.
 	err = e.PublishLatest(ctx)
 	if err != nil {
@@ -234,152 +246,114 @@ func TestPublishLocal(t *testing.T) {
 	}
 }
 
-func TestNotifyPublish(t *testing.T) {
-	skipFlaky(t)
-	rng := rand.New(rand.NewSource(1413))
-	ctx := context.Background()
-	e := mkEngine(t)
+func TestEngine_PublishIsErrorWhenNoCallbackIsRegistered(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	// Create mockSubscriber
-	lh := mkTestHost(t)
-	_, adv, advLnk := genRandomIndexAndAdv(t, e, rng)
-	ls := mkMockSubscriber(t, lh)
-	watcher, cncl := ls.OnSyncFinished()
+	tracer := &testPubSubTracer{}
+	subject := newTestEngine(t, tracer)
+	ctxID := []byte("some context ID")
 
-	t.Cleanup(clean(ls, e, cncl))
-
-	// Connect subscribe with provider engine.
-	connectHosts(t, e.host, lh)
-
-	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
-	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
-	time.Sleep(time.Second)
-
-	// Publish advertisement
-	_, err := e.Publish(ctx, adv)
-	require.NoError(t, err)
-
-	// Check that the update has been published and can be fetched from subscriber
-	c := advLnk.ToCid()
-	select {
-	case <-time.After(time.Second * 10):
-		t.Fatal("timed out waiting for sync to propogate")
-	case syncFin := <-watcher:
-		if !syncFin.Cid.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
-		}
-	}
-
-	// Check that we can fetch the latest advertisement locally
-	_, fetchAdv, err := e.GetLatestAdv(ctx)
-	require.NoError(t, err)
-	fAdv := schema.Advertisement(fetchAdv)
-	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "latest fetched advertisement is not equal to published one")
+	_, err := subject.NotifyPut(ctx, ctxID, metadata.BitswapMetadata)
+	require.Error(t, err, provider.ErrNoCallback)
+	_, err = subject.NotifyRemove(ctx, ctxID)
+	require.Error(t, err, provider.ErrNoCallback)
 }
 
 func TestNotifyPutAndRemoveCids(t *testing.T) {
-	skipFlaky(t)
 	rng := rand.New(rand.NewSource(1413))
 	ctx := context.Background()
-	e := mkEngine(t)
+	tracer := &testPubSubTracer{}
+	e := newTestEngine(t, tracer)
+	eHost := e.host.ID()
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
-	ls := mkMockSubscriber(t, lh)
+	ls := mkMockSubscriber(t, lh, tracer)
 	watcher, cncl := ls.OnSyncFinished()
 
 	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
 
-	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
-	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
-	time.Sleep(time.Second)
-
-	// Fail if not callback has been registered.
 	mhs, err := testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
-	metadata := stiapi.Metadata{
+	md := stiapi.Metadata{
 		ProtocolID: protocolID,
 		Data:       []byte("metadata"),
 	}
-	_, err = e.NotifyPut(ctx, mhs[0], metadata)
-	require.Error(t, err, provider.ErrNoCallback)
+	ctxID := "some context"
+	e.RegisterCallback(func(_ context.Context, contextID []byte) (provider.MultihashIterator, error) {
 
-	// NotifyPut of cids
-	mhs, err = testutil.RandomMultihashes(rng, 10)
+		if string(contextID) == ctxID {
+			return &sliceMhIterator{mhs: mhs}, nil
+		}
+		return nil, errors.New("no content for context ID")
+	})
+
+	// Expect a pubsub message to be delivered originating from engine's peer ID.
+	delivered := tracer.requireDeliverMessageEventually(e.host.ID(), testTopic, pubSubPropagationTimeout)
+
+	c, err := e.NotifyPut(ctx, []byte(ctxID), md)
 	require.NoError(t, err)
-	cidsLnk := prepareMhsForCallback(t, e, mhs)
-	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
-	require.NoError(t, err)
+	require.True(t, <-delivered, "expected pubsub message delivery")
 
 	// Check that the update has been published and can be fetched from subscriber
-	select {
-	case <-time.After(time.Second * 10):
-		t.Fatal("timed out waiting for sync to propogate")
-	case syncFin := <-watcher:
-		if !syncFin.Cid.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
-		}
-	}
+	requireNextSyncFinished(t, watcher, legs.SyncFinished{
+		Cid:    c,
+		PeerID: eHost,
+	}, syncFinishedTimeout)
 
 	// NotifyPut second time
 	mhs, err = testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
-	cidsLnk = prepareMhsForCallback(t, e, mhs)
-	require.NoError(t, err)
-	c, err = e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
+	c, err = e.NotifyPut(ctx, []byte(ctxID), metadata.BitswapMetadata)
 	require.NoError(t, err)
 	// Check that the update has been published and can be fetched from subscriber
-	select {
-	case <-time.After(time.Second * 10):
-		t.Fatal("timed out waiting for sync to propogate")
-	case syncFin := <-watcher:
-		if !syncFin.Cid.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
-		}
-		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
-	}
+	requireNextSyncFinished(t, watcher, legs.SyncFinished{
+		Cid:    c,
+		PeerID: eHost,
+	}, syncFinishedTimeout)
+	// TODO: Add a sanity-check to see if the list of cids have been set correctly.
+
+	t.Skip("Skip removal test due to https://github.com/filecoin-project/index-provider/issues/174")
+
+	// Expect a pubsub message to be delivered originating from engine's peer ID.
+	delivered = tracer.requireDeliverMessageEventually(e.host.ID(), testTopic, pubSubPropagationTimeout)
 
 	// NotifyRemove the previous ones
-	c, err = e.NotifyRemove(ctx, cidsLnk.(cidlink.Link).Cid.Bytes())
+	c, err = e.NotifyRemove(ctx, []byte(ctxID))
 	require.NoError(t, err)
+	require.True(t, <-delivered, "expected pubsub message delivery")
+
 	// Check that the update has been published and can be fetched from subscriber
-	select {
-	case <-time.After(time.Second * 10):
-		t.Fatal("timed out waiting for sync to propogate")
-	case syncFin := <-watcher:
-		if !syncFin.Cid.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
-		}
-		// TODO: Add a sanity-check to see if the list of cids have been set correctly.
-	}
+	requireNextSyncFinished(t, watcher, legs.SyncFinished{
+		Cid:    c,
+		PeerID: eHost,
+	}, syncFinishedTimeout*100)
+	// TODO: Add a sanity-check to see if the list of cids have been set correctly.
 }
 
 func TestRegisterCallback(t *testing.T) {
-	e := mkEngine(t)
+	e := newTestEngine(t, nil)
 	e.RegisterCallback(toCallback([]mh.Multihash{}))
 	require.NotNil(t, e.cb)
 }
 
 func TestNotifyPutWithCallback(t *testing.T) {
-	skipFlaky(t)
 	rng := rand.New(rand.NewSource(1413))
 	ctx := context.Background()
-	e := mkEngine(t)
+	tracer := &testPubSubTracer{}
+	e := newTestEngine(t, tracer)
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
-	ls := mkMockSubscriber(t, lh)
+	ls := mkMockSubscriber(t, lh, tracer)
 	watcher, cncl := ls.OnSyncFinished()
 
 	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
 	connectHosts(t, e.host, lh)
-
-	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
-	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
-	time.Sleep(time.Second)
 
 	// NotifyPut of cids
 	mhs, err := testutil.RandomMultihashes(rng, 20)
@@ -391,18 +365,20 @@ func TestNotifyPutWithCallback(t *testing.T) {
 		ProtocolID: protocolID,
 		Data:       []byte("metadata"),
 	}
+
+	// Expect a pubsub message to be delivered originating from engine's peer ID.
+	delivered := tracer.requireDeliverMessageEventually(e.host.ID(), testTopic, pubSubPropagationTimeout)
+
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
 	require.NoError(t, err)
+	require.True(t, <-delivered, "expected pubsub message delivery")
 
 	// Check that the update has been published and can be fetched from subscriber
-	select {
-	case <-time.After(time.Second * 20):
-		t.Fatal("timed out waiting for sync to propogate")
-	case syncFin := <-watcher:
-		if !syncFin.Cid.Equals(c) {
-			t.Fatalf("not the right advertisement published %s vs %s", syncFin.Cid, c)
-		}
+	wantSyncFinished := legs.SyncFinished{
+		Cid:    c,
+		PeerID: e.host.ID(),
 	}
+	requireNextSyncFinished(t, watcher, wantSyncFinished, syncFinishedTimeout)
 
 	// TODO: Add a test that generates more than one chunk of links (changing the number
 	// of CIDs to include so its over 100, the default maxNum of entries)
@@ -412,9 +388,8 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 // Tests and end-to-end flow of the main linksystem
 func TestLinkedStructure(t *testing.T) {
-	skipFlaky(t)
 	rng := rand.New(rand.NewSource(1413))
-	e := mkEngine(t)
+	e := newTestEngine(t, nil)
 	mhs, err := testutil.RandomMultihashes(rng, 200)
 	require.NoError(t, err)
 	// Register simple callback.
@@ -447,9 +422,12 @@ func clean(ls *legs.Subscriber, e *Engine, cncl context.CancelFunc) func() {
 	}
 }
 
-func skipFlaky(t *testing.T) {
-	if os.Getenv("DONT_SKIP") == "" {
-		t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/index-provider/issues/12")
+func requireNextSyncFinished(t *testing.T, watcher <-chan legs.SyncFinished, want legs.SyncFinished, timeout time.Duration) {
+	select {
+	case <-time.After(timeout):
+		require.Failf(t, "timed out waiting for sync to finish", "expected next sync event to be %v", want)
+	case got := <-watcher:
+		require.Equal(t, got, want, "expected next finished sync to be %v but got %v", want, got)
 	}
 }
 

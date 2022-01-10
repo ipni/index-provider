@@ -30,7 +30,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	cfg := config.NewIngest()
 	cfg.LinkedChunkSize = 2
 	cfg.LinkCacheSize = 1
-	subject := mkEngineWithConfig(t, cfg)
+	subject := mkEngineWithConfig(t, cfg, nil)
 
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12

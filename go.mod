@@ -22,11 +22,13 @@ require (
 	github.com/ipld/go-ipld-prime v0.14.4
 	github.com/libp2p/go-libp2p v0.18.0-rc1
 	github.com/libp2p/go-libp2p-core v0.14.0
+	github.com/libp2p/go-libp2p-pubsub v0.6.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multicodec v0.4.0
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/stretchr/testify v1.7.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20211110122933-f57984553008
+	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )

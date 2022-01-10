@@ -76,6 +76,10 @@ type Engine struct {
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
 	cblk sync.Mutex
+
+	// dtsyncOptions specifies the options used to instantiate legs dtsync.publisher on Engine.Start.
+	// This field is used for testing purposes only to set low lever pubsub.Topic options.
+	dtsyncOptions []dtsync.Option
 }
 
 var _ provider.Interface = (*Engine)(nil)
@@ -182,7 +186,8 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 		e.publisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
 	} else {
-		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys, dtsync.WithExtraData(e.extraGossipData))
+		e.dtsyncOptions = append(e.dtsyncOptions, dtsync.WithExtraData(e.extraGossipData))
+		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys, e.dtsyncOptions...)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot initialize publisher: %s", err)
