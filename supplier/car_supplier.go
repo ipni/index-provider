@@ -25,12 +25,22 @@ const (
 // ErrNotFound signals that CidIteratorSupplier has no iterator corresponding to the given key.
 var ErrNotFound = errors.New("no CID iterator found for given key")
 
+// CarSupplier supplies multihashes to an implementation of Provider.Interface via provider.Callback.
+// It allows the users to advertise addition and removal of multihashes within CAR files by simply
+// calling CarSupplier.Put and CarSupplier.Remove.
+//
+// CarSupplier accepts both CARv1 and CARv2, and will automatically generate an index if one is not
+// present or the index codec and characteristics are not sufficient for provider.Interface purposes.
+//
+// See: engine.New, CarSupplier.Put, CarSupplier.Remove.
 type CarSupplier struct {
 	eng  provider.Interface
 	ds   datastore.Datastore
 	opts []car.ReadOption
 }
 
+// NewCarSupplier instantiateas a new CarSupplier and registers it as the provider.Callback of the
+// given provider.Interface.
 func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
 	// We require a "full" index, including identity CIDs.
 	// As such, we require StoreIdentityCIDs to be set.

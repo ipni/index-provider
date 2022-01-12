@@ -74,8 +74,25 @@ type Engine struct {
 
 var _ provider.Interface = (*Engine)(nil)
 
-// New creates a new engine.  The context is only used for canceling the call
-// to New.
+// New creates a new index provider Engine as the default implementation of provider.Interface.
+// It provides the ability to advertise the availability of a list of multihashes associated to
+// a context ID as a chain of linked advertisements as defined by the indexer node protocol implemented by "storetheindex".
+// Engine internally uses "go-legs", a protocol for propagating and synchronizing changes an IPLD DAG, to publish advertisements.
+// See:
+//  - https://github.com/filecoin-project/storetheindex
+//  - https://github.com/filecoin-project/go-legs
+//
+// Published advertisements are signed using the given private key.
+// The retAddrs corresponds to the endpoints at which the data block associated to the advertised
+// multihashes can be retrieved.
+// Note that if no retAddrs is specified the listen addresses of the given libp2p host are used.
+//
+// The engine also provides the ability to generate advertisements via Engine.NotifyPut and
+// Engine.NotifyRemove as long as a provider.Callback is registered.
+// See: provider.Callback, Engine.RegisterCallback.
+//
+// The engine must be started via Engine.Start before use and discarded via Engine.Shutdown when no longer needed.
+// See: Engine.Start, Engine.Shutdown.
 func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, retAddrs []string) (*Engine, error) {
 	if len(retAddrs) == 0 {
 		retAddrs = []string{h.Addrs()[0].String()}
@@ -104,9 +121,13 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 	return e, nil
 }
 
-// NewFromConfig creates a reference provider engine with the corresponding config.
+// NewFromConfig instantiates a new engine by using the given config.Config.
+// The instantiation gets the private key via config.Identity, and uses RetrievalMultiaddrs in
+// config.ProviderServer as retrieval addresses in advertisements.
+//
+// See: engine.New .
 func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching) (*Engine, error) {
-	log.Info("Starting new reference provider engine")
+	log.Info("Instantiating a new index provider engine")
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {
 		log.Errorw("Error decoding private key from provider", "err", err)
@@ -115,6 +136,12 @@ func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastor
 	return New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
 }
 
+// Start starts the engine by instantiating the internal storage and joins the configured gossipsub
+// topic used for publishing advertisements.
+//
+// The context is used to instantiate the internal LRU cache storage.
+//
+// See: Engine.Shutdown, lrustore.New, dtsync.NewPublisherFromExisting.
 func (e *Engine) Start(ctx context.Context) error {
 	// Create datastore cache
 	dsCache, err := lrustore.New(ctx, dsn.Wrap(e.ds, datastore.NewKey(linksCachePath)), e.linkCacheSize)
@@ -140,11 +167,12 @@ func (e *Engine) Start(ctx context.Context) error {
 	return nil
 }
 
-// PublishLocal stores the advertisement in the local datastore.
+// PublishLocal stores the advertisement in the local link system and marks it locally as the latest
+// advertisement.
 //
-// Advertisements are stored in datastore by the linkSystem when links are
-// generated.  The linksystem of the reference provider determines how to
-// persist the advertisement.
+// The context is used for storing internal mapping information onto the datastore.
+//
+// See: Engine.Publish.
 func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	adLnk, err := schema.AdvertisementLink(e.lsys, adv)
 	if err != nil {
@@ -166,6 +194,12 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	return c, nil
 }
 
+// Publish stores the given advertisement locally via Engine.PublishLocal first, then publishes
+// a message onto the gossipsub to signal the change in the latest advertisement by the provider to
+// indexer nodes.
+//
+// The publication mechanism uses legs.Publisher internally.
+// See: https://github.com/filecoin-project/go-legs
 func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	// Store the advertisement locally.
 	c, err := e.PublishLocal(ctx, adv)
@@ -179,6 +213,14 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	return c, e.publisher.UpdateRoot(ctx, c)
 }
 
+// RegisterCallback registers a new provider.Callback that is used to look up the list of multihashes
+// associated to a context ID.
+// At least one such callback must be registered before calls to Engine.NotifyPut and Engine.NotifyRemove.
+//
+// Note that successive calls to this function will replace the previous callback.
+// Only a single callback is supported.
+//
+// See: provider.Interface
 func (e *Engine) RegisterCallback(cb provider.Callback) {
 	log.Debugf("Registering callback in engine")
 	e.cblk.Lock()
@@ -186,16 +228,30 @@ func (e *Engine) RegisterCallback(cb provider.Callback) {
 	e.cb = cb
 }
 
+// NotifyPut publishes an advertisement that signals the list of multihashes associated to the given
+// contextID is available by this provider with the given metadata.
+//
+// Note that prior to calling this function a provider.Callback must be registered.
+//
+// See: Engine.RegisterCallback, Engine.Publish.
 func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error) {
 	// The callback must have been registered for the linkSystem to know how to
 	// go from contextID to list of CIDs.
 	return e.publishAdvForIndex(ctx, contextID, metadata, false)
 }
 
+// NotifyRemove publishes an advertisement that signals the list of multihashes associated to the given
+// contextID is no longer available by this provider.
+//
+// Note that prior to calling this function a provider.Callback must be registered.
+//
+// See: Engine.RegisterCallback, Engine.Publish.
 func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
 	return e.publishAdvForIndex(ctx, contextID, stiapi.Metadata{}, true)
 }
 
+// Shutdown shuts down the engine and discards all resources opened by the engine.
+// The engine is no longer usable after the call to this function.
 func (e *Engine) Shutdown() error {
 	err := e.publisher.Close()
 	if err != nil {
@@ -207,7 +263,9 @@ func (e *Engine) Shutdown() error {
 	return err
 }
 
-func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, error) {
+// GetAdv gets the advertisement associated to the given cid c.
+// The context is not used.
+func (e *Engine) GetAdv(_ context.Context, c cid.Cid) (schema.Advertisement, error) {
 	log.Infow("Getting advertisement", "cid", c)
 	l, err := schema.LinkAdvFromCid(c).AsLink()
 	if err != nil {
@@ -229,6 +287,10 @@ func (e *Engine) GetAdv(ctx context.Context, c cid.Cid) (schema.Advertisement, e
 	return adv, nil
 }
 
+// GetLatestAdv gets the latest advertisement by the provider.
+// Note that the latest advertisement may or may not have been published onto the gossipsub topic.
+//
+// The context is used to retrieve date from the local datastore.
 func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
 	log.Info("Getting latest advertisement")
 	latestAdv, err := e.getLatestAdv(ctx)
