@@ -1,4 +1,10 @@
 // Package provider represents a reference implementation of an index provider.
+// It integrates with the indexer node protocol, "storetheinex" in order to advertise the
+// availability of a list of multihashes as an IPLD DAG.
+// For the complete advertisement IPLD schema, see:
+//  - https://github.com/filecoin-project/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
+//
+// A reference implementation of provider.Interface can be found in engine.Engine.
 package provider
 
 import (

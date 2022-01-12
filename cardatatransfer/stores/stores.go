@@ -1,7 +1,5 @@
-/*
-Package stores is copy pasted from go-fil-markets stores package -
-there is no novel code here
-*/
+// Package stores is copy pasted from go-fil-markets stores package -
+// there is no novel code here.
 package stores
 
 import (
