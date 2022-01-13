@@ -20,3 +20,13 @@ func NewDatastore() Datastore {
 		Dir:  defaultDatastoreDir,
 	}
 }
+
+// PopulateDefaults replaces zero-values in the config with default values.
+func (c *Datastore) PopulateDefaults() {
+	if c.Type == "" {
+		c.Type = defaultDatastoreType
+	}
+	if c.Dir == "" {
+		c.Dir = defaultDatastoreDir
+	}
+}

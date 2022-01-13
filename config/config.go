@@ -98,7 +98,7 @@ func Load(filePath string) (*Config, error) {
 	}
 
 	// Replace any zero-values with defaults.
-	cfg.Ingest.OverrideUnsetToDefaults()
+	cfg.PopulateDefaults()
 
 	return &cfg, nil
 }
@@ -139,4 +139,11 @@ func (c *Config) String() string {
 		panic(err)
 	}
 	return string(b)
+}
+
+func (c *Config) PopulateDefaults() {
+	c.AdminServer.PopulateDefaults()
+	c.Datastore.PopulateDefaults()
+	c.Ingest.PopulateDefaults()
+	c.ProviderServer.PopulateDefaults()
 }

@@ -32,15 +32,15 @@ func NewIngest() Ingest {
 	}
 }
 
-// OverrideUnsetToDefaults replaces zero-values in the config with default values.
-func (cfg *Ingest) OverrideUnsetToDefaults() {
-	if cfg.LinkCacheSize == 0 {
-		cfg.LinkCacheSize = defaultLinkCacheSize
+// PopulateDefaults replaces zero-values in the config with default values.
+func (c *Ingest) PopulateDefaults() {
+	if c.LinkCacheSize == 0 {
+		c.LinkCacheSize = defaultLinkCacheSize
 	}
-	if cfg.LinkedChunkSize == 0 {
-		cfg.LinkedChunkSize = defaultLinkedChunkSize
+	if c.LinkedChunkSize == 0 {
+		c.LinkedChunkSize = defaultLinkedChunkSize
 	}
-	if cfg.PubSubTopic == "" {
-		cfg.PubSubTopic = defaultPubSubTopic
+	if c.PubSubTopic == "" {
+		c.PubSubTopic = defaultPubSubTopic
 	}
 }
