@@ -53,7 +53,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 		ds:   ds,
 		opts: opts,
 	}
-	eng.RegisterCallback(cs.Callback)
+	eng.RegisterListMultihashCallback(cs.Callback)
 	return cs
 }
 

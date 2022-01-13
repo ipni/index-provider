@@ -33,11 +33,11 @@ type Interface interface {
 	// represents the ID of the advertisement appended to the chain.
 	Publish(context.Context, schema.Advertisement) (cid.Cid, error)
 
-	// RegisterCallback registers the callback used by the provider to look up
+	// RegisterListMultihashCallback registers the callback used by the provider to look up
 	// a list of multihashes by context ID.  Only a single callback is
 	// supported; repeated calls to this function will replace the previous
 	// callback.
-	RegisterCallback(Callback)
+	RegisterListMultihashCallback(ListMultihashCallback)
 
 	// NotifyPut sginals to the provider that the list of multihashes looked up
 	// by the given contextID are available.  The given contextID is then used to look up
@@ -91,9 +91,9 @@ type MultihashIterator interface {
 	Next() (multihash.Multihash, error)
 }
 
-// Callback is used by provider to look up a list of multihashes associated to
+// ListMultihashCallback is used by provider to look up a list of multihashes associated to
 // a context ID.  The callback must be deterministic: it must produce the same
 // list of multihashes in the same order for the same context ID.
 //
 // See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator.
-type Callback func(ctx context.Context, contextID []byte) (MultihashIterator, error)
+type ListMultihashCallback func(ctx context.Context, contextID []byte) (MultihashIterator, error)

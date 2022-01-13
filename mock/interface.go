@@ -130,16 +130,16 @@ func (mr *MockInterfaceMockRecorder) PublishLocal(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishLocal", reflect.TypeOf((*MockInterface)(nil).PublishLocal), arg0, arg1)
 }
 
-// RegisterCallback mocks base method.
-func (m *MockInterface) RegisterCallback(arg0 provider.Callback) {
+// RegisterListMultihashCallback mocks base method.
+func (m *MockInterface) RegisterListMultihashCallback(arg0 provider.ListMultihashCallback) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterCallback", arg0)
+	m.ctrl.Call(m, "RegisterListMultihashCallback", arg0)
 }
 
-// RegisterCallback indicates an expected call of RegisterCallback.
-func (mr *MockInterfaceMockRecorder) RegisterCallback(arg0 interface{}) *gomock.Call {
+// RegisterListMultihashCallback indicates an expected call of RegisterListMultihashCallback.
+func (mr *MockInterfaceMockRecorder) RegisterListMultihashCallback(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCallback", reflect.TypeOf((*MockInterface)(nil).RegisterCallback), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterListMultihashCallback", reflect.TypeOf((*MockInterface)(nil).RegisterListMultihashCallback), arg0)
 }
 
 // Shutdown mocks base method.
@@ -151,9 +151,9 @@ func (m *MockInterface) Shutdown() error {
 }
 
 // Shutdown indicates an expected call of Shutdown.
-func (mr *MockInterfaceMockRecorder) Shutdown(arg0 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) Shutdown() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown))
 }
 
 // MockMultihashIterator is a mock of MultihashIterator interface.

@@ -68,7 +68,7 @@ type Engine struct {
 	linkCacheSize int
 
 	// cb is the callback used in the linkSystem
-	cb   provider.Callback
+	cb   provider.ListMultihashCallback
 	cblk sync.Mutex
 }
 
@@ -215,7 +215,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	return c, e.publisher.UpdateRoot(ctx, c)
 }
 
-// RegisterCallback registers a new provider.Callback that is used to look up the list of multihashes
+// RegisterListMultihashCallback registers a new provider.Callback that is used to look up the list of multihashes
 // associated to a context ID.
 // At least one such callback must be registered before calls to Engine.NotifyPut and Engine.NotifyRemove.
 //
@@ -223,7 +223,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 // Only a single callback is supported.
 //
 // See: provider.Interface
-func (e *Engine) RegisterCallback(cb provider.Callback) {
+func (e *Engine) RegisterListMultihashCallback(cb provider.ListMultihashCallback) {
 	log.Debugf("Registering callback in engine")
 	e.cblk.Lock()
 	defer e.cblk.Unlock()
