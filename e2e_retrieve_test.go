@@ -7,6 +7,7 @@ import (
 	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/go-legs/dtsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
@@ -25,12 +26,14 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +45,7 @@ func TestRetrievalRoundTrip(t *testing.T) {
 
 	// Initialize everything
 	server := newTestServer(t, ctx)
-	client := newTestClient(t, ctx)
+	client := newTestClient(t, true)
 	disseminateNetworkState(server.h, client.h)
 
 	carBs := testutil.OpenSampleCar(t, "sample-v1-2.car")
@@ -51,16 +54,16 @@ func TestRetrievalRoundTrip(t *testing.T) {
 	require.Len(t, roots, 1)
 	carBs.Close()
 
-	contextID := []byte("applesauce")
+	contextID := []byte("apples1auce")
 	md, err := cardatatransfer.MetadataFromContextID(contextID)
 	require.NoError(t, err)
-	adv, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
 	// Get first advertisement
-	r := client.getAdvViaLegs(t, ctx, adv, server.h.ID())
+	adv := client.getAdvViaLegs(t, ctx, advCid, server.h.ID())
 
-	mdb, err := r.FieldMetadata().AsBytes()
+	mdb, err := adv.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
 	var receivedMd stiapi.Metadata
@@ -108,7 +111,7 @@ func TestReimportCar(t *testing.T) {
 	defer cancel()
 
 	server := newTestServer(t, ctx)
-	client := newTestClient(t, ctx)
+	client := newTestClient(t, true)
 	disseminateNetworkState(server.h, client.h)
 
 	contextID := []byte("applesauce")
@@ -163,6 +166,102 @@ func TestReimportCar(t *testing.T) {
 	require.True(t, linkCid.Equals(linkCid2))
 }
 
+func TestAdvViaHttp(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	httpPublisherCfg := config.NewHttpServer()
+	httpPublisherCfg.Enabled = true
+	providerHttpAddr, err := multiaddr.NewMultiaddr(httpPublisherCfg.ListenMultiaddr)
+	require.NoError(t, err)
+
+	// Initialize everything
+	server := newTestServer(t, ctx, func(i *config.Ingest) {
+		i.HttpServer = httpPublisherCfg
+	})
+
+	client := newTestClient(t, false)
+	disseminateNetworkState(server.h, client.h)
+
+	carBs := testutil.OpenSampleCar(t, "sample-v1-2.car")
+	roots, err := carBs.Roots()
+	require.NoError(t, err)
+	require.Len(t, roots, 1)
+	carBs.Close()
+
+	contextID := []byte("applesauce")
+	md, err := cardatatransfer.MetadataFromContextID(contextID)
+	require.NoError(t, err)
+	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
+	require.NoError(t, err)
+
+	sub, err := legs.NewSubscriber(client.h, nil, client.lsys, testTopic, nil, legs.DtManager(client.dt))
+	require.NoError(t, err)
+
+	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, providerHttpAddr)
+	require.NoError(t, err)
+	require.Equal(t, advCid, headCid)
+
+	// Close the subscriber so it doesn't interfere with the next data transfer.
+	err = sub.Close()
+	require.NoError(t, err)
+
+	// Load the advertisement node.
+	advNode, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid}, schema.Type.Advertisement)
+	require.NoError(t, err)
+	adv := advNode.(schema.Advertisement)
+
+	mdb, err := adv.FieldMetadata().AsBytes()
+	require.NoError(t, err)
+
+	var receivedMd stiapi.Metadata
+	err = receivedMd.UnmarshalBinary(mdb)
+	require.NoError(t, err)
+	dtm, err := metadata.FromIndexerMetadata(receivedMd)
+	require.NoError(t, err)
+	fv1, err := metadata.DecodeFilecoinV1Data(dtm)
+	require.NoError(t, err)
+
+	// We have the advertisement, but not the data
+	_, err = client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: roots[0]}, basicnode.Prototype.Any)
+	require.Error(t, err)
+
+	// Now get the data
+	proposal := &cardatatransfer.DealProposal{
+		PayloadCID: roots[0],
+		ID:         1,
+		Params: cardatatransfer.Params{
+			PieceCID: &fv1.PieceCID,
+		},
+	}
+	var cidTransferred cid.Cid
+	done := make(chan bool, 1)
+	unsub := client.dt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
+		switch channelState.Status() {
+		case datatransfer.Failed, datatransfer.Cancelled:
+			done <- false
+		case datatransfer.Completed:
+			cidTransferred = channelState.BaseCID()
+			done <- true
+		}
+	})
+	defer unsub()
+	err = client.dt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
+	require.NoError(t, err)
+	err = client.dt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+	require.NoError(t, err)
+	_, err = client.dt.OpenPullDataChannel(ctx, server.h.ID(), proposal, roots[0], selectorparse.CommonSelector_ExploreAllRecursively)
+	require.NoError(t, err)
+
+	select {
+	case <-ctx.Done():
+		require.FailNow(t, "context closed")
+	case result := <-done:
+		require.True(t, result)
+		require.Equal(t, roots[0], cidTransferred)
+	}
+}
+
 func disseminateNetworkState(hosts ...host.Host) {
 	for _, one := range hosts {
 		for _, other := range hosts {
@@ -179,10 +278,10 @@ type testServer struct {
 	e  *engine.Engine
 }
 
-func newTestServer(t *testing.T, ctx context.Context) *testServer {
-	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-	require.NoError(t, err)
+func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.Ingest)) *testServer {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
+	require.NoError(t, err)
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"), libp2p.Identity(priv))
 	require.NoError(t, err)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
@@ -190,6 +289,10 @@ func newTestServer(t *testing.T, ctx context.Context) *testServer {
 	ingestCfg := config.Ingest{
 		PubSubTopic: testTopic,
 	}
+	for _, f := range cfgOpts {
+		f(&ingestCfg)
+	}
+
 	e, err := engine.New(ingestCfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
 	require.NoError(t, e.Start(ctx))
@@ -210,7 +313,7 @@ type testClient struct {
 	lsys ipld.LinkSystem
 }
 
-func newTestClient(t *testing.T, ctx context.Context) *testClient {
+func newTestClient(t *testing.T, registerVoucher bool) *testClient {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	blockStore := blockstore.NewBlockstore(store)
 	lsys := storeutil.LinkSystemForBlockstore(blockStore)
@@ -218,8 +321,10 @@ func newTestClient(t *testing.T, ctx context.Context) *testClient {
 	require.NoError(t, err)
 
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
-	require.NoError(t, dt.RegisterVoucherResultType(&dtsync.VoucherResult{}))
-	require.NoError(t, dt.RegisterVoucherType(&dtsync.Voucher{}, nil))
+	if registerVoucher {
+		require.NoError(t, dt.RegisterVoucherResultType(&dtsync.VoucherResult{}))
+		require.NoError(t, dt.RegisterVoucherType(&dtsync.Voucher{}, nil))
+	}
 
 	return &testClient{
 		h:    h,
