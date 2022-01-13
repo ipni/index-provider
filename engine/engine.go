@@ -59,7 +59,6 @@ type Engine struct {
 	ds        datastore.Batching
 	publisher legs.Publisher
 
-	httpPublisher    legs.Publisher
 	httpPublisherCfg *config.HttpServer
 
 	// pubsubtopic where the provider will push advertisements
@@ -166,23 +165,21 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.cache = dsCache
 
-	e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
-	if err != nil {
-		log.Errorw("Error initializing publisher in engine:", "err", err)
-		return err
-	}
-
 	if e.httpPublisherCfg.Enabled {
-		addr, err := e.httpPublisherCfg.ListenNetAddr()
+		var addr string
+		addr, err = e.httpPublisherCfg.ListenNetAddr()
 		if err != nil {
 			log.Errorw("Error forming http addr in engine for httpPublisher:", "err", err)
 			return err
 		}
-		e.httpPublisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
-		if err != nil {
-			log.Errorw("Error initializing httpPublisher in engine:", "err", err)
-			return err
-		}
+		e.publisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
+	} else {
+		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
+	}
+
+	if err != nil {
+		log.Errorw("Error initializing publisher in engine:", "err", err)
+		return err
 	}
 
 	return nil
@@ -235,14 +232,6 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	if err != nil {
 		return cid.Undef, err
 	}
-
-	if e.httpPublisher != nil {
-		err = e.httpPublisher.UpdateRoot(ctx, c)
-		if err != nil {
-			return cid.Undef, err
-		}
-	}
-
 	return c, nil
 }
 
@@ -295,13 +284,6 @@ func (e *Engine) Shutdown() error {
 		log.Errorw("Error closing link cache", "err", cerr)
 	}
 
-	if e.httpPublisher != nil {
-		err := e.httpPublisher.Close()
-		if err != nil {
-			err = fmt.Errorf("error closing leg http publisher: %w", err)
-			return err
-		}
-	}
 	return nil
 }
 
