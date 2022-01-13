@@ -14,3 +14,12 @@ func NewProviderServer() ProviderServer {
 		ListenMultiaddr: "/ip4/0.0.0.0/tcp/3103",
 	}
 }
+
+// PopulateDefaults replaces zero-values in the config with default values.
+func (c *ProviderServer) PopulateDefaults() {
+	def := NewProviderServer()
+
+	if c.ListenMultiaddr == "" {
+		c.ListenMultiaddr = def.ListenMultiaddr
+	}
+}

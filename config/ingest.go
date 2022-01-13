@@ -1,19 +1,23 @@
 package config
 
 const (
-	defaultLinkCacheSize   = 1024
-	defaultLinkedChunkSize = 100
+	// Keep 1024 chunks in cache; keeps 2G if chunks are 2MB.
+	defaultLinkCacheSize = 1024
+	// Multihashes are 128 bytes so 16384 redults in 2MB chunk when full.
+	defaultLinkedChunkSize = 16384
 	defaultPubSubTopic     = "indexer/ingest"
 )
 
-// Ingest tracks the configuration related to the ingestion protocol
+// Ingest configures settings related to the ingestion protocol.
 type Ingest struct {
-	// LinkCacheSize is the maximum number of links that cash can store before LRU eviction.  If a
-	// single linked list has more links than the cache can hold, the cache is
-	// resized to be able to hold all links.
+	// LinkCacheSize is the maximum number of links that cash can store before
+	// LRU eviction.  If a single linked list has more links than the cache can
+	// hold, the cache is resized to be able to hold all links.
 	LinkCacheSize int
-	// LinkedChunkSize is the number of hashes in each chunk of ingestion
-	// linked list.
+	// LinkedChunkSize is the number of multihashes in each chunk of in the
+	// advertised entries linked list.  If multihashes are 128 bytes, then
+	// setting LinkedChunkSize = 16384 will result in blocks of about 2Mb when
+	// full.
 	LinkedChunkSize int
 	// PubSubTopic used to advertise ingestion announcements.
 	PubSubTopic string
@@ -30,15 +34,15 @@ func NewIngest() Ingest {
 	}
 }
 
-// OverrideUnsetToDefaults replaces zero-values in the config with default values.
-func (cfg *Ingest) OverrideUnsetToDefaults() {
-	if cfg.LinkCacheSize == 0 {
-		cfg.LinkCacheSize = defaultLinkCacheSize
+// PopulateDefaults replaces zero-values in the config with default values.
+func (c *Ingest) PopulateDefaults() {
+	if c.LinkCacheSize == 0 {
+		c.LinkCacheSize = defaultLinkCacheSize
 	}
-	if cfg.LinkedChunkSize == 0 {
-		cfg.LinkedChunkSize = defaultLinkedChunkSize
+	if c.LinkedChunkSize == 0 {
+		c.LinkedChunkSize = defaultLinkedChunkSize
 	}
-	if cfg.PubSubTopic == "" {
-		cfg.PubSubTopic = defaultPubSubTopic
+	if c.PubSubTopic == "" {
+		c.PubSubTopic = defaultPubSubTopic
 	}
 }

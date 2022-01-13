@@ -41,3 +41,16 @@ func (as *AdminServer) ListenNetAddr() (string, error) {
 	}
 	return netAddr.String(), nil
 }
+
+// PopulateDefaults replaces zero-values in the config with default values.
+func (c *AdminServer) PopulateDefaults() {
+	if c.ListenMultiaddr == "" {
+		c.ListenMultiaddr = defaultAdminServerAddr
+	}
+	if c.ReadTimeout == 0 {
+		c.ReadTimeout = defaultReadTimeout
+	}
+	if c.WriteTimeout == 0 {
+		c.WriteTimeout = defaultWriteTimeout
+	}
+}
