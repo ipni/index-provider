@@ -2,18 +2,20 @@ package config
 
 const (
 	defaultLinkCacheSize   = 1024
-	defaultLinkedChunkSize = 100
+	defaultLinkedChunkSize = 16384
 	defaultPubSubTopic     = "indexer/ingest"
 )
 
 // Ingest tracks the configuration related to the ingestion protocol
 type Ingest struct {
-	// LinkCacheSize is the maximum number of links that cash can store before LRU eviction.  If a
-	// single linked list has more links than the cache can hold, the cache is
-	// resized to be able to hold all links.
+	// LinkCacheSize is the maximum number of links that cash can store before
+	// LRU eviction.  If a single linked list has more links than the cache can
+	// hold, the cache is resized to be able to hold all links.
 	LinkCacheSize int
-	// LinkedChunkSize is the number of hashes in each chunk of ingestion
-	// linked list.
+	// LinkedChunkSize is the number of multihashes in each chunk of in the
+	// advertised entries linked list.  If multihashes are 128 bytes, then
+	// setting LinkedChunkSize = 16384 will result in blocks of about 2Mb when
+	// full.
 	LinkedChunkSize int
 	// PubSubTopic used to advertise ingestion announcements.
 	PubSubTopic string

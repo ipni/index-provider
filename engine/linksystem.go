@@ -65,22 +65,14 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			return nil, err
 		}
 
-		// If we don't have the link, generate the linked list in cache so it's
-		// ready to be served for this (and future) ingestions.
+		// If we don't have the link, generate the linked list of entries in
+		// cache so it is ready to serve for this and future ingestions.
 		//
-		// TODO: This process may take a lot of time, we should do it
-		// asynchronously to parallelize it. We could implement a cache manager
-		// that keeps the state of what has been generated, what has been
-		// requested but not available and requires reading from a CAR, and
-		// what is ready for ingestion. This manager will also have to handle
-		// garbage collecting the cache.
-		//
-		// The reason for caching this?  When we build the ingestion linked
-		// lists and we are serving back the structure to an indexer, we will
-		// be receiving requests for a chunkEntry, as we can't read a specific
-		// subset of CIDs from the CAR index, we need some intermediate storage
-		// to map link of the chunk in the linked list with the list of CIDs it
-		// corresponds to.
+		// The reason for caching this is because the indexer requests each
+		// chunk entry, and a specific subset of entries cannot be read from a
+		// car.  So all entry chunks are kept in cache to serve to the indexer.
+		// The cache uses the entry chunk CID as a key that maps to the entry
+		// chunk data.
 		if b == nil {
 			log.Infow("Entry for CID is not cached, generating chunks", "cid", c)
 			// If the link is not found, it means that the root link of the list has
@@ -93,14 +85,11 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 				return nil, err
 			}
 
-			// TODO: For removals we may not have the list of CIDs, let's see
-			// what selector we end up using, but we may need additional
-			// validation here in order not to follow the link. If we do
-			// step-by-step syncs, this would mean that when the subscribers
-			// sees an advertisement of remove type, it doesn't follow the
-			// Entries link, if just gets the cid, and uses its local map cid
-			// to contextID to trigger the removal of all entries for that
-			// contextID in its index.
+			// Get the car iterator needed to create the entry chunks.
+			// Normally for removal this is not needed since the indexer
+			// deletes all indexes for the contextID in the removal
+			// advertisement.  Only if the removal had no contextID would the
+			// indexer ask for entry chunks to remove.
 			mhIter, err := e.cb(lctx.Ctx, key)
 			if err != nil {
 				return nil, err
@@ -150,7 +139,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 	chunkSize := e.linkedChunkSize
 	mhs := make([]multihash.Multihash, 0, chunkSize)
 
-	dsc, isDsc := e.cache.(*lrustore.LRUStore)
+	ls, lsOK := e.cache.(*lrustore.LRUStore)
 	var resized bool
 
 	var chunkLnk ipld.Link
@@ -168,8 +157,8 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 
 		if len(mhs) >= chunkSize {
 			// Cache needs to be large enough to store all links in a list.
-			if isDsc && dsc.Len() == dsc.Cap() {
-				dsc.Resize(context.Background(), dsc.Cap()*2)
+			if lsOK && ls.Len() == ls.Cap() {
+				ls.Resize(context.Background(), ls.Cap()*2)
 			}
 			chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
 			if err != nil {
@@ -183,8 +172,8 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 
 	// Chunk remaining multihashes.
 	if len(mhs) != 0 {
-		if isDsc && dsc.Len() == dsc.Cap() {
-			dsc.Resize(context.Background(), dsc.Cap()*2)
+		if lsOK && ls.Len() == ls.Cap() {
+			ls.Resize(context.Background(), ls.Cap()*2)
 		}
 		var err error
 		chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
@@ -197,8 +186,8 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 	// If the cache was resized to expand beyond its original capacity, then
 	// set its size to only as big as the number of links in this list.
 	if resized {
-		dsc.Resize(context.Background(), dsc.Len())
-		log.Infow("Link cache expanded to hold links", "new_size", dsc.Cap())
+		ls.Resize(context.Background(), ls.Len())
+		log.Infow("Link cache expanded to hold links", "new_size", ls.Cap())
 	}
 
 	log.Infow("Generated linked chunks of multihashes", "totalMhCount", totalMhCount, "chunkCount", chunkCount)
