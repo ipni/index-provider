@@ -4,8 +4,11 @@ BIN_SUBDIR := cmd/provider
 
 all: vet test build
 
-build: 
-	cd $(BIN_SUBDIR) && go build
+build: TAG?=$(shell git describe --tags --abbrev=0)
+build: COMMIT?=$(shell git rev-parse HEAD)
+build: CLEAN?=$(shell git diff --quiet --exit-code || printf 'unclean')
+build:
+	cd $(BIN_SUBDIR) && go build -ldflags="-X 'main.version=$(TAG)-$(COMMIT)-$(CLEAN)'"
 
 docker: Dockerfile clean
 	docker build . --force-rm -f Dockerfile -t indexer-reference-provider:$(shell git rev-parse --short HEAD)

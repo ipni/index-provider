@@ -7,9 +7,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/filecoin-project/index-provider/version"
 	"github.com/urfave/cli/v2"
 )
+
+var version = "unknown"
 
 func main() {
 	os.Exit(run())
@@ -39,7 +40,7 @@ func run() int {
 
 		Name:    "provider",
 		Usage:   "Indexer Reference Provider Implementation",
-		Version: version.String(),
+		Version: version,
 		Commands: []*cli.Command{
 			DaemonCmd,
 			FindCmd,
