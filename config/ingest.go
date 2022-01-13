@@ -1,12 +1,14 @@
 package config
 
 const (
-	defaultLinkCacheSize   = 1024
+	// Keep 1024 chunks in cache; keeps 2G if chunks are 2MB.
+	defaultLinkCacheSize = 1024
+	// Multihashes are 128 bytes so 16384 redults in 2MB chunk when full.
 	defaultLinkedChunkSize = 16384
 	defaultPubSubTopic     = "indexer/ingest"
 )
 
-// Ingest tracks the configuration related to the ingestion protocol
+// Ingest configures settings related to the ingestion protocol.
 type Ingest struct {
 	// LinkCacheSize is the maximum number of links that cash can store before
 	// LRU eviction.  If a single linked list has more links than the cache can
