@@ -30,8 +30,8 @@ func NewIngest() Ingest {
 	}
 }
 
-// overrideUnsetToDefaults replaces zero-values in the config with default values.
-func (cfg *Ingest) overrideUnsetToDefaults() {
+// OverrideUnsetToDefaults replaces zero-values in the config with default values.
+func (cfg *Ingest) OverrideUnsetToDefaults() {
 	if cfg.LinkCacheSize == 0 {
 		cfg.LinkCacheSize = defaultLinkCacheSize
 	}

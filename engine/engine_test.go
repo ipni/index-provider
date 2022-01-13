@@ -434,3 +434,12 @@ func skipFlaky(t *testing.T) {
 		t.Skip("skipping test since it is flaky on the CI. See https://github.com/filecoin-project/index-provider/issues/12")
 	}
 }
+
+func Test_EmptyConfigSetsDefaults(t *testing.T) {
+	engine, err := New(config.Ingest{}, nil, nil, mkTestHost(t), nil, nil)
+	require.NoError(t, err)
+	require.True(t, engine.linkedChunkSize > 0)
+	require.True(t, engine.linkCacheSize > 0)
+	require.True(t, engine.pubSubTopic != "")
+	require.True(t, engine.pubSubTopic != "")
+}

@@ -99,6 +99,8 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		log.Infof("Retrieval address not configured, using %s", retAddrs[0])
 	}
 
+	ingestCfg.OverrideUnsetToDefaults()
+
 	// TODO(security): We should not keep the privkey decoded here.
 	// We should probably unlock it and lock it every time we need it.
 	// Once we start encrypting the key locally.
