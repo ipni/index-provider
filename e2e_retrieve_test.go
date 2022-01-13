@@ -54,7 +54,7 @@ func TestRetrievalRoundTrip(t *testing.T) {
 	require.Len(t, roots, 1)
 	carBs.Close()
 
-	contextID := []byte("apples1auce")
+	contextID := []byte("applesauce")
 	md, err := cardatatransfer.MetadataFromContextID(contextID)
 	require.NoError(t, err)
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
