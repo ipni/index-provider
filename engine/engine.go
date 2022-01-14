@@ -278,13 +278,12 @@ func (e *Engine) Shutdown() error {
 	err := e.publisher.Close()
 	if err != nil {
 		err = fmt.Errorf("error closing leg publisher: %w", err)
-		return err
 	}
 	if cerr := e.cache.Close(); cerr != nil {
 		log.Errorw("Error closing link cache", "err", cerr)
 	}
 
-	return nil
+	return err
 }
 
 // GetAdv gets the advertisement associated to the given cid c.
