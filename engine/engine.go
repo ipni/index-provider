@@ -56,8 +56,10 @@ type Engine struct {
 	cache     datastore.Datastore
 	// ds is the datastore used for persistence of different assets (advertisements,
 	// indexed data, etc.)
-	ds        datastore.Batching
-	publisher legs.Publisher
+	ds datastore.Batching
+
+	publisherKind config.PublisherKind
+	publisher     legs.Publisher
 
 	httpPublisherCfg *config.HttpPublisher
 
@@ -119,6 +121,7 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 
 		addrs:            retAddrs,
 		httpPublisherCfg: &ingestCfg.HttpPublisher,
+		publisherKind:    ingestCfg.PublisherKind,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()
@@ -165,7 +168,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.cache = dsCache
 
-	if e.httpPublisherCfg.Enabled {
+	if e.publisherKind == config.HttpPublisherKind {
 		var addr string
 		addr, err = e.httpPublisherCfg.ListenNetAddr()
 		if err != nil {

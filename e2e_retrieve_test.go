@@ -53,7 +53,7 @@ var testCases = []testCase{
 		serverConfigOpts: []func(*config.Ingest){
 			func(c *config.Ingest) {
 				httpPublisherCfg := config.NewHttpPublisher()
-				httpPublisherCfg.Enabled = true
+				c.PublisherKind = config.HttpPublisherKind
 				c.HttpPublisher = httpPublisherCfg
 			},
 		},
@@ -270,7 +270,7 @@ func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.In
 	}
 
 	var publisherAddr multiaddr.Multiaddr
-	if ingestCfg.HttpPublisher.Enabled {
+	if ingestCfg.PublisherKind == config.HttpPublisherKind {
 		port := findOpenPort(t)
 		publisherAddr, err = multiaddr.NewMultiaddr(ingestCfg.HttpPublisher.ListenMultiaddr)
 		require.NoError(t, err)

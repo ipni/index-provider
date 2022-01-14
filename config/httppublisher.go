@@ -6,16 +6,12 @@ import (
 )
 
 type HttpPublisher struct {
-	// Enabled will enable only the http implementation of legs.Publisher. All
-	// other implementations will be disabled. (e.g. dtsync publisher)
-	Enabled         bool
 	ListenMultiaddr string
 }
 
 // NewHttpPublisher instantiates a new config with default values.
 func NewHttpPublisher() HttpPublisher {
 	return HttpPublisher{
-		Enabled:         false,
 		ListenMultiaddr: "/ip4/0.0.0.0/tcp/3104/http",
 	}
 }

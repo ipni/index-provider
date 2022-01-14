@@ -8,6 +8,13 @@ const (
 	defaultPubSubTopic     = "indexer/ingest"
 )
 
+type PublisherKind string
+
+const (
+	DTSyncPublisherKind PublisherKind = "dtsync"
+	HttpPublisherKind   PublisherKind = "http"
+)
+
 // Ingest configures settings related to the ingestion protocol.
 type Ingest struct {
 	// LinkCacheSize is the maximum number of links that cash can store before
@@ -24,9 +31,11 @@ type Ingest struct {
 	// PurgeLinkCache tells whether to purge the link cache on daemon startup.
 	PurgeLinkCache bool
 
-	// HttpPublisher configures the go-legs httpsync publisher. If it is enabled,
-	// only the httpsync publisher will be used.
+	// HttpPublisher configures the go-legs httpsync publisher.
 	HttpPublisher HttpPublisher
+
+	// PublisherKind specifies which legs.Publisher implementation to use.
+	PublisherKind PublisherKind
 }
 
 // NewIngest instantiates a new Ingest configuration with default values.
@@ -36,6 +45,7 @@ func NewIngest() Ingest {
 		LinkedChunkSize: defaultLinkedChunkSize,
 		PubSubTopic:     defaultPubSubTopic,
 		HttpPublisher:   NewHttpPublisher(),
+		PublisherKind:   DTSyncPublisherKind,
 	}
 }
 
