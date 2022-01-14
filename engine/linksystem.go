@@ -5,7 +5,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/filecoin-project/index-provider"
+	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine/lrustore"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
@@ -159,6 +159,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 			// Cache needs to be large enough to store all links in a list.
 			if lsOK && ls.Len() == ls.Cap() {
 				ls.Resize(context.Background(), ls.Cap()*2)
+				resized = true
 			}
 			chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
 			if err != nil {
@@ -174,6 +175,7 @@ func (e *Engine) generateChunks(mhIter provider.MultihashIterator) (ipld.Link, e
 	if len(mhs) != 0 {
 		if lsOK && ls.Len() == ls.Cap() {
 			ls.Resize(context.Background(), ls.Cap()*2)
+			resized = true
 		}
 		var err error
 		chunkLnk, _, err = schema.NewLinkedListOfMhs(e.cachelsys, mhs, chunkLnk)
