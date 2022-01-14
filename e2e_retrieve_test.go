@@ -52,9 +52,9 @@ var testCases = []testCase{
 		name: "HTTP Publisher",
 		serverConfigOpts: []func(*config.Ingest){
 			func(c *config.Ingest) {
-				httpPublisherCfg := config.NewHttpServer()
+				httpPublisherCfg := config.NewHttpPublisher()
 				httpPublisherCfg.Enabled = true
-				c.HttpServer = httpPublisherCfg
+				c.HttpPublisher = httpPublisherCfg
 			},
 		},
 	},
@@ -270,9 +270,9 @@ func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.In
 	}
 
 	var publisherAddr multiaddr.Multiaddr
-	if ingestCfg.HttpServer.Enabled {
+	if ingestCfg.HttpPublisher.Enabled {
 		port := findOpenPort(t)
-		publisherAddr, err = multiaddr.NewMultiaddr(ingestCfg.HttpServer.ListenMultiaddr)
+		publisherAddr, err = multiaddr.NewMultiaddr(ingestCfg.HttpPublisher.ListenMultiaddr)
 		require.NoError(t, err)
 
 		// Replace the default port with a port we know is open so that tests can
@@ -285,7 +285,7 @@ func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.In
 			}
 		}
 		publisherAddr = multiaddr.Join(parts...)
-		ingestCfg.HttpServer.ListenMultiaddr = publisherAddr.String()
+		ingestCfg.HttpPublisher.ListenMultiaddr = publisherAddr.String()
 
 	} else {
 		publisherAddr = h.Addrs()[0]

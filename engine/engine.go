@@ -59,7 +59,7 @@ type Engine struct {
 	ds        datastore.Batching
 	publisher legs.Publisher
 
-	httpPublisherCfg *config.HttpServer
+	httpPublisherCfg *config.HttpPublisher
 
 	// pubsubtopic where the provider will push advertisements
 	pubSubTopic     string
@@ -118,7 +118,7 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		linkCacheSize:   ingestCfg.LinkCacheSize,
 
 		addrs:            retAddrs,
-		httpPublisherCfg: &ingestCfg.HttpServer,
+		httpPublisherCfg: &ingestCfg.HttpPublisher,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()

@@ -24,8 +24,9 @@ type Ingest struct {
 	// PurgeLinkCache tells whether to purge the link cache on daemon startup.
 	PurgeLinkCache bool
 
-	// HttpServer configures the go-legs httpsync publisher
-	HttpServer HttpServer
+	// HttpPublisher configures the go-legs httpsync publisher. If it is enabled,
+	// only the httpsync publisher will be used.
+	HttpPublisher HttpPublisher
 }
 
 // NewIngest instantiates a new Ingest configuration with default values.
@@ -34,7 +35,7 @@ func NewIngest() Ingest {
 		LinkCacheSize:   defaultLinkCacheSize,
 		LinkedChunkSize: defaultLinkedChunkSize,
 		PubSubTopic:     defaultPubSubTopic,
-		HttpServer:      NewHttpServer(),
+		HttpPublisher:   NewHttpPublisher(),
 	}
 }
 

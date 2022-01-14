@@ -5,20 +5,22 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
-type HttpServer struct {
+type HttpPublisher struct {
+	// Enabled will enable only the http implementation of legs.Publisher. All
+	// other implementations will be disabled. (e.g. dtsync publisher)
 	Enabled         bool
 	ListenMultiaddr string
 }
 
-// NewHttpServer instantiates a new config with default values.
-func NewHttpServer() HttpServer {
-	return HttpServer{
+// NewHttpPublisher instantiates a new config with default values.
+func NewHttpPublisher() HttpPublisher {
+	return HttpPublisher{
 		Enabled:         false,
 		ListenMultiaddr: "/ip4/0.0.0.0/tcp/3104/http",
 	}
 }
 
-func (hs *HttpServer) ListenNetAddr() (string, error) {
+func (hs *HttpPublisher) ListenNetAddr() (string, error) {
 	maddr, err := multiaddr.NewMultiaddr(hs.ListenMultiaddr)
 	if err != nil {
 		return "", err
