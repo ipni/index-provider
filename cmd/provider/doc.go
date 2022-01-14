@@ -15,15 +15,16 @@ Usage:
 	   v0.0.0+unknown
 
 	COMMANDS:
-	   daemon      Starts a reference provider
-	   find        Query an indexer for indexed content
-	   index       Push a single content index into an indexer
-	   init        Initialize reference provider config file and identity
-	   connect     Connects to an indexer through its multiaddr
-	   import, i   Imports sources of multihashes to the index provider.
-	   register    Register provider information with an indexer that trusts the provider
-	   remove, rm  Removes previously advertised multihashes by the provider.
-	   help, h     Shows a list of commands or help for one command
+	   daemon             Starts a reference provider
+	   find               Query an indexer for indexed content
+	   index              Push a single content index into an indexer
+	   init               Initialize reference provider config file and identity
+	   connect            Connects to an indexer through its multiaddr
+	   import, i          Imports sources of multihashes to the index provider.
+	   register           Register provider information with an indexer that trusts the provider
+	   remove, rm         Removes previously advertised multihashes by the provider.
+	   verify-ingest, vi  Verifies ingestion of multihashes to an indexer node from a Lotus miner, CAR file or a CARv2 Index
+	   help, h            Shows a list of commands or help for one command
 
 	GLOBAL OPTIONS:
 	   --help, -h     show help (default: false)

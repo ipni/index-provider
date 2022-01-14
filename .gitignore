@@ -1,4 +1,4 @@
 *~
 index-provider
 cmd/provider/provider
-provider
+./provider
