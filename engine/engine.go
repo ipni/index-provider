@@ -10,6 +10,7 @@ import (
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/go-legs/dtsync"
+	"github.com/filecoin-project/go-legs/httpsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/config"
@@ -55,8 +56,12 @@ type Engine struct {
 	cache     datastore.Datastore
 	// ds is the datastore used for persistence of different assets (advertisements,
 	// indexed data, etc.)
-	ds        datastore.Batching
-	publisher legs.Publisher
+	ds datastore.Batching
+
+	publisherKind config.PublisherKind
+	publisher     legs.Publisher
+
+	httpPublisherCfg *config.HttpPublisher
 
 	// pubsubtopic where the provider will push advertisements
 	pubSubTopic     string
@@ -114,7 +119,9 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		purgeLinkCache:  ingestCfg.PurgeLinkCache,
 		linkCacheSize:   ingestCfg.LinkCacheSize,
 
-		addrs: retAddrs,
+		addrs:            retAddrs,
+		httpPublisherCfg: &ingestCfg.HttpPublisher,
+		publisherKind:    ingestCfg.PublisherKind,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()
@@ -161,11 +168,23 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.cache = dsCache
 
-	e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
+	if e.publisherKind == config.HttpPublisherKind {
+		var addr string
+		addr, err = e.httpPublisherCfg.ListenNetAddr()
+		if err != nil {
+			log.Errorw("Error forming http addr in engine for httpPublisher:", "err", err)
+			return err
+		}
+		e.publisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
+	} else {
+		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
+	}
+
 	if err != nil {
 		log.Errorw("Error initializing publisher in engine:", "err", err)
 		return err
 	}
+
 	return nil
 }
 
@@ -212,7 +231,11 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 
 	log.Infow("Publishing advertisement in pubsub channel", "cid", c.String())
 	// Use legPublisher to publish the advertisement.
-	return c, e.publisher.UpdateRoot(ctx, c)
+	err = e.publisher.UpdateRoot(ctx, c)
+	if err != nil {
+		return cid.Undef, err
+	}
+	return c, nil
 }
 
 // RegisterCallback registers a new provider.Callback that is used to look up the list of multihashes
@@ -262,6 +285,7 @@ func (e *Engine) Shutdown() error {
 	if cerr := e.cache.Close(); cerr != nil {
 		log.Errorw("Error closing link cache", "err", cerr)
 	}
+
 	return err
 }
 
