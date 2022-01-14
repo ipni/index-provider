@@ -50,6 +50,7 @@ func run() int {
 			ImportCmd,
 			RegisterCmd,
 			RemoveCmd,
+			VerifyIngestCmd,
 		},
 	}
 
