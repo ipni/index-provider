@@ -428,16 +428,19 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 			return cid.Undef, err
 		}
 
-		// Provide the CID link to the content entries to give the indexer the
-		// option to remove all individual entries.  If a contextID is given
-		// then the indexer will delete all content for that contextID and not
-		// need to retrieve the entries.
-		cidsLnk = cidlink.Link{Cid: c}
+		// Create an advertisement to delete content by contextID by specifying
+		// that advertisement has no entries.
+		cidsLnk = schema.NoEntries
+
+		// To delete specific indexes values, provide the CID link to the
+		// content entries to delete.  The indexer will fetch these entries and
+		// delete indexes for the content in each entry chunk.
+		//   cidsLnk = cidlink.Link{Cid: c}
 
 		// The advertisement still requires a valid metadata even though it is
 		// not used for removal.  Create a valid empty metadata.
 		metadata = stiapi.Metadata{
-			ProtocolID: cardatatransfer.ContextIDCodec, //providerProtocolID,
+			ProtocolID: cardatatransfer.ContextIDCodec,
 		}
 	}
 
