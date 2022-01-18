@@ -3,25 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/cheggaaa/pb/v3"
+	"math/rand"
+	"os"
+	"path"
+	"time"
+
 	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
-	car "github.com/ipld/go-car/v2"
+	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
-	"math/rand"
-	"os"
-	"path"
-	"path/filepath"
-	"time"
 )
 
-const dagstoreIndexPattern = "*.full.idx"
-
 var (
-	dagStorePath    string
 	carPath         string
 	carIndexPath    string
 	indexerAddr     string
@@ -31,17 +27,12 @@ var (
 	include         sampleSelector
 	VerifyIngestCmd = &cli.Command{
 		Name:  "verify-ingest",
-		Usage: "Verifies ingestion of multihashes to an indexer node from a Lotus miner, CAR file or a CARv2 Index",
+		Usage: "Verifies ingestion of multihashes to an indexer node from a CAR file or a CARv2 Index",
 		Description: `This command verifies whether a list of multihashes are ingested by an indexer node with the 
 expected provider Peer ID. The multihashes to verify can be supplied from one of the following 
 sources:
-- Path to Lotus miner markets repo DagStore (i.e --from-lotus)
 - Path to a CAR file (i.e. --from-car)
 - Path to a CARv2 index file in iterable multihash format (i.e. --from-car-index)
-
-The path to DagStore is expected to contain a sub directory named 'index', which must contain a list
-of CARv2 index files in iterable multihash format that match '*.full.idx' file name pattern. 
-See: https://github.com/filecoin-project/dagstore
 
 The path to CAR files may point to any CAR version (CARv1 or CARv2). The list of multihashes are 
 generated automatically from the CAR payload if no suitable index is not present. Note that the 
@@ -61,14 +52,6 @@ generator is non-deterministic by default. However, a seed may be specified to m
 deterministic for debugging purposes.
 
 Example usage:
-
-* Verify ingestion from Lotus miner selecting 80% of available multihashes at random, 
-non-deterministically:
-	provider verify-ingest \
-		--from-lotus "${LOTUS_MARKETS_PATH}/dagstore" \
-		--to 192.168.2.100:3000 \
-		--provider-id 12D3KooWE8yt84RVwW3sFcd6WMjbUdWrZer2YtT4dmtj3dHdahSZ \
-		--sampling-prob 0.8
 
 * Verify ingestion from CAR file, selecting 50% of available multihashes using a deterministic 
 random number generator, seeded with '1413':
@@ -128,12 +111,6 @@ Example output:
 `,
 		Aliases: []string{"vi"},
 		Flags: []cli.Flag{
-			&cli.PathFlag{
-				Name:        "from-lotus",
-				Usage:       "Path to lotus markets DagStore repo. Example: $LOTUS_MARKETS_PATH/dagstore",
-				Aliases:     []string{"fl"},
-				Destination: &dagStorePath,
-			},
 			&cli.PathFlag{
 				Name:        "from-car",
 				Usage:       "Path to the CAR file from which to extract the list of multihash for verification.",
@@ -208,14 +185,6 @@ func beforeVerifyIngest(cctx *cli.Context) error {
 }
 
 func doVerifyIngest(cctx *cli.Context) error {
-	if dagStorePath != "" {
-		if carPath != "" || carIndexPath != "" {
-			return errVerifyIngestMultipleSources(cctx)
-		}
-		dagStorePath = path.Clean(dagStorePath)
-		return doVerifyLotus(cctx)
-	}
-
 	if carPath != "" {
 		if carIndexPath != "" {
 			return errVerifyIngestMultipleSources(cctx)
@@ -230,46 +199,6 @@ func doVerifyIngest(cctx *cli.Context) error {
 	}
 	carIndexPath = path.Clean(carIndexPath)
 	return doVerifyIngestFromCarIndex()
-}
-
-func doVerifyLotus(_ *cli.Context) error {
-	dsIdxDir := filepath.Join(dagStorePath, "index")
-	matches, err := listDagStoreIndexFiles(dsIdxDir)
-	if err != nil {
-		return err
-	}
-	idxCount := len(matches)
-	fmt.Println("found", idxCount, "indices")
-
-	finder, err := httpfinderclient.New(indexerAddr)
-	if err != nil {
-		return err
-	}
-
-	result := &verifyIngestResult{}
-	bar := pb.StartNew(idxCount)
-	for _, m := range matches {
-		bar.Increment()
-		idx, err := os.OpenFile(m, os.O_RDONLY, 0666)
-		if err != nil {
-			return err
-		}
-		carIdx, err := index.ReadFrom(idx)
-		if err != nil {
-			return err
-		}
-		iterIdx, ok := carIdx.(index.IterableIndex)
-		if !ok {
-			return errInvalidCarIndexFormat()
-		}
-		check, err := verifyIngestFromCarIterableIndex(finder, iterIdx)
-		if err != nil {
-			return err
-		}
-		result = result.addAndGet(check)
-	}
-	bar.Finish()
-	return result.printAndExit()
 }
 
 func doVerifyIngestFromCar(_ *cli.Context) error {
@@ -301,9 +230,8 @@ func getOrGenerateCarIndex() (index.IterableIndex, error) {
 		return nil, err
 	}
 
-	if idxReader == nil || !cr.Header.Characteristics.IsFullyIndexed() {
-		// Missing or non-complete index; generate it.
-		return generateFullIterableIndex(cr)
+	if idxReader == nil {
+		return generateIterableIndex(cr)
 	}
 
 	idx, err := index.ReadFrom(idxReader)
@@ -312,14 +240,14 @@ func getOrGenerateCarIndex() (index.IterableIndex, error) {
 	}
 	if idx.Codec() != multicodec.CarMultihashIndexSorted {
 		// Index doesn't contain full multihashes; generate it.
-		return generateFullIterableIndex(cr)
+		return generateIterableIndex(cr)
 	}
 	return idx.(index.IterableIndex), nil
 }
 
-func generateFullIterableIndex(cr *car.Reader) (index.IterableIndex, error) {
+func generateIterableIndex(cr *car.Reader) (index.IterableIndex, error) {
 	idx := index.NewMultihashSorted()
-	if err := car.LoadIndex(idx, cr.DataReader(), car.StoreIdentityCIDs(true)); err != nil {
+	if err := car.LoadIndex(idx, cr.DataReader()); err != nil {
 		return nil, err
 	}
 	return idx, nil
@@ -367,40 +295,12 @@ func showVerifyIngestHelp(cctx *cli.Context) {
 	_ = cli.ShowCommandHelp(cctx, "verify-ingest")
 }
 
-func listDagStoreIndexFiles(dsIdxDir string) ([]string, error) {
-	var matches []string
-	err := filepath.Walk(dsIdxDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if matched, err := filepath.Match(dagstoreIndexPattern, filepath.Base(path)); err != nil {
-			return err
-		} else if matched {
-			matches = append(matches, path)
-		}
-		return nil
-	})
-	return matches, err
-}
-
 type verifyIngestResult struct {
 	total             int
 	providerMissmatch int
 	present           int
 	absent            int
 	err               int
-}
-
-func (r *verifyIngestResult) addAndGet(other *verifyIngestResult) *verifyIngestResult {
-	r.total += other.total
-	r.providerMissmatch += other.providerMissmatch
-	r.present += other.present
-	r.absent += other.absent
-	r.err += other.err
-	return r
 }
 
 func (r *verifyIngestResult) passedVerification() bool {
