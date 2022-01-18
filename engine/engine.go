@@ -432,7 +432,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		// that advertisement has no entries.
 		cidsLnk = schema.NoEntries
 
-		// To delete specific indexes values, provide the CID link to the
+		// To delete specific index values, provide the CID link to the
 		// content entries to delete.  The indexer will fetch these entries and
 		// delete indexes for the content in each entry chunk.
 		//   cidsLnk = cidlink.Link{Cid: c}
