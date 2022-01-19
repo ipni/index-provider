@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -106,12 +105,8 @@ func daemonCommand(cctx *cli.Context) error {
 	gsnet := gsnet.NewFromLibp2pHost(h)
 	dtNet := dtnetwork.NewFromLibp2pHost(h)
 	gs := gsimpl.New(context.Background(), gsnet, cidlink.DefaultLinkSystem())
-	tp := gstransport.NewTransport(h.ID(), gs, dtNet)
-	tmpDir, err := ioutil.TempDir("", "indexer-dt-dir")
-	if err != nil {
-		return err
-	}
-	dt, err := datatransfer.NewDataTransfer(ds, tmpDir, dtNet, tp)
+	tp := gstransport.NewTransport(h.ID(), gs)
+	dt, err := datatransfer.NewDataTransfer(ds, dtNet, tp)
 	if err != nil {
 		return err
 	}
@@ -206,10 +201,6 @@ func daemonCommand(cctx *cli.Context) error {
 		finalErr = ErrDaemonStop
 	}
 
-	if err := os.RemoveAll(tmpDir); err != nil {
-		log.Errorf("Error cleaning up temporary files: %s", err)
-		finalErr = ErrCleanupFiles
-	}
 	// cancel libp2p server
 	cancelp2p()
 

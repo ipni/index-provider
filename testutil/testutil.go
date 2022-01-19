@@ -108,9 +108,8 @@ func SetupDataTransferOnHost(t *testing.T, h host.Host, store datastore.Batching
 	gsnet := gsnet.NewFromLibp2pHost(h)
 	dtNet := dtnetwork.NewFromLibp2pHost(h)
 	gs := gsimpl.New(context.Background(), gsnet, lsys)
-	tp := gstransport.NewTransport(h.ID(), gs, dtNet)
-	tmpDir := t.TempDir()
-	dt, err := dtimpl.NewDataTransfer(store, tmpDir, dtNet, tp)
+	tp := gstransport.NewTransport(h.ID(), gs)
+	dt, err := dtimpl.NewDataTransfer(store, dtNet, tp)
 	require.NoError(t, err)
 	ready := make(chan error, 1)
 	dt.OnReady(func(err error) {
