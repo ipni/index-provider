@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multihash"
-	"io"
 )
 
 type (
@@ -65,7 +66,12 @@ func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Ci
 		return cid.Undef, nil, err
 	}
 	nb := schema.Type.EntryChunk.NewBuilder()
-	err = dagjson.Decode(nb, bytes.NewBuffer(val))
+	decoder, err := multicodec.LookupDecoder(target.Prefix().Codec)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
+
+	err = decoder(nb, bytes.NewBuffer(val))
 	if err != nil {
 		return cid.Undef, nil, err
 	}
@@ -107,7 +113,12 @@ func (s *ProviderClientStore) getAdvertisement(ctx context.Context, id cid.Cid) 
 	}
 
 	nb := schema.Type.Advertisement.NewBuilder()
-	err = dagjson.Decode(nb, bytes.NewBuffer(val))
+	decoder, err := multicodec.LookupDecoder(id.Prefix().Codec)
+	if err != nil {
+		return nil, err
+	}
+
+	err = decoder(nb, bytes.NewBuffer(val))
 	if err != nil {
 		return nil, err
 	}
