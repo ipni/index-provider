@@ -6,7 +6,7 @@ all: vet test build
 
 build: TAG?=$(shell git describe --tags --abbrev=0)
 build: COMMIT?=$(shell git rev-parse HEAD)
-build: CLEAN?=$(shell git diff --quiet --exit-code || printf '-unclean')
+build: CLEAN?=$(shell git diff --quiet --exit-code || echo -n '-unclean')
 build:
 	cd $(BIN_SUBDIR) && go build -ldflags="-X 'main.version=$(TAG)-$(COMMIT)$(CLEAN)'"
 

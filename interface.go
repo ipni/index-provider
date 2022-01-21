@@ -39,12 +39,13 @@ type Interface interface {
 	// callback.
 	RegisterCallback(Callback)
 
-	// NotifyPut sginals to the provider that the list of multihashes looked up
-	// by the given contextID are available.  The given contextID is then used to look up
-	// the list of multihashes via Callback.  An advertisement is then
+	// NotifyPut signals the provider that the list of multihashes looked up by
+	// the given contextID is available.  The given contextID is then used to
+	// look up the list of multihashes via Callback.  An advertisement is then
 	// generated, appended to the chain of advertisements and published onto
 	// the gossip pubsub channel.
-	// Therefore, a Callback must be registered prior to using this function.
+	//
+	// A Callback must be registered prior to using this function.
 	// ErrNoCallback is returned if no such callback is registered.
 	//
 	// The metadata is data that provides hints about how to retrieve data and
