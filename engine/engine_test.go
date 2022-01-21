@@ -198,7 +198,7 @@ func TestPublishLocal(t *testing.T) {
 	// Check that the Cid has been generated successfully
 	require.Equal(t, advCid, advLnk.ToCid(), "advertisement CID from link and published CID not equal")
 	// Check that latest advertisement is set correctly
-	latest, err := e.getLatestAdv(ctx)
+	latest, err := e.getLatestAdCid(ctx)
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid, "latest advertisement pointer not updated correctly")
 	// Publish new advertisement.
@@ -206,7 +206,7 @@ func TestPublishLocal(t *testing.T) {
 	advCid2, err := e.PublishLocal(ctx, adv2)
 	require.NoError(t, err)
 	// Latest advertisement should be updates and we are able to still fetch the previous one.
-	latest, err = e.getLatestAdv(ctx)
+	latest, err = e.getLatestAdCid(ctx)
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid2, "latest advertisement pointer not updated correctly")
 	// Check that we can fetch the latest advertisement
@@ -219,6 +219,11 @@ func TestPublishLocal(t *testing.T) {
 	require.NoError(t, err)
 	fAdv := schema.Advertisement(fetchAdv)
 	require.Equal(t, ipld.DeepEqual(fAdv, adv), true, "fetched advertisement is not equal to published one")
+	// Check that latest can be republished.
+	err = e.PublishLatest(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestNotifyPublish(t *testing.T) {
