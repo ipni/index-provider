@@ -15,6 +15,10 @@ import (
 	"github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multihash"
+
+	// Import so these codecs get registered.
+	_ "github.com/ipld/go-ipld-prime/codec/dagcbor"
+	_ "github.com/ipld/go-ipld-prime/codec/dagjson"
 )
 
 type (
