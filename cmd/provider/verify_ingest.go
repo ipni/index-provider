@@ -10,6 +10,7 @@ import (
 
 	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
+	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multicodec"
@@ -24,6 +25,7 @@ var (
 	provId          string
 	samplingProb    float64
 	rngSeed         int64
+	adCidStr        string
 	include         sampleSelector
 	VerifyIngestCmd = &cli.Command{
 		Name:  "verify-ingest",
@@ -31,8 +33,15 @@ var (
 		Description: `This command verifies whether a list of multihashes are ingested by an indexer node with the 
 expected provider Peer ID. The multihashes to verify can be supplied from one of the following 
 sources:
+- Multiaddr info to the provider's GraphSync or HTTP endpoint.
 - Path to a CAR file (i.e. --from-car)
 - Path to a CARv2 index file in iterable multihash format (i.e. --from-car-index)
+
+The multiaddr info may point to the provider's GraphSync or HTTP publisher endpoint. Note that if 
+GraphSync endpoint is specified the "topic" flag will be taken into effect and must point to the 
+topic name on which advertisements are published. The user may optionally specify an advertisement
+CID as the source of multihash entries. If not specified, the latest advertisement is fetched
+dynamically and its entries are used as the source of multihashes.
 
 The path to CAR files may point to any CAR version (CARv1 or CARv2). The list of multihashes are 
 generated automatically from the CAR payload if no suitable index is not present. Note that the 
@@ -52,6 +61,16 @@ generator is non-deterministic by default. However, a seed may be specified to m
 deterministic for debugging purposes.
 
 Example usage:
+
+* Verify ingest from provider's' GraphSync endpoint for a specific advertisement CID, selecting 50%
+ of available multihashes using deterministic random number generator, seeded with '1413':
+	provider verify-ingest \
+		--from-provider '/ip4/1.2.3.4/tcp/24002/p2p/12D3KooWE8yt84RVwW3sFcd6WMjbUdWrZer2YtT4dmtj3dHdahSZ' \
+		--to 192.168.2.100:3000 \
+		--provider-id 12D3KooWE8yt84RVwW3sFcd6WMjbUdWrZer2YtT4dmtj3dHdahSZ \
+		--ad-cid baguqeeqqcbuegh2hzk7sukqpsz24wg3tk4
+		--sampling-prob 0.5 \
+		--rng-seed 1413
 
 * Verify ingestion from CAR file, selecting 50% of available multihashes using a deterministic 
 random number generator, seeded with '1413':
@@ -111,6 +130,13 @@ Example output:
 `,
 		Aliases: []string{"vi"},
 		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name: "from-provider",
+				Usage: "The provider's endpoint address in form of libp2p multiaddr info. If set, an optional advertisement CID may be specified." +
+					"Example GraphSync endpoint: /ip4/1.2.3.4/tcp/1234/p2p/12D3KooWE8yt84RVwW3sFcd6WMjbUdWrZer2YtT4dmtj3dHdahSZ  ",
+				Aliases:     []string{"fp"},
+				Destination: &pAddrInfo,
+			},
 			&cli.PathFlag{
 				Name:        "from-car",
 				Usage:       "Path to the CAR file from which to extract the list of multihash for verification.",
@@ -154,6 +180,20 @@ Example output:
 				DefaultText: "Non-deterministic.",
 				Destination: &rngSeed,
 			},
+			&cli.StringFlag{
+				Name:        "ad-cid",
+				Aliases:     []string{"a"},
+				Usage:       "The advertisement CID. This Option only takes effect if source of multihashes is set to a provider.",
+				DefaultText: "Dynamically fetch the latest advertisement CID",
+				Destination: &adCidStr,
+			},
+			&cli.StringFlag{
+				Name:        "topic",
+				Aliases:     []string{"t"},
+				Usage:       "The topic name on which advertisements are published by the provider. This Option only takes effect if source of multihashes is set to a provider.",
+				Value:       "indexer/ingest",
+				Destination: &topic,
+			},
 		},
 		Before: beforeVerifyIngest,
 		Action: doVerifyIngest,
@@ -185,6 +225,19 @@ func beforeVerifyIngest(cctx *cli.Context) error {
 }
 
 func doVerifyIngest(cctx *cli.Context) error {
+
+	if pAddrInfo != "" {
+		if carPath != "" || carIndexPath != "" {
+			return errOneMultihashSourceOnly(cctx)
+		}
+		var err error
+		provClient, err = toProviderClient(pAddrInfo, topic)
+		if err != nil {
+			return err
+		}
+		return doVerifyIngestFromProvider(cctx)
+	}
+
 	if carPath != "" {
 		if carIndexPath != "" {
 			return errVerifyIngestMultipleSources(cctx)
@@ -194,11 +247,61 @@ func doVerifyIngest(cctx *cli.Context) error {
 	}
 
 	if carIndexPath == "" {
-		showVerifyIngestHelp(cctx)
-		return cli.Exit("Exactly one multihash source must be specified.", 1)
+		return errOneMultihashSourceOnly(cctx)
 	}
 	carIndexPath = path.Clean(carIndexPath)
 	return doVerifyIngestFromCarIndex()
+}
+
+func doVerifyIngestFromProvider(cctx *cli.Context) error {
+	if adCidStr != "" {
+		var err error
+		adCid, err = cid.Decode(adCidStr)
+		if err != nil {
+			return err
+		}
+	}
+
+	ad, err := provClient.GetAdvertisement(cctx.Context, adCid)
+	if err != nil {
+		return err
+	}
+
+	if ad.IsRemove {
+		// TODO implement verificiation when ad is about removal
+		// When implementing note that entries may be empty and if so we need to walk back the chain to get the list of entries.
+		return fmt.Errorf("ad %s is a removal advertisement; verifying ingest from removal advertisement is not yet supported", adCid)
+	}
+
+	allMhs, err := ad.Entries.Drain()
+	if err != nil {
+		return err
+	}
+
+	var mhs []multihash.Multihash
+	for _, mh := range allMhs {
+		if include() {
+			mhs = append(mhs, mh)
+		}
+	}
+
+	fmt.Printf("Advertisement ID: %s\n", ad.ID)
+	fmt.Printf("Total Entries:    %d over %d chunk(s)\n", len(allMhs), ad.Entries.ChunkCount())
+	fmt.Println("Verifying ingest...")
+	finder, err := httpfinderclient.New(indexerAddr)
+	if err != nil {
+		return err
+	}
+	result, err := verifyIngestFromMhs(finder, mhs)
+	if err != nil {
+		return err
+	}
+	return result.printAndExit()
+}
+
+func errOneMultihashSourceOnly(cctx *cli.Context) error {
+	showVerifyIngestHelp(cctx)
+	return cli.Exit("Exactly one multihash source must be specified.", 1)
 }
 
 func doVerifyIngestFromCar(_ *cli.Context) error {
