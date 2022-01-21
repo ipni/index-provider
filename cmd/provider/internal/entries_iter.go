@@ -47,7 +47,7 @@ func (d *EntriesIterator) Next() (multihash.Multihash, error) {
 	return d.chunkIter.Next()
 }
 
-func (d *EntriesIterator) Drain() ([]multihash.Multihash, int, error) {
+func (d *EntriesIterator) Drain() ([]multihash.Multihash, error) {
 	var mhs []multihash.Multihash
 	for {
 		mh, err := d.Next()
@@ -55,11 +55,18 @@ func (d *EntriesIterator) Drain() ([]multihash.Multihash, int, error) {
 			break
 		}
 		if err != nil {
-			return nil, d.chunkCount, err
+			return nil, err
 		}
 		mhs = append(mhs, mh)
 	}
-	return mhs, d.chunkCount, nil
+	return mhs, nil
+}
+
+//ChunkCount returns the number of current chunk in iteration.
+// This function returns the final count of entries chunk when iteration reaches its end, i.e.
+// calling EntriesIterator.Next returns io.EOF error.
+func (d *EntriesIterator) ChunkCount() int {
+	return d.chunkCount
 }
 
 func (s *sliceMhIterator) Next() (multihash.Multihash, error) {

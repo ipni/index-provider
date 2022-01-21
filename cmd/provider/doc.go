@@ -24,6 +24,7 @@ Usage:
 	   register           Register provider information with an indexer that trusts the provider
 	   remove, rm         Removes previously advertised multihashes by the provider.
 	   verify-ingest, vi  Verifies ingestion of multihashes to an indexer node from a Lotus miner, CAR file or a CARv2 Index
+	   list               Lists advertisements
 	   help, h            Shows a list of commands or help for one command
 
 	GLOBAL OPTIONS:

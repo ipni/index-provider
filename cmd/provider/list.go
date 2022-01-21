@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/filecoin-project/index-provider/cmd/provider/internal"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -17,8 +19,8 @@ var (
 	topic        string
 	printEntries bool
 	GetAdCmd     = &cli.Command{
-		Name:        "get-ad",
-		Usage:       "Gets advertisement",
+		Name:        "list",
+		Usage:       "Lists advertisements",
 		ArgsUsage:   "[ad-cid]",
 		Description: "Advertisement CID may optionally be specified as the first argument. If not specified the latest advertisement is used.",
 		Before:      beforeGetAdvertisements,
@@ -62,41 +64,30 @@ func beforeGetAdvertisements(cctx *cli.Context) error {
 		}
 	}
 
-	addr, err := multiaddr.NewMultiaddr(pAddrInfo)
+	provClient, err = toProviderClient(pAddrInfo, topic)
+	return err
+}
+
+func toProviderClient(addrStr string, topic string) (internal.ProviderClient, error) {
+	addr, err := multiaddr.NewMultiaddr(addrStr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	addrInfos, err := peer.AddrInfosFromP2pAddrs(addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	addrInfo := addrInfos[0]
-
-	var isHttp bool
 	for _, p := range addrInfo.Addrs[0].Protocols() {
 		if p.Code == multiaddr.P_HTTP || p.Code == multiaddr.P_HTTPS {
-			isHttp = true
-			break
+			return internal.NewHttpProviderClient(addrInfo)
 		}
 	}
 
-	if isHttp {
-		provClient, err = internal.NewHttpProviderClient(addrInfo)
-		if err != nil {
-			return err
-		}
-	} else {
-		if topic == "" {
-			return cli.Exit("topic must be configured when graphsync endpoint is specified.", 1)
-		}
-		provClient, err = internal.NewGraphSyncProviderClient(addrInfo, topic)
-		if err != nil {
-			return err
-		}
+	if topic == "" {
+		return nil, errors.New("topic must be configured when graphsync endpoint is specified")
 	}
-
-	return nil
+	return internal.NewGraphSyncProviderClient(addrInfo, topic)
 }
 
 func doGetAdvertisements(cctx *cli.Context) error {
@@ -112,7 +103,7 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	fmt.Printf("Is Remove:   %v\n", ad.IsRemove)
 
 	fmt.Println("Entries:")
-	entries, cc, err := ad.Entries.Drain()
+	entries, err := ad.Entries.Drain()
 	if err != nil {
 		return err
 	}
@@ -123,7 +114,7 @@ func doGetAdvertisements(cctx *cli.Context) error {
 		}
 		fmt.Println("  ---------------------")
 	}
-	fmt.Printf("  Chunk Count: %d\n", cc)
+	fmt.Printf("  Chunk Count: %d\n", ad.Entries.ChunkCount())
 	fmt.Printf("  Total Count: %d\n", len(entries))
 	return nil
 }
