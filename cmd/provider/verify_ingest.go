@@ -327,9 +327,7 @@ func (r *verifyIngestResult) printAndExit() error {
 }
 
 func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index.IterableIndex) (*verifyIngestResult, error) {
-	result := &verifyIngestResult{}
 	var mhs []multihash.Multihash
-
 	if err := idx.ForEach(func(mh multihash.Multihash, _ uint64) error {
 		if include() {
 			mhs = append(mhs, mh)
@@ -338,7 +336,11 @@ func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index
 	}); err != nil {
 		return nil, err
 	}
+	return verifyIngestFromMhs(finder, mhs)
+}
 
+func verifyIngestFromMhs(finder *httpfinderclient.Client, mhs []multihash.Multihash) (*verifyIngestResult, error) {
+	result := &verifyIngestResult{}
 	mhsCount := len(mhs)
 	result.total = mhsCount
 	response, err := finder.FindBatch(context.Background(), mhs)

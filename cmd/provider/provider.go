@@ -37,7 +37,6 @@ func run() int {
 	}()
 
 	app := &cli.App{
-
 		Name:    "provider",
 		Usage:   "Indexer Reference Provider Implementation",
 		Version: version,
@@ -51,6 +50,7 @@ func run() int {
 			RegisterCmd,
 			RemoveCmd,
 			VerifyIngestCmd,
+			GetAdCmd,
 		},
 	}
 
