@@ -169,3 +169,15 @@ var (
 		Destination: &carZeroLengthAsEOFFlagValue,
 	}
 )
+
+var (
+	adEntriesRecurLimitFlagValue int64
+	adEntriesRecurLimitFlag      = &cli.Int64Flag{
+		Name:        "ad-entries-recursion-limit",
+		Aliases:     []string{"aerl"},
+		Usage:       "The maximum recursion depth when fetching advertisement entries chain.",
+		Value:       100,
+		DefaultText: "100 (set to '0' for unlimited)",
+		Destination: &adEntriesRecurLimitFlagValue,
+	}
+)
