@@ -6,6 +6,7 @@ import (
 
 	"github.com/filecoin-project/index-provider/cmd/provider/internal"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
@@ -48,6 +49,7 @@ var (
 				Aliases:     []string{"e"},
 				Destination: &printEntries,
 			},
+			adEntriesRecurLimitFlag,
 		},
 	}
 )
@@ -87,7 +89,11 @@ func toProviderClient(addrStr string, topic string) (internal.ProviderClient, er
 	if topic == "" {
 		return nil, errors.New("topic must be configured when graphsync endpoint is specified")
 	}
-	return internal.NewGraphSyncProviderClient(addrInfo, topic)
+
+	if adEntriesRecurLimitFlagValue < 0 {
+		return nil, fmt.Errorf("ad entries recursion depth limit cannot be less than zero; got %d", adEntriesRecurLimitFlagValue)
+	}
+	return internal.NewGraphSyncProviderClient(addrInfo, topic, adEntriesRecurLimitFlagValue)
 }
 
 func doGetAdvertisements(cctx *cli.Context) error {
@@ -103,8 +109,11 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	fmt.Printf("Is Remove:   %v\n", ad.IsRemove)
 
 	fmt.Println("Entries:")
+	var entriesOutput string
 	entries, err := ad.Entries.Drain()
-	if err != nil {
+	if err == datastore.ErrNotFound {
+		entriesOutput = "Note: More entries are available but not synced due to the configured entries recursion limit."
+	} else if err != nil {
 		return err
 	}
 
@@ -116,5 +125,8 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	}
 	fmt.Printf("  Chunk Count: %d\n", ad.Entries.ChunkCount())
 	fmt.Printf("  Total Count: %d\n", len(entries))
+	if entriesOutput != "" {
+		fmt.Println(entriesOutput)
+	}
 	return nil
 }

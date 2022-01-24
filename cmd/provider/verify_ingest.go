@@ -11,6 +11,7 @@ import (
 	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multicodec"
@@ -26,6 +27,7 @@ var (
 	samplingProb    float64
 	rngSeed         int64
 	adCidStr        string
+	adRecurLimit    int
 	include         sampleSelector
 	VerifyIngestCmd = &cli.Command{
 		Name:  "verify-ingest",
@@ -187,6 +189,15 @@ Example output:
 				DefaultText: "Dynamically fetch the latest advertisement CID",
 				Destination: &adCidStr,
 			},
+			&cli.IntFlag{
+				Name:        "ad-recursive-limit",
+				Aliases:     []string{"r"},
+				Usage:       "The number of advertisements to verify. This option only takes effect if the source of multihashes is set to provider's advertisement chain.",
+				Value:       1,
+				DefaultText: "Verify a single advertisement only.",
+				Destination: &adRecurLimit,
+			},
+			adEntriesRecurLimitFlag,
 			&cli.StringFlag{
 				Name:        "topic",
 				Aliases:     []string{"t"},
@@ -220,6 +231,9 @@ func beforeVerifyIngest(cctx *cli.Context) error {
 		include = func() bool {
 			return rng.Float64() <= samplingProb
 		}
+	}
+	if adRecurLimit < 0 {
+		return fmt.Errorf("advertiserment recursion limit cannot be less than zero; got %d", adRecurLimit)
 	}
 	return nil
 }
@@ -262,41 +276,63 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 		}
 	}
 
-	ad, err := provClient.GetAdvertisement(cctx.Context, adCid)
-	if err != nil {
-		return err
+	var adRecurLimitStr string
+	if adRecurLimit == 0 {
+		adRecurLimitStr = "∞"
+	} else {
+		adRecurLimitStr = fmt.Sprintf("%d", adRecurLimit)
 	}
-
-	if ad.IsRemove {
-		// TODO implement verificiation when ad is about removal
-		// When implementing note that entries may be empty and if so we need to walk back the chain to get the list of entries.
-		return fmt.Errorf("ad %s is a removal advertisement; verifying ingest from removal advertisement is not yet supported", adCid)
-	}
-
-	allMhs, err := ad.Entries.Drain()
-	if err != nil {
-		return err
-	}
-
-	var mhs []multihash.Multihash
-	for _, mh := range allMhs {
-		if include() {
-			mhs = append(mhs, mh)
+	var aggResult verifyIngestResult
+	for i := 1; i <= adRecurLimit; i++ {
+		ad, err := provClient.GetAdvertisement(cctx.Context, adCid)
+		if err != nil {
+			return err
 		}
+
+		if ad.IsRemove {
+			// TODO implement verificiation when ad is about removal
+			// When implementing note that entries may be empty and if so we need to walk back the chain to get the list of entries.
+			return fmt.Errorf("ad %s is a removal advertisement; verifying ingest from removal advertisement is not yet supported", adCid)
+		}
+
+		var entriesOutput string
+		allMhs, err := ad.Entries.Drain()
+		if err == datastore.ErrNotFound {
+			entriesOutput = "; skipped syncing the remaining chunks due to recursion limit"
+		} else if err != nil {
+			return err
+		}
+
+		var mhs []multihash.Multihash
+		for _, mh := range allMhs {
+			if include() {
+				mhs = append(mhs, mh)
+			}
+		}
+
+		fmt.Printf("Advertisement ID:          %s\n", ad.ID)
+		fmt.Printf("Previous Advertisement ID: %s\n", ad.PreviousID)
+		fmt.Printf("Total Entries:             %d over %d chunk(s)%s\n", len(allMhs), ad.Entries.ChunkCount(), entriesOutput)
+		fmt.Printf("Verifying ingest... (%d/%s)\n", i, adRecurLimitStr)
+		finder, err := httpfinderclient.New(indexerAddr)
+		if err != nil {
+			return err
+		}
+		result, err := verifyIngestFromMhs(finder, mhs)
+		if err != nil {
+			return err
+		}
+		aggResult.add(result)
+
+		// Stop verification if there is no link to previous advertisement.
+		if ad.PreviousID == cid.Undef {
+			break
+		}
+
+		adCid = ad.PreviousID
 	}
 
-	fmt.Printf("Advertisement ID: %s\n", ad.ID)
-	fmt.Printf("Total Entries:    %d over %d chunk(s)\n", len(allMhs), ad.Entries.ChunkCount())
-	fmt.Println("Verifying ingest...")
-	finder, err := httpfinderclient.New(indexerAddr)
-	if err != nil {
-		return err
-	}
-	result, err := verifyIngestFromMhs(finder, mhs)
-	if err != nil {
-		return err
-	}
-	return result.printAndExit()
+	return aggResult.printAndExit()
 }
 
 func errOneMultihashSourceOnly(cctx *cli.Context) error {
@@ -427,6 +463,14 @@ func (r *verifyIngestResult) printAndExit() error {
 		return cli.Exit("🎉 Passed verification check.", 0)
 	}
 	return cli.Exit("❌ Failed verification check.", 1)
+}
+
+func (r *verifyIngestResult) add(other *verifyIngestResult) {
+	r.total += other.total
+	r.providerMissmatch += other.providerMissmatch
+	r.present += other.present
+	r.absent += other.absent
+	r.err += other.err
 }
 
 func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index.IterableIndex) (*verifyIngestResult, error) {

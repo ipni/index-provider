@@ -55,7 +55,9 @@ func (d *EntriesIterator) Drain() ([]multihash.Multihash, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			// Return what we have with error.
+			// This is used when err is datastore.ErrNotFound when recursion limit stopped the remaining entries to be synced.
+			return mhs, err
 		}
 		mhs = append(mhs, mh)
 	}
