@@ -177,9 +177,14 @@ func (e *Engine) Start(ctx context.Context) error {
 	} else {
 		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
 	}
-
 	if err != nil {
 		return fmt.Errorf("cannot initialize publisher: %s", err)
+	}
+
+	err = e.PublishLatest(ctx)
+	if err != nil {
+		log.Errorw("Could not republish latest advertisement", "err", err)
+		return err
 	}
 
 	return nil
