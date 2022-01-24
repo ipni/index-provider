@@ -169,11 +169,6 @@ func daemonCommand(cctx *cli.Context) error {
 		defer bootstrapper.Close()
 	}
 
-	err = eng.PublishLatest(cctx.Context)
-	if err != nil {
-		log.Errorw("Could not republish latest advertisement", "err", err)
-	}
-
 	var finalErr error
 	// Keep process running.
 	select {
