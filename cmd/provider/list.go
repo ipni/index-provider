@@ -39,7 +39,7 @@ var (
 			&cli.StringFlag{
 				Name:        "topic",
 				Usage:       "The topic on which index advertisements are published. Only needed if connecting to provider via Graphsync endpoint.",
-				Value:       "indexer/ingest",
+				Value:       "/indexer/ingest/mainnet",
 				Aliases:     []string{"t"},
 				Destination: &topic,
 			},
