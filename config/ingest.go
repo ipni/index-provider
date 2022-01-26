@@ -5,7 +5,7 @@ const (
 	defaultLinkCacheSize = 1024
 	// Multihashes are 128 bytes so 16384 redults in 2MB chunk when full.
 	defaultLinkedChunkSize = 16384
-	defaultPubSubTopic     = "indexer/ingest"
+	defaultPubSubTopic     = "/indexer/ingest/mainnet"
 )
 
 type PublisherKind string

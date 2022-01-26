@@ -202,7 +202,7 @@ Example output:
 				Name:        "topic",
 				Aliases:     []string{"t"},
 				Usage:       "The topic name on which advertisements are published by the provider. This Option only takes effect if source of multihashes is set to a provider.",
-				Value:       "indexer/ingest",
+				Value:       "/indexer/ingest/mainnet",
 				Destination: &topic,
 			},
 		},
