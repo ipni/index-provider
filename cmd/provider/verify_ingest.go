@@ -20,16 +20,17 @@ import (
 )
 
 var (
-	carPath         string
-	carIndexPath    string
-	indexerAddr     string
-	provId          string
-	samplingProb    float64
-	rngSeed         int64
-	adCidStr        string
-	adRecurLimit    int
-	include         sampleSelector
-	VerifyIngestCmd = &cli.Command{
+	carPath           string
+	carIndexPath      string
+	indexerAddr       string
+	provId            string
+	samplingProb      float64
+	rngSeed           int64
+	adCidStr          string
+	adRecurLimit      int
+	printUnindexedMhs bool
+	include           sampleSelector
+	VerifyIngestCmd   = &cli.Command{
 		Name:  "verify-ingest",
 		Usage: "Verifies ingestion of multihashes to an indexer node from a CAR file or a CARv2 Index",
 		Description: `This command verifies whether a list of multihashes are ingested by an indexer node with the 
@@ -204,6 +205,12 @@ Example output:
 				Usage:       "The topic name on which advertisements are published by the provider. This Option only takes effect if source of multihashes is set to a provider.",
 				Value:       "/indexer/ingest/mainnet",
 				Destination: &topic,
+			},
+			&cli.BoolFlag{
+				Name:        "print-unindexed-mhs",
+				Usage:       "Whether to print the multihashes that are not indexed by the indexer. Note that the multihashes are only printed if the indexer is successfully contacted and multihash is not found.",
+				Aliases:     []string{"pum"},
+				Destination: &printUnindexedMhs,
 			},
 		},
 		Before: beforeVerifyIngest,
@@ -440,6 +447,8 @@ type verifyIngestResult struct {
 	present           int
 	absent            int
 	err               int
+	errCauses         []error
+	mhs               []multihash.Multihash
 }
 
 func (r *verifyIngestResult) passedVerification() bool {
@@ -462,6 +471,23 @@ func (r *verifyIngestResult) printAndExit() error {
 	if r.passedVerification() {
 		return cli.Exit("🎉 Passed verification check.", 0)
 	}
+
+	if len(r.errCauses) != 0 {
+		fmt.Println("Error(s):")
+		for _, err := range r.errCauses {
+			fmt.Printf("  %s\n", err)
+		}
+		fmt.Println()
+	}
+
+	if printUnindexedMhs && len(r.mhs) != 0 {
+		fmt.Println("Unindexed Multihash(es):")
+		for _, mh := range r.mhs {
+			fmt.Printf("  %s\n", mh.B58String())
+		}
+		fmt.Println()
+	}
+
 	return cli.Exit("❌ Failed verification check.", 1)
 }
 
@@ -471,6 +497,8 @@ func (r *verifyIngestResult) add(other *verifyIngestResult) {
 	r.present += other.present
 	r.absent += other.absent
 	r.err += other.err
+	r.errCauses = append(r.errCauses, other.errCauses...)
+	r.mhs = append(r.mhs, other.mhs...)
 }
 
 func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index.IterableIndex) (*verifyIngestResult, error) {
@@ -495,8 +523,11 @@ func verifyIngestFromMhs(finder *httpfinderclient.Client, mhs []multihash.Multih
 		// Set number multihashes failed to verify instead of returning error since at this point
 		// the number of multihashes is known.
 		result.err = mhsCount
+		err = fmt.Errorf("failed to connect to indexer: %w", err)
+		result.errCauses = append(result.errCauses, err)
 		return result, nil
 	}
+	result.mhs = mhs
 
 	if len(response.MultihashResults) == 0 {
 		result.absent = mhsCount
