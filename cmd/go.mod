@@ -6,7 +6,7 @@ require (
 	github.com/filecoin-project/go-data-transfer v1.13.0
 	github.com/filecoin-project/go-legs v0.2.4
 	github.com/filecoin-project/index-provider v0.2.1
-	github.com/filecoin-project/storetheindex v0.2.5
+	github.com/filecoin-project/storetheindex v0.2.6-0.20220128231557-3559ced5972a
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-ds-leveldb v0.5.0
