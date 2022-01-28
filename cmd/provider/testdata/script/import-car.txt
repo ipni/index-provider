@@ -1,13 +1,5 @@
 # invalid usage prints USAGE
 ! provider import car
-stderr 'Required flags "listen-admin, input" not set'
-stdout 'USAGE'
-
-! provider import car -i fish
-stderr 'Required flag "listen-admin" not set'
-stdout 'USAGE'
-
-! provider import car -l fish
 stderr 'Required flag "input" not set'
 stdout 'USAGE'
 

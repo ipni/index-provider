@@ -1,8 +1,4 @@
 # invalid usage prints USAGE
-! provider remove car
-stderr 'Required flag "listen-admin" not set'
-stdout 'USAGE'
-
 ! provider remove car -l fish
 stderr 'either key or input must be set'
 ! stdout .
