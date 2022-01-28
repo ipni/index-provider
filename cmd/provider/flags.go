@@ -154,8 +154,8 @@ var (
 		Usage:       "Admin HTTP API listen address",
 		Aliases:     []string{"l"},
 		EnvVars:     []string{"PROVIDER_LISTEN_ADMIN"},
+		Value:       "http://localhost:3102",
 		Destination: &adminAPIFlagValue,
-		Required:    true,
 	}
 )
 
