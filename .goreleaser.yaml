@@ -1,0 +1,17 @@
+builds:
+  - main: ./provider
+    dir: cmd
+    binary: provider
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - 'amd64'
+      - '386'
+release:
+  # Do not override manually written relase notes.
+  mode: keep-existing
+changelog:
+  # Do not generate changelog since for this project release notes are written manually.
+  skip: true
