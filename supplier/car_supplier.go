@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
+	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-car/v2/index"
@@ -24,6 +25,8 @@ const (
 
 // ErrNotFound signals that CidIteratorSupplier has no iterator corresponding to the given key.
 var ErrNotFound = errors.New("no CID iterator found for given key")
+
+var log = logging.Logger("provider/carsupplier")
 
 // CarSupplier supplies multihashes to an implementation of Provider.Interface via provider.Callback.
 // It allows the users to advertise addition and removal of multihashes within CAR files by simply
@@ -39,15 +42,9 @@ type CarSupplier struct {
 	opts []car.ReadOption
 }
 
-// NewCarSupplier instantiateas a new CarSupplier and registers it as the provider.Callback of the
+// NewCarSupplier instantiates a new CarSupplier and registers it as the provider.Callback of the
 // given provider.Interface.
 func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
-	// We require a "full" index, including identity CIDs.
-	// As such, we require StoreIdentityCIDs to be set.
-	// Don't rely on all callers to remember to set it.
-	// They can override it if they so wish, but that's unsupported.
-	opts = append([]car.ReadOption{car.StoreIdentityCIDs(true)}, opts...)
-
 	cs := &CarSupplier{
 		eng:  eng,
 		ds:   ds,
@@ -141,6 +138,8 @@ func (cs *CarSupplier) getPath(ctx context.Context, contextID []byte) (path stri
 }
 
 func (cs *CarSupplier) lookupIterableIndex(ctx context.Context, contextID []byte) (index.IterableIndex, error) {
+	log := log.With("contextID", contextID)
+
 	path, err := cs.getPath(ctx, contextID)
 	if err != nil {
 		return nil, err
@@ -151,22 +150,31 @@ func (cs *CarSupplier) lookupIterableIndex(ctx context.Context, contextID []byte
 		return nil, err
 	}
 	idxReader := cr.IndexReader()
-	if err != nil {
-		return nil, err
-	}
-	if idxReader == nil || !cr.Header.Characteristics.IsFullyIndexed() {
-		// Missing or non-complete index; generate it.
+	if idxReader == nil {
+		// Missing index; generate it.
+		log.Debugw("CAR has no index; generating.")
 		return cs.generateIterableIndex(cr)
 	}
 	idx, err := index.ReadFrom(idxReader)
 	if err != nil {
 		return nil, err
 	}
-	if idx.Codec() != multicodec.CarMultihashIndexSorted {
-		// Index doesn't contain full multihashes; generate it.
+	codec := idx.Codec()
+	log = log.With("codec", codec)
+	if codec != multicodec.CarMultihashIndexSorted {
+		log.Debugw("CAR index not iterable; regenerating index.")
 		return cs.generateIterableIndex(cr)
 	}
-	return idx.(index.IterableIndex), nil
+	itIdx, ok := idx.(index.IterableIndex)
+	if !ok {
+		// Though technically possible, this should not happen, since the expectation is that
+		// multicodec.CarMultihashIndexSorted implements the index.IterableIndex interface.
+		// Regardless, defensively check this and re-generate as needed in case go-car library
+		// changes this expectation.
+		log.Warnw("expected CAR index to implement index.IterableIndex interface; regenerating index.")
+		return cs.generateIterableIndex(cr)
+	}
+	return itIdx, nil
 }
 
 func (cs *CarSupplier) generateIterableIndex(cr *car.Reader) (index.IterableIndex, error) {

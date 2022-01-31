@@ -26,14 +26,25 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 	tests := []struct {
 		name    string
 		carPath string
+		opts    []car.Option
 	}{
 		{
-			"CARv1ReturnsExpectedCIDs",
-			"../testdata/sample-v1.car",
+			name:    "CARv1ReturnsExpectedCIDs",
+			carPath: "../testdata/sample-v1.car",
+			opts:    []car.Option{car.StoreIdentityCIDs(true)},
 		},
 		{
-			"CARv2ReturnsExpectedCIDs",
-			"../testdata/sample-wrapped-v2.car",
+			name:    "CARv2ReturnsExpectedCIDs",
+			carPath: "../testdata/sample-wrapped-v2.car",
+			opts:    []car.Option{car.StoreIdentityCIDs(true)},
+		},
+		{
+			name:    "CARv1ReturnsExpectedCIDsWithoutIdentityCids",
+			carPath: "../testdata/sample-v1.car",
+		},
+		{
+			name:    "CARv2ReturnsExpectedCIDsWithoutIdentityCids",
+			carPath: "../testdata/sample-wrapped-v2.car",
 		},
 	}
 	metadata := stiapi.Metadata{
@@ -49,8 +60,10 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			mockEng := mock_provider.NewMockInterface(mc)
 			ds := datastore.NewMapDatastore()
 			mockEng.EXPECT().RegisterCallback(gomock.Any())
-			subject := NewCarSupplier(mockEng, ds)
+			subject := NewCarSupplier(mockEng, ds, tt.opts...)
 			t.Cleanup(func() { require.NoError(t, subject.Close()) })
+
+			options := car.ApplyOptions(tt.opts...)
 
 			seenMultihashes := make(map[string]bool)
 			wantMultihashes := 0
@@ -67,6 +80,10 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 						break
 					}
 					require.NoError(t, err)
+
+					if bl.Cid().Prefix().MhType == multihash.IDENTITY && !options.StoreIdentityCIDs {
+						continue
+					}
 
 					mh := bl.Cid().Hash()
 					seenMultihashes[mh.HexString()] = false
