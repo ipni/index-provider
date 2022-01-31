@@ -3,10 +3,10 @@ module github.com/filecoin-project/index-provider/cmd
 go 1.16
 
 require (
-	github.com/filecoin-project/go-data-transfer v1.13.0
-	github.com/filecoin-project/go-legs v0.2.4
+	github.com/filecoin-project/go-data-transfer v1.14.0
+	github.com/filecoin-project/go-legs v0.2.7
 	github.com/filecoin-project/index-provider v0.2.1
-	github.com/filecoin-project/storetheindex v0.2.6-0.20220128231557-3559ced5972a
+	github.com/filecoin-project/storetheindex v0.3.0
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-ds-leveldb v0.5.0
@@ -15,8 +15,8 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.0
 	github.com/ipld/go-car/v2 v2.1.1
 	github.com/ipld/go-ipld-prime v0.14.4
-	github.com/libp2p/go-libp2p v0.17.0
-	github.com/libp2p/go-libp2p-core v0.13.0
+	github.com/libp2p/go-libp2p v0.18.0-rc1
+	github.com/libp2p/go-libp2p-core v0.14.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multicodec v0.4.0
