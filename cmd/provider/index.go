@@ -13,6 +13,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const defaultMetadataCodec multicodec.Code = 0x300001
+
 var IndexCmd = &cli.Command{
 	Name:   "index",
 	Usage:  "Push a single content index into an indexer",
@@ -61,8 +63,15 @@ func indexCommand(cctx *cli.Context) error {
 		return err
 	}
 
+	var protoID multicodec.Code
+	proto := cctx.Int("proto")
+	if proto == 0 {
+		protoID = defaultMetadataCodec
+	} else {
+		protoID = multicodec.Code(proto)
+	}
 	metadata := stiapi.Metadata{
-		ProtocolID: multicodec.Code(cctx.Int("proto")),
+		ProtocolID: protoID,
 		Data:       []byte(cctx.String("meta")),
 	}
 
