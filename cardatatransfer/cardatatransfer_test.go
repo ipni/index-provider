@@ -158,7 +158,7 @@ func TestCarDataTransfer(t *testing.T) {
 		t.Run(testCase, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			mn := mocknet.New(ctx)
+			mn := mocknet.New()
 			srcHost, err := mn.GenPeer()
 			require.NoError(t, err)
 			srcStore := dssync.MutexWrap(datastore.NewMapDatastore())
