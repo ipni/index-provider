@@ -82,7 +82,7 @@ var indexFlags = []cli.Flag{
 	&cli.IntFlag{
 		Name:     "proto",
 		Usage:    "Specify retrieval protocol ID",
-		Required: false,
+		Required: true,
 	},
 }
 
