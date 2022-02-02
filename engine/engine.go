@@ -13,7 +13,7 @@ import (
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/config"
-	"github.com/filecoin-project/index-provider/engine/lrustore"
+	"github.com/filecoin-project/index-provider/engine/chunker"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/hashicorp/go-multierror"
@@ -51,9 +51,9 @@ type Engine struct {
 	addrs []string
 	// lsys is the main linksystem used for reference provider
 	lsys ipld.LinkSystem
-	// cachelsys is used to track the linked lists through ingestion
-	cachelsys ipld.LinkSystem
-	cache     datastore.Datastore
+
+	entriesChunker *chunker.CachedEntriesChunker
+
 	// ds is the datastore used for persistence of different assets (advertisements,
 	// indexed data, etc.)
 	ds datastore.Batching
@@ -132,7 +132,6 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		extraGossipData:  cfg.extraGossipData,
 	}
 
-	e.cachelsys = e.cacheLinkSystem()
 	e.lsys = e.mkLinkSystem()
 
 	return e, nil
@@ -157,23 +156,23 @@ func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastor
 //
 // The context is used to instantiate the internal LRU cache storage.
 //
-// See: Engine.Shutdown, lrustore.New, dtsync.NewPublisherFromExisting.
+// See: Engine.Shutdown, chunker.NewCachedEntriesChunker, dtsync.NewPublisherFromExisting.
 func (e *Engine) Start(ctx context.Context) error {
-	// Create datastore cache
-	dsCache, err := lrustore.New(ctx, dsn.Wrap(e.ds, datastore.NewKey(linksCachePath)), e.linkCacheSize)
+	// Create datastore entriesChunker
+	entriesCacheDs := dsn.Wrap(e.ds, datastore.NewKey(linksCachePath))
+	cachedChunker, err := chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.linkedChunkSize, e.linkCacheSize)
 	if err != nil {
 		return err
 	}
 
 	if e.purgeLinkCache {
-		dsCache.Clear(ctx)
+		err := cachedChunker.Clear(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
-	if dsCache.Cap() > e.linkCacheSize {
-		log.Infow("Link cache expanded to hold previously cached links", "new_size", dsCache.Cap())
-	}
-
-	e.cache = dsCache
+	e.entriesChunker = cachedChunker
 
 	if e.publisherKind == config.HttpPublisherKind {
 		var addr string
@@ -310,8 +309,8 @@ func (e *Engine) Shutdown() error {
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("error closing leg publisher: %s", err))
 	}
-	if err = e.cache.Close(); err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("error closing link cache: %s", err))
+	if err = e.entriesChunker.Close(); err != nil {
+		errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
 	}
 
 	return errs
@@ -393,7 +392,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 			}
 			// Generate the linked list ipld.Link that is added to the
 			// advertisement and used for ingestion.
-			lnk, err := e.generateChunks(mhIter)
+			lnk, err := e.entriesChunker.Chunk(ctx, mhIter)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("could not generate entries list: %s", err)
 			}
