@@ -1,9 +1,9 @@
 package config
 
 const (
-	// Keep 1024 chunks in cache; keeps 2G if chunks are 2MB.
+	// Keep 1024 chunks in cache; keeps 256MiB if chunks are 0.25MiB.
 	defaultLinkCacheSize = 1024
-	// Multihashes are 128 bytes so 16384 redults in 2MB chunk when full.
+	// Multihashes are 128 bytes so 16384 results in 0.25MiB chunk when full.
 	defaultLinkedChunkSize = 16384
 	defaultPubSubTopic     = "/indexer/ingest/mainnet"
 )
