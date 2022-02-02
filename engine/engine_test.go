@@ -127,17 +127,20 @@ func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 }
 
 func mkEngine(t *testing.T) *Engine {
+	ingestCfg := config.NewIngest()
+	ingestCfg.PubSubTopic = testTopic
+	return mkEngineWithConfig(t, ingestCfg)
+}
+
+func mkEngineWithConfig(t *testing.T, cfg config.Ingest) *Engine {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
 	h := mkTestHost(t)
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 
-	ingestCfg := config.Ingest{
-		PubSubTopic: testTopic,
-	}
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	engine, err := New(ingestCfg, priv, dt, h, store, nil)
+	engine, err := New(cfg, priv, dt, h, store, nil)
 	require.NoError(t, err)
 	err = engine.Start(context.Background())
 	require.NoError(t, err)
@@ -159,14 +162,15 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 	e.RegisterCallback(toCallback(mhs))
 	// Use a random contextID for the list of cids.
 	contextID := []byte(mhs[0])
-	mhIter, err := e.cb(context.Background(), contextID)
+	ctx := context.Background()
+	mhIter, err := e.cb(ctx, contextID)
 	require.NoError(t, err)
-	cidsLnk, err := e.generateChunks(mhIter)
+	cidsLnk, err := e.entriesChunker.Chunk(ctx, mhIter)
 	require.NoError(t, err)
 	// Store the relationship between contextID and CID
 	// of the advertised list of Cids so it is available
 	// for the engine.
-	err = e.putKeyCidMap(context.Background(), contextID, cidsLnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(ctx, contextID, cidsLnk.(cidlink.Link).Cid)
 	require.NoError(t, err)
 	return cidsLnk
 }
@@ -419,11 +423,12 @@ func TestLinkedStructure(t *testing.T) {
 	k := []byte("a")
 
 	// Generate the linked list
-	mhIter, err := e.cb(context.Background(), k)
+	ctx := context.Background()
+	mhIter, err := e.cb(ctx, k)
 	require.NoError(t, err)
-	lnk, err := e.generateChunks(mhIter)
+	lnk, err := e.entriesChunker.Chunk(ctx, mhIter)
 	require.NoError(t, err)
-	err = e.putKeyCidMap(context.Background(), k, lnk.(cidlink.Link).Cid)
+	err = e.putKeyCidMap(ctx, k, lnk.(cidlink.Link).Cid)
 	require.NoError(t, err)
 	// Check if the linksystem is able to load it. Demonstrating and e2e
 	// flow, from generation and storage to lsys loading.
