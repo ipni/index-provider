@@ -38,14 +38,13 @@ func GenerateCids(n int) []cid.Cid {
 	return cids
 }
 
-func RandomCids(n int) ([]cid.Cid, error) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+func RandomCids(rng *rand.Rand, n int) ([]cid.Cid, error) {
 	prefix := schema.Linkproto.Prefix
 
 	cids := make([]cid.Cid, n)
 	for i := 0; i < n; i++ {
 		b := make([]byte, 10*n)
-		prng.Read(b)
+		rng.Read(b)
 		c, err := prefix.Sum(b)
 		if err != nil {
 			return nil, err
@@ -55,14 +54,13 @@ func RandomCids(n int) ([]cid.Cid, error) {
 	return cids, nil
 }
 
-func RandomMultihashes(n int) ([]multihash.Multihash, error) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+func RandomMultihashes(rng *rand.Rand, n int) ([]multihash.Multihash, error) {
 	prefix := schema.Linkproto.Prefix
 
 	mhashes := make([]multihash.Multihash, n)
 	for i := 0; i < n; i++ {
 		b := make([]byte, 10*n)
-		prng.Read(b)
+		rng.Read(b)
 		c, err := prefix.Sum(b)
 		if err != nil {
 			return nil, err

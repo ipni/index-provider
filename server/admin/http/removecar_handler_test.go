@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,6 +24,7 @@ import (
 )
 
 func Test_removeCarHandler(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
 	req := requireRemoveCarHttpRequestFromKey(t, wantKey)
 
@@ -36,8 +38,8 @@ func Test_removeCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handle)
-	wantCid := requireRandomCid(t)
-	requireMockPut(t, mockEng, wantKey, cs)
+	wantCid := requireRandomCid(t, rng)
+	requireMockPut(t, mockEng, wantKey, cs, rng)
 
 	mockEng.
 		EXPECT().
@@ -58,6 +60,7 @@ func Test_removeCarHandler(t *testing.T) {
 }
 
 func Test_removeCarHandlerFail(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
 	req := requireRemoveCarHttpRequestFromKey(t, wantKey)
 
@@ -71,7 +74,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handle)
-	requireMockPut(t, mockEng, wantKey, cs)
+	requireMockPut(t, mockEng, wantKey, cs, rng)
 
 	mockEng.
 		EXPECT().
@@ -156,10 +159,10 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 	return req
 }
 
-func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *supplier.CarSupplier) {
+func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *supplier.CarSupplier, rng *rand.Rand) {
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(key)
 	require.NoError(t, err)
-	wantCid := requireRandomCid(t)
+	wantCid := requireRandomCid(t, rng)
 
 	mockEng.
 		EXPECT().
@@ -169,8 +172,8 @@ func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []by
 	require.NoError(t, err)
 }
 
-func requireRandomCid(t *testing.T) cid.Cid {
-	randCids, err := testutil.RandomCids(1)
+func requireRandomCid(t *testing.T, rng *rand.Rand) cid.Cid {
+	randCids, err := testutil.RandomCids(rng, 1)
 	require.NoError(t, err)
 	return randCids[0]
 }
