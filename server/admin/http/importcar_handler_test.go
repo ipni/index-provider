@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,6 +23,7 @@ import (
 )
 
 func Test_importCarHandler(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
 	require.NoError(t, err)
@@ -47,7 +49,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handle)
-	randCids, err := testutil.RandomCids(1)
+	randCids, err := testutil.RandomCids(rng, 1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 

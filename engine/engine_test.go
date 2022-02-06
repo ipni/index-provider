@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -95,7 +96,8 @@ func mkTestHost(t *testing.T) host.Host {
 }
 
 func TestToCallback(t *testing.T) {
-	wantMhs, err := testutil.RandomMultihashes(10)
+	rng := rand.New(rand.NewSource(1413))
+	wantMhs, err := testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 
 	subject := toCallback(wantMhs)
@@ -114,8 +116,9 @@ func TestToCallback(t *testing.T) {
 }
 
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
 	subject := mkEngine(t)
-	mhs, err := testutil.RandomMultihashes(10)
+	mhs, err := testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 	subject.RegisterCallback(toCallback(mhs))
 	c, err := subject.NotifyRemove(context.Background(), []byte("unknown context ID"))
@@ -168,10 +171,10 @@ func prepareMhsForCallback(t *testing.T, e *Engine, mhs []mh.Multihash) ipld.Lin
 	return cidsLnk
 }
 
-func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
+func genRandomIndexAndAdv(t *testing.T, e *Engine, rng *rand.Rand) (ipld.Link, schema.Advertisement, schema.Link_Advertisement) {
 	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
 	require.NoError(t, err)
-	mhs, err := testutil.RandomMultihashes(10)
+	mhs, err := testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 	p, err := peer.Decode("12D3KooWKRyzVWW6ChFjQjK4miCty85Niy48tpPV95XdKu1BcvMA")
 	require.NoError(t, err)
@@ -190,9 +193,10 @@ func genRandomIndexAndAdv(t *testing.T, e *Engine) (ipld.Link, schema.Advertisem
 
 func TestPublishLocal(t *testing.T) {
 	ctx := context.Background()
+	rng := rand.New(rand.NewSource(1413))
 	e := mkEngine(t)
 
-	_, adv, advLnk := genRandomIndexAndAdv(t, e)
+	_, adv, advLnk := genRandomIndexAndAdv(t, e, rng)
 	advCid, err := e.PublishLocal(ctx, adv)
 	require.NoError(t, err)
 	// Check that the Cid has been generated successfully
@@ -202,7 +206,7 @@ func TestPublishLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, latest, advCid, "latest advertisement pointer not updated correctly")
 	// Publish new advertisement.
-	_, adv2, _ := genRandomIndexAndAdv(t, e)
+	_, adv2, _ := genRandomIndexAndAdv(t, e, rng)
 	advCid2, err := e.PublishLocal(ctx, adv2)
 	require.NoError(t, err)
 	// Latest advertisement should be updates and we are able to still fetch the previous one.
@@ -228,12 +232,13 @@ func TestPublishLocal(t *testing.T) {
 
 func TestNotifyPublish(t *testing.T) {
 	skipFlaky(t)
+	rng := rand.New(rand.NewSource(1413))
 	ctx := context.Background()
 	e := mkEngine(t)
 
 	// Create mockSubscriber
 	lh := mkTestHost(t)
-	_, adv, advLnk := genRandomIndexAndAdv(t, e)
+	_, adv, advLnk := genRandomIndexAndAdv(t, e, rng)
 	ls := mkMockSubscriber(t, lh)
 	watcher, cncl := ls.OnSyncFinished()
 
@@ -270,6 +275,7 @@ func TestNotifyPublish(t *testing.T) {
 
 func TestNotifyPutAndRemoveCids(t *testing.T) {
 	skipFlaky(t)
+	rng := rand.New(rand.NewSource(1413))
 	ctx := context.Background()
 	e := mkEngine(t)
 
@@ -287,7 +293,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Fail if not callback has been registered.
-	mhs, err := testutil.RandomMultihashes(10)
+	mhs, err := testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 	metadata := stiapi.Metadata{
 		ProtocolID: protocolID,
@@ -297,7 +303,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	require.Error(t, err, provider.ErrNoCallback)
 
 	// NotifyPut of cids
-	mhs, err = testutil.RandomMultihashes(10)
+	mhs, err = testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 	cidsLnk := prepareMhsForCallback(t, e, mhs)
 	c, err := e.NotifyPut(ctx, cidsLnk.(cidlink.Link).Cid.Bytes(), metadata)
@@ -314,7 +320,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 	}
 
 	// NotifyPut second time
-	mhs, err = testutil.RandomMultihashes(10)
+	mhs, err = testutil.RandomMultihashes(rng, 10)
 	require.NoError(t, err)
 	cidsLnk = prepareMhsForCallback(t, e, mhs)
 	require.NoError(t, err)
@@ -354,6 +360,7 @@ func TestRegisterCallback(t *testing.T) {
 
 func TestNotifyPutWithCallback(t *testing.T) {
 	skipFlaky(t)
+	rng := rand.New(rand.NewSource(1413))
 	ctx := context.Background()
 	e := mkEngine(t)
 
@@ -371,7 +378,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// NotifyPut of cids
-	mhs, err := testutil.RandomMultihashes(20)
+	mhs, err := testutil.RandomMultihashes(rng, 20)
 	require.NoError(t, err)
 	e.RegisterCallback(toCallback(mhs))
 	cidsLnk, _, err := schema.NewLinkedListOfMhs(e.lsys, mhs, nil)
@@ -402,8 +409,9 @@ func TestNotifyPutWithCallback(t *testing.T) {
 // Tests and end-to-end flow of the main linksystem
 func TestLinkedStructure(t *testing.T) {
 	skipFlaky(t)
+	rng := rand.New(rand.NewSource(1413))
 	e := mkEngine(t)
-	mhs, err := testutil.RandomMultihashes(200)
+	mhs, err := testutil.RandomMultihashes(rng, 200)
 	require.NoError(t, err)
 	// Register simple callback.
 	e.RegisterCallback(toCallback(mhs))
