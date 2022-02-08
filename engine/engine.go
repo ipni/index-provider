@@ -58,8 +58,9 @@ type Engine struct {
 	// indexed data, etc.)
 	ds datastore.Batching
 
-	publisherKind config.PublisherKind
-	publisher     legs.Publisher
+	publisherKind   config.PublisherKind
+	publisher       legs.Publisher
+	extraGossipData []byte
 
 	httpPublisherCfg *config.HttpPublisher
 
@@ -98,7 +99,13 @@ var _ provider.Interface = (*Engine)(nil)
 //
 // The engine must be started via Engine.Start before use and discarded via Engine.Shutdown when no longer needed.
 // See: Engine.Start, Engine.Shutdown.
-func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, retAddrs []string) (*Engine, error) {
+func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, retAddrs []string, options ...Option) (*Engine, error) {
+	var cfg engineConfig
+	err := cfg.apply(options)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(retAddrs) == 0 {
 		retAddrs = []string{h.Addrs()[0].String()}
 		log.Infof("Retrieval address not configured, using %s", retAddrs[0])
@@ -122,6 +129,7 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		addrs:            retAddrs,
 		httpPublisherCfg: &ingestCfg.HttpPublisher,
 		publisherKind:    ingestCfg.PublisherKind,
+		extraGossipData:  cfg.extraGossipData,
 	}
 
 	e.cachelsys = e.cacheLinkSystem()
@@ -135,13 +143,13 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 // config.ProviderServer as retrieval addresses in advertisements.
 //
 // See: engine.New .
-func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching) (*Engine, error) {
+func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching, options ...Option) (*Engine, error) {
 	log.Info("Instantiating a new index provider engine")
 	privKey, err := cfg.Identity.DecodePrivateKey("")
 	if err != nil {
 		return nil, fmt.Errorf("cannot decode private key: %s", err)
 	}
-	return New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+	return New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs, options...)
 }
 
 // Start starts the engine by instantiating the internal storage and joins the configured gossipsub
@@ -175,7 +183,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 		e.publisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
 	} else {
-		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys)
+		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys, dtsync.WithExtraData(e.extraGossipData))
 	}
 	if err != nil {
 		return fmt.Errorf("cannot initialize publisher: %s", err)
