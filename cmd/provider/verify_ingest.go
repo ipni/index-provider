@@ -19,6 +19,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const verifyChunkSize = 4096
+
 var (
 	carPath           string
 	carIndexPath      string
@@ -515,6 +517,26 @@ func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index
 }
 
 func verifyIngestFromMhs(finder *httpfinderclient.Client, mhs []multihash.Multihash) (*verifyIngestResult, error) {
+	aggResult := &verifyIngestResult{}
+	for len(mhs) >= verifyChunkSize {
+		result, err := verifyIngestChunk(finder, mhs[:verifyChunkSize])
+		if err != nil {
+			return nil, err
+		}
+		aggResult.add(result)
+		mhs = mhs[verifyChunkSize:]
+	}
+	if len(mhs) != 0 {
+		result, err := verifyIngestChunk(finder, mhs)
+		if err != nil {
+			return nil, err
+		}
+		aggResult.add(result)
+	}
+	return aggResult, nil
+}
+
+func verifyIngestChunk(finder *httpfinderclient.Client, mhs []multihash.Multihash) (*verifyIngestResult, error) {
 	result := &verifyIngestResult{}
 	mhsCount := len(mhs)
 	result.total = mhsCount
@@ -534,19 +556,14 @@ func verifyIngestFromMhs(finder *httpfinderclient.Client, mhs []multihash.Multih
 		return result, nil
 	}
 
-	mhLookup := make(map[string]model.MultihashResult)
+	mhLookup := make(map[string]model.MultihashResult, len(response.MultihashResults))
 	for _, mr := range response.MultihashResults {
 		mhLookup[mr.Multihash.String()] = mr
 	}
 
 	for _, mh := range mhs {
 		mr, ok := mhLookup[mh.String()]
-		if !ok {
-			result.absent++
-			continue
-		}
-
-		if len(mr.ProviderResults) == 0 {
+		if !ok || len(mr.ProviderResults) == 0 {
 			result.absent++
 			continue
 		}
