@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sync"
+	"time"
 
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
@@ -188,11 +189,19 @@ func (e *Engine) Start(ctx context.Context) error {
 		return fmt.Errorf("cannot initialize publisher: %s", err)
 	}
 
-	err = e.PublishLatest(ctx)
-	if err != nil {
-		log.Errorw("Could not republish latest advertisement", "err", err)
-		return err
-	}
+	go func() {
+		// Delay re-publishing latest advertisement notice until there has been
+		// some time to bootstrap to other nodes.
+		select {
+		case <-time.After(30 * time.Second):
+		case <-ctx.Done():
+			return
+		}
+		err = e.PublishLatest(ctx)
+		if err != nil {
+			log.Errorw("Could not republish latest advertisement", "err", err)
+		}
+	}()
 
 	return nil
 }
