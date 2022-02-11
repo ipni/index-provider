@@ -1,11 +1,14 @@
 package config
 
+import "time"
+
 const (
 	// Keep 1024 chunks in cache; keeps 256MiB if chunks are 0.25MiB.
 	defaultLinkCacheSize = 1024
 	// Multihashes are 128 bytes so 16384 results in 0.25MiB chunk when full.
-	defaultLinkedChunkSize = 16384
-	defaultPubSubTopic     = "/indexer/ingest/mainnet"
+	defaultLinkedChunkSize   = 16384
+	defaultPubSubTopic       = "/indexer/ingest/mainnet"
+	defaultStartPublishDelay = Duration(time.Minute)
 )
 
 type PublisherKind string
@@ -36,16 +39,23 @@ type Ingest struct {
 
 	// PublisherKind specifies which legs.Publisher implementation to use.
 	PublisherKind PublisherKind
+
+	// StartPublishDelay specifies how long to wait, after startup, to
+	// re-publish the latest advertisement notification.  This delay gives time
+	// to connect to other nodes and establish gossip mesh before sending
+	// pubsub advertisement notification message.
+	StartPublishDelay Duration
 }
 
 // NewIngest instantiates a new Ingest configuration with default values.
 func NewIngest() Ingest {
 	return Ingest{
-		LinkCacheSize:   defaultLinkCacheSize,
-		LinkedChunkSize: defaultLinkedChunkSize,
-		PubSubTopic:     defaultPubSubTopic,
-		HttpPublisher:   NewHttpPublisher(),
-		PublisherKind:   DTSyncPublisherKind,
+		LinkCacheSize:     defaultLinkCacheSize,
+		LinkedChunkSize:   defaultLinkedChunkSize,
+		PubSubTopic:       defaultPubSubTopic,
+		HttpPublisher:     NewHttpPublisher(),
+		PublisherKind:     DTSyncPublisherKind,
+		StartPublishDelay: defaultStartPublishDelay,
 	}
 }
 

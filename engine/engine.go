@@ -73,6 +73,7 @@ type Engine struct {
 	purgeLinkCache bool
 	// linkCacheSize is the capacity of the link cache LRU
 	linkCacheSize int
+	startPubDelay time.Duration
 
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
@@ -126,6 +127,7 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		linkedChunkSize: ingestCfg.LinkedChunkSize,
 		purgeLinkCache:  ingestCfg.PurgeLinkCache,
 		linkCacheSize:   ingestCfg.LinkCacheSize,
+		startPubDelay:   time.Duration(ingestCfg.StartPublishDelay),
 
 		addrs:            retAddrs,
 		httpPublisherCfg: &ingestCfg.HttpPublisher,
@@ -193,7 +195,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		// Delay re-publishing latest advertisement notice until there has been
 		// some time to bootstrap to other nodes.
 		select {
-		case <-time.After(30 * time.Second):
+		case <-time.After(e.startPubDelay):
 		case <-ctx.Done():
 			return
 		}
