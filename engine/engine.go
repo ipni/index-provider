@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sync"
-	"time"
 
 	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
@@ -73,7 +72,6 @@ type Engine struct {
 	purgeLinkCache bool
 	// linkCacheSize is the capacity of the link cache LRU
 	linkCacheSize int
-	startPubDelay time.Duration
 
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
@@ -127,7 +125,6 @@ func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.
 		linkedChunkSize: ingestCfg.LinkedChunkSize,
 		purgeLinkCache:  ingestCfg.PurgeLinkCache,
 		linkCacheSize:   ingestCfg.LinkCacheSize,
-		startPubDelay:   time.Duration(ingestCfg.StartPublishDelay),
 
 		addrs:            retAddrs,
 		httpPublisherCfg: &ingestCfg.HttpPublisher,
@@ -181,7 +178,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		var addr string
 		addr, err = e.httpPublisherCfg.ListenNetAddr()
 		if err != nil {
-			return fmt.Errorf("cannot format http addr for httpPublisher: %s", err)
+			return fmt.Errorf("cannot format http addr for httpPublisher: %w", err)
 		}
 		e.publisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
 	} else {
@@ -191,19 +188,16 @@ func (e *Engine) Start(ctx context.Context) error {
 		return fmt.Errorf("cannot initialize publisher: %s", err)
 	}
 
-	go func() {
-		// Delay re-publishing latest advertisement notice until there has been
-		// some time to bootstrap to other nodes.
-		select {
-		case <-time.After(e.startPubDelay):
-		case <-ctx.Done():
-			return
+	// Initialize publisher with latest advertisement CID.
+	adCid, err := e.getLatestAdCid(ctx)
+	if err != nil {
+		return fmt.Errorf("could not get latest advertisement cid from blockstore: %w", err)
+	}
+	if adCid != cid.Undef {
+		if err = e.publisher.SetRoot(ctx, adCid); err != nil {
+			return err
 		}
-		err = e.PublishLatest(ctx)
-		if err != nil {
-			log.Errorw("Could not republish latest advertisement", "err", err)
-		}
-	}()
+	}
 
 	return nil
 }

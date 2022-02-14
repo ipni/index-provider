@@ -169,6 +169,23 @@ func daemonCommand(cctx *cli.Context) error {
 		defer bootstrapper.Close()
 	}
 
+	startPubDelay := time.Duration(cfg.Ingest.StartPublishDelay)
+	if startPubDelay != 0 {
+		go func() {
+			// Delay re-publishing latest advertisement notice until there has been
+			// some time to bootstrap to other nodes.
+			select {
+			case <-time.After(startPubDelay):
+			case <-ctx.Done():
+				return
+			}
+			err = eng.PublishLatest(ctx)
+			if err != nil {
+				log.Errorw("Could not republish latest advertisement", "err", err)
+			}
+		}()
+	}
+
 	var finalErr error
 	// Keep process running.
 	select {
