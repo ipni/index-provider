@@ -66,8 +66,8 @@ and cannot be installed directly via `go install`
 
 ```shell
 git clone https://github.com/filecoin-project/index-provider
-cd cmd
-go insrtall ./provider
+cd index-provider && cd cmd
+go install ./provider
 ```
 
 Alternatively, download the executables directly from
