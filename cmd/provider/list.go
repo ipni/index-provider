@@ -119,7 +119,7 @@ func doGetAdvertisements(cctx *cli.Context) error {
 
 	if printEntries {
 		for _, mh := range entries {
-			fmt.Printf("  %s\n", mh)
+			fmt.Printf("  %s\n", mh.B58String())
 		}
 		fmt.Println("  ---------------------")
 	}
