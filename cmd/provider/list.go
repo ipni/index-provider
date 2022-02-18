@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/filecoin-project/index-provider/cmd/provider/internal"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
@@ -93,13 +95,24 @@ func toProviderClient(addrStr string, topic string) (internal.ProviderClient, er
 	if adEntriesRecurLimitFlagValue < 0 {
 		return nil, fmt.Errorf("ad entries recursion depth limit cannot be less than zero; got %d", adEntriesRecurLimitFlagValue)
 	}
-	return internal.NewGraphSyncProviderClient(addrInfo, topic, adEntriesRecurLimitFlagValue)
+
+	var entRecurLim selector.RecursionLimit
+	if adEntriesRecurLimitFlagValue == 0 {
+		entRecurLim = selector.RecursionLimitNone()
+	} else {
+		entRecurLim = selector.RecursionLimitDepth(adEntriesRecurLimitFlagValue)
+	}
+
+	return internal.NewGraphSyncProviderClient(addrInfo, internal.WithTopic(topic), internal.WithEntriesRecursionLimit(entRecurLim))
 }
 
 func doGetAdvertisements(cctx *cli.Context) error {
 	ad, err := provClient.GetAdvertisement(cctx.Context, adCid)
 	if err != nil {
-		return err
+		if ad == nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "⚠️ Failed to fully sync advertisement %s. Output shows partially synced ad.\n  Error: %s\n", adCid, err.Error())
 	}
 
 	fmt.Printf("ID:          %s\n", ad.ID)
@@ -108,11 +121,20 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	fmt.Printf("Addresses:   %v\n", ad.Addresses)
 	fmt.Printf("Is Remove:   %v\n", ad.IsRemove)
 
+	if ad.IsRemove {
+		if ad.HasEntries() {
+			fmt.Println("Entries: sync skipped")
+			fmt.Printf("  ⚠️ Removal advertisement with non-empty entries root cid: %s\n", ad.Entries.Root())
+		} else {
+			fmt.Println("Entries: None")
+		}
+		return nil
+	}
 	fmt.Println("Entries:")
 	var entriesOutput string
 	entries, err := ad.Entries.Drain()
 	if err == datastore.ErrNotFound {
-		entriesOutput = "Note: More entries are available but not synced due to the configured entries recursion limit."
+		entriesOutput = "⚠️ Note: More entries were available but not synced due to the configured entries recursion limit or error during traversal."
 	} else if err != nil {
 		return err
 	}

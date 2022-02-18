@@ -2,10 +2,12 @@ package internal
 
 import (
 	"context"
+	"io"
+
 	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-	"io"
 )
 
 var (
@@ -28,12 +30,29 @@ type (
 	}
 )
 
+func (d *EntriesIterator) Root() cid.Cid {
+	return d.root
+}
+
+func (d *EntriesIterator) IsPresent() bool {
+	return isPresent(d.root)
+}
+
+func isPresent(c cid.Cid) bool {
+	return c != schema.NoEntries.Cid && c != cid.Undef
+}
+
 func (d *EntriesIterator) Next() (multihash.Multihash, error) {
+
+	if !d.IsPresent() {
+		return nil, io.EOF
+	}
+
 	if d.chunkIter != nil && d.chunkIter.hasNext() {
 		return d.chunkIter.Next()
 	}
 
-	if d.next == cid.Undef {
+	if isPresent(d.next) {
 		return nil, io.EOF
 	}
 

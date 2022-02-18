@@ -9,7 +9,7 @@ import (
 	"github.com/filecoin-project/go-legs/dtsync"
 	"github.com/filecoin-project/go-legs/httpsync"
 	"github.com/ipfs/go-cid"
-	"github.com/ipld/go-ipld-prime/datamodel"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	selectorbuilder "github.com/ipld/go-ipld-prime/traversal/selector/builder"
@@ -26,7 +26,9 @@ type (
 		close  func() error
 		syncer legs.Syncer
 		store  *ProviderClientStore
-		sel    datamodel.Node
+
+		adSel  ipld.Node
+		entSel ipld.Node
 	}
 )
 
@@ -47,7 +49,13 @@ func NewHttpProviderClient(provAddr peer.AddrInfo) (ProviderClient, error) {
 	}, nil
 }
 
-func NewGraphSyncProviderClient(provAddr peer.AddrInfo, topic string, entryRecursionLimit int64) (ProviderClient, error) {
+func NewGraphSyncProviderClient(provAddr peer.AddrInfo, o ...Option) (ProviderClient, error) {
+
+	opts, err := newOptions(o...)
+	if err != nil {
+		return nil, err
+	}
+
 	h, err := libp2p.New()
 	if err != nil {
 		return nil, err
@@ -59,33 +67,25 @@ func NewGraphSyncProviderClient(provAddr peer.AddrInfo, topic string, entryRecur
 	if err != nil {
 		return nil, err
 	}
-	syncer := dtSync.NewSyncer(provAddr.ID, topic)
-
-	var erl selector.RecursionLimit
-	if entryRecursionLimit <= 0 {
-		erl = selector.RecursionLimitNone()
-	} else {
-		erl = selector.RecursionLimitDepth(entryRecursionLimit)
-	}
+	syncer := dtSync.NewSyncer(provAddr.ID, opts.topic)
 
 	ssb := selectorbuilder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
-	oneAdWithEntries := ssb.ExploreUnion(
-		ssb.ExploreRecursive(selector.RecursionLimitDepth(1), ssb.ExploreFields(
-			func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
-				efsb.Insert("PreviousID", ssb.ExploreRecursiveEdge())
-			})),
-		ssb.ExploreRecursive(erl, ssb.ExploreFields(
-			func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
-				efsb.Insert("Next", ssb.ExploreRecursiveEdge())
-				efsb.Insert("Entries", ssb.ExploreRecursiveEdge())
-			})),
-	).Node()
+	adSel := ssb.ExploreRecursive(selector.RecursionLimitDepth(1), ssb.ExploreFields(
+		func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
+			efsb.Insert("PreviousID", ssb.ExploreRecursiveEdge())
+		})).Node()
+
+	entSel := ssb.ExploreRecursive(opts.entriesRecurLimit, ssb.ExploreFields(
+		func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
+			efsb.Insert("Next", ssb.ExploreRecursiveEdge())
+		})).Node()
 
 	return &providerGraphSyncClient{
 		close:  dtSync.Close,
 		syncer: syncer,
 		store:  store,
-		sel:    oneAdWithEntries,
+		adSel:  adSel,
+		entSel: entSel,
 	}, nil
 }
 
@@ -102,10 +102,24 @@ func (p *providerGraphSyncClient) GetAdvertisement(ctx context.Context, id cid.C
 		id = head
 	}
 
-	if err := p.syncer.Sync(ctx, id, p.sel); err != nil {
+	// Sync the advertisement without entries first.
+	if err := p.syncer.Sync(ctx, id, p.adSel); err != nil {
 		return nil, err
 	}
-	return p.store.getAdvertisement(ctx, id)
+
+	// Load the synced advertisement from local store.
+	ad, err := p.store.getAdvertisement(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only sync its entries recursively if it is not a removal advertisement and has entries.
+	if !ad.IsRemove && ad.HasEntries() {
+		err = p.syncer.Sync(ctx, ad.Entries.root, p.entSel)
+	}
+
+	// Return the partially synced advertisement useful for output to client.
+	return ad, err
 }
 
 func (p *providerGraphSyncClient) Close() error {

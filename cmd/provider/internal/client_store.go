@@ -40,6 +40,10 @@ type (
 	}
 )
 
+func (a *Advertisement) HasEntries() bool {
+	return a.Entries.IsPresent()
+}
+
 func newProviderClientStore() *ProviderClientStore {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	lsys := cidlink.DefaultLinkSystem()
