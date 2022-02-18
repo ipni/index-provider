@@ -290,46 +290,62 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 		adRecurLimitStr = fmt.Sprintf("%d", adRecurLimit)
 	}
 	var aggResult verifyIngestResult
+	rmCtxIDs := make(map[string]interface{})
 	for i := 1; i <= adRecurLimit; i++ {
 		ad, err := provClient.GetAdvertisement(cctx.Context, adCid)
 		if err != nil {
-			return err
-		}
-
-		if ad.IsRemove {
-			// TODO implement verificiation when ad is about removal
-			// When implementing note that entries may be empty and if so we need to walk back the chain to get the list of entries.
-			return fmt.Errorf("ad %s is a removal advertisement; verifying ingest from removal advertisement is not yet supported", adCid)
-		}
-
-		var entriesOutput string
-		allMhs, err := ad.Entries.Drain()
-		if err == datastore.ErrNotFound {
-			entriesOutput = "; skipped syncing the remaining chunks due to recursion limit"
-		} else if err != nil {
-			return err
-		}
-
-		var mhs []multihash.Multihash
-		for _, mh := range allMhs {
-			if include() {
-				mhs = append(mhs, mh)
+			if ad == nil {
+				return err
 			}
+			fmt.Fprintf(os.Stderr, "⚠️ Failed to fully sync advertisement %s. Output shows partially synced ad.\n  Error: %s\n", adCid, err.Error())
 		}
 
 		fmt.Printf("Advertisement ID:          %s\n", ad.ID)
 		fmt.Printf("Previous Advertisement ID: %s\n", ad.PreviousID)
-		fmt.Printf("Total Entries:             %d over %d chunk(s)%s\n", len(allMhs), ad.Entries.ChunkCount(), entriesOutput)
 		fmt.Printf("Verifying ingest... (%d/%s)\n", i, adRecurLimitStr)
-		finder, err := httpfinderclient.New(indexerAddr)
-		if err != nil {
-			return err
+		ctxID := string(ad.ContextID)
+		if _, removed := rmCtxIDs[ctxID]; removed {
+			fmt.Println("🧹 Removed in later advertisements; skipping verification.")
+		} else if ad.IsRemove {
+			rmCtxIDs[ctxID] = nil
+			fmt.Println("✂️ Removal advertisement; skipping verification.")
+		} else if !ad.HasEntries() {
+			fmt.Println("Has no entries; skipping verification.")
+
+		} else {
+			var entriesOutput string
+			allMhs, err := ad.Entries.Drain()
+			if err == datastore.ErrNotFound {
+				entriesOutput = "; skipped syncing the remaining chunks due to recursion limit or error while syncing."
+			} else if err != nil {
+				return err
+			}
+
+			var mhs []multihash.Multihash
+			for _, mh := range allMhs {
+				if include() {
+					mhs = append(mhs, mh)
+				}
+			}
+
+			fmt.Printf("Total Entries:             %d over %d chunk(s)%s\n", len(allMhs), ad.Entries.ChunkCount(), entriesOutput)
+			finder, err := httpfinderclient.New(indexerAddr)
+			if err != nil {
+				return err
+			}
+			result, err := verifyIngestFromMhs(finder, mhs)
+			if err != nil {
+				return err
+			}
+			fmt.Print("Verification: ")
+			if result.passedVerification() {
+				fmt.Println("✅ Pass")
+			} else {
+				fmt.Println("❌ Fail")
+			}
+			aggResult.add(result)
 		}
-		result, err := verifyIngestFromMhs(finder, mhs)
-		if err != nil {
-			return err
-		}
-		aggResult.add(result)
+		fmt.Println("-----------------------")
 
 		// Stop verification if there is no link to previous advertisement.
 		if ad.PreviousID == cid.Undef {
@@ -468,6 +484,11 @@ func (r *verifyIngestResult) printAndExit() error {
 	fmt.Printf("sampling probability:                   %.2f\n", samplingProb)
 	fmt.Printf("RNG seed:                               %d\n", rngSeed)
 	fmt.Println()
+
+	if r.total == 0 {
+		return cli.Exit("⚠️ Inconclusive; no multihashes were verified.", 0)
+	}
+
 	if r.passedVerification() {
 		return cli.Exit("🎉 Passed verification check.", 0)
 	}
