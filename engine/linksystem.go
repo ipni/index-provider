@@ -2,9 +2,11 @@ package engine
 
 import (
 	"bytes"
+	"errors"
 	"io"
 
 	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
@@ -12,10 +14,17 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 )
 
+var errNoEntries = errors.New("no entries; see schema.NoEntries")
+
 // Creates the main engine linksystem.
 func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
 	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+		// If link corresponds to schema.NoEntries return error immediately.
+		if lnk == schema.NoEntries {
+			return nil, errNoEntries
+		}
+
 		ctx := lctx.Ctx
 		c := lnk.(cidlink.Link).Cid
 		log.Debugf("Triggered ReadOpener from engine's linksystem with cid (%s)", c)

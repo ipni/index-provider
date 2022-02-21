@@ -15,12 +15,84 @@ import (
 	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/stretchr/testify/require"
 )
+
+func Test_SchemaNoEntriesErr(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	subject := mkEngine(t)
+	defer subject.Shutdown()
+	// Assert both add and remove advertisements can be loaded
+	_, err := subject.lsys.Load(ipld.LinkContext{Ctx: ctx}, schema.NoEntries, schema.Type.Advertisement)
+	require.Equal(t, errNoEntries, err)
+}
+
+func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	subject := mkEngine(t)
+	defer subject.Shutdown()
+
+	ctxID := []byte("added then removed content")
+	mhs, err := testutil.RandomCids(rng, 12)
+	require.NoError(t, err)
+
+	// Register callback with removal handle
+	var removed bool
+	subject.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+		strCtxID := string(contextID)
+		if strCtxID == string(ctxID) && !removed {
+			return getMhIterator(t, mhs), nil
+		}
+		return nil, errors.New("not found")
+	})
+
+	// Publish content added advertisement.
+	adAddCid, err := subject.NotifyPut(ctx, ctxID, metadata.BitswapMetadata)
+	require.NoError(t, err)
+	adAdd, err := subject.GetAdv(ctx, adAddCid)
+	require.NoError(t, err)
+	adAddEntriesRoot := requireAdEntriesLink(t, adAdd)
+	require.NotEqual(t, schema.NoEntries, adAddEntriesRoot)
+
+	// Assert entries chunk from content added is resolvable
+	_, err = subject.lsys.Load(ipld.LinkContext{}, adAddEntriesRoot, schema.Type.EntryChunk)
+	require.NoError(t, err)
+
+	// Clear cached entries to force re-generation of chunks on traversal
+	require.NoError(t, subject.entriesChunker.Clear(ctx))
+
+	// Signal to callback that context ID must no longer be found
+	removed = true
+
+	// Publish content removed advertisement
+	adRemoveCid, err := subject.NotifyRemove(ctx, ctxID)
+	require.NoError(t, err)
+	adRemove, err := subject.GetAdv(ctx, adRemoveCid)
+	require.NoError(t, err)
+	adRemoveEntriesRoot := requireAdEntriesLink(t, adRemove)
+	require.Equal(t, schema.NoEntries, adRemoveEntriesRoot)
+
+	lCtx := ipld.LinkContext{Ctx: ctx}
+	// Assert both add and remove advertisements can be loaded
+	_, err = subject.lsys.Load(lCtx, cidlink.Link{Cid: adAddCid}, schema.Type.Advertisement)
+	require.NoError(t, err)
+	_, err = subject.lsys.Load(lCtx, cidlink.Link{Cid: adRemoveCid}, schema.Type.Advertisement)
+	require.NoError(t, err)
+
+	// Assert chunks from advertisement that added content are not found
+	_, err = subject.lsys.Load(lCtx, adAddEntriesRoot, schema.Type.EntryChunk)
+	require.Equal(t, datastore.ErrNotFound, err)
+}
 
 func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))

@@ -453,10 +453,6 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		// that advertisement has no entries.
 		cidsLnk = schema.NoEntries
 
-		// To delete specific index values, provide the CID link to the
-		// content entries to delete.  The indexer will fetch these entries and
-		// delete indexes for the content in each entry chunk.
-
 		// The advertisement still requires a valid metadata even though
 		// metadata is not used for removal.  Create a valid empty metadata.
 		metadata = stiapi.Metadata{
