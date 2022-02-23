@@ -213,8 +213,9 @@ github.com/filecoin-project/go-ds-versioning v0.0.0-20211206185234-508abd7c2aff/
 github.com/filecoin-project/go-ds-versioning v0.1.1 h1:JiyBqaQlwC+UM0WhcBtVEeT3XrX59mQhT8U3p7nu86o=
 github.com/filecoin-project/go-ds-versioning v0.1.1/go.mod h1:C9/l9PnB1+mwPa26BBVpCjG/XQCB0yj/q5CK2J8X1I4=
 github.com/filecoin-project/go-indexer-core v0.2.8/go.mod h1:IagNfTdFuX4057kla43PjRCn3yBuUiZgIxuA0hTUamY=
-github.com/filecoin-project/go-legs v0.3.0 h1:1rDNdPdXbgetmmvRcYZV5YIplIO8LtBVQ7ZttKCrTrM=
 github.com/filecoin-project/go-legs v0.3.0/go.mod h1:x6nwM+DuN7NzlPndOoJuiHYCX+pze6+efPRx17nIA7M=
+github.com/filecoin-project/go-legs v0.3.4 h1:yid2IivTJ8JeF1ROA8jxNKNKJshU/HO1sRo5lEMNOUc=
+github.com/filecoin-project/go-legs v0.3.4/go.mod h1:P7ZPHqFG96OFaT11rnXyTdcxRdGkaH1dRyPxJSOiSuM=
 github.com/filecoin-project/go-state-types v0.1.0 h1:9r2HCSMMCmyMfGyMKxQtv0GKp6VT/m5GgVk8EhYbLJU=
 github.com/filecoin-project/go-state-types v0.1.0/go.mod h1:ezYnPf0bNkTsDibL/psSz5dy4B5awOJ/E7P2Saeep8g=
 github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe h1:dF8u+LEWeIcTcfUcCf3WFVlc81Fr2JKg8zPzIbBDKDw=
@@ -222,8 +223,8 @@ github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe/g
 github.com/filecoin-project/go-statestore v0.1.0/go.mod h1:LFc9hD+fRxPqiHiaqUEZOinUJB4WARkRfNl10O7kTnI=
 github.com/filecoin-project/go-statestore v0.2.0 h1:cRRO0aPLrxKQCZ2UOQbzFGn4WDNdofHZoGPjfNaAo5Q=
 github.com/filecoin-project/go-statestore v0.2.0/go.mod h1:8sjBYbS35HwPzct7iT4lIXjLlYyPor80aU7t7a/Kspo=
-github.com/filecoin-project/storetheindex v0.3.1 h1:TItAndkySUesERHEcnZRYNqi506xJX8uK6dn2cogaIE=
-github.com/filecoin-project/storetheindex v0.3.1/go.mod h1:d7y0FHAwPPSIdg+Oh7xV5B9TLebL7rvoKu591N/l2ZU=
+github.com/filecoin-project/storetheindex v0.3.2 h1:KsTJer5Di/iapSrOWtbFTPMt5kS7Y3n3C9kOYH93gEA=
+github.com/filecoin-project/storetheindex v0.3.2/go.mod h1:d7y0FHAwPPSIdg+Oh7xV5B9TLebL7rvoKu591N/l2ZU=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6/go.mod h1:1i71OnUq3iUe1ma7Lr6yG6/rjvM3emb6yoL7xLFzcVQ=
 github.com/flynn/noise v1.0.0 h1:DlTHqmzmvcEiKj+4RYo/imoswx/4r6iBlCMfVtrMXpQ=
