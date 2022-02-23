@@ -89,7 +89,10 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
-	sub, err := legs.NewSubscriber(client.h, nil, client.lsys, testTopic, nil, legs.DtManager(client.dt))
+	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
+	// For now instantiate a new host for subscriber so that dt constructed by test client works.
+	subHost := newHost(t)
+	sub, err := legs.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
 	require.NoError(t, err)
 
 	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
@@ -170,7 +173,10 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
-	sub, err := legs.NewSubscriber(client.h, nil, client.lsys, testTopic, nil, legs.DtManager(client.dt))
+	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
+	// For now instantiate a new host for subscriber so that dt constructed by test client works.
+	subHost := newHost(t)
+	sub, err := legs.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
 	require.NoError(t, err)
 
 	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
@@ -307,17 +313,17 @@ func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.In
 }
 
 type testClient struct {
-	h    host.Host
-	dt   datatransfer.Manager
-	lsys ipld.LinkSystem
+	h     host.Host
+	dt    datatransfer.Manager
+	lsys  ipld.LinkSystem
+	store datastore.Batching
 }
 
 func newTestClient(t *testing.T) *testClient {
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	blockStore := blockstore.NewBlockstore(store)
 	lsys := storeutil.LinkSystemForBlockstore(blockStore)
-	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-	require.NoError(t, err)
+	h := newHost(t)
 	t.Cleanup(func() {
 		h.Close()
 	})
@@ -325,10 +331,17 @@ func newTestClient(t *testing.T) *testClient {
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
 
 	return &testClient{
-		h:    h,
-		dt:   dt,
-		lsys: lsys,
+		h:     h,
+		dt:    dt,
+		lsys:  lsys,
+		store: store,
 	}
+}
+
+func newHost(t *testing.T) host.Host {
+	h, err := libp2p.New()
+	require.NoError(t, err)
+	return h
 }
 
 func findOpenPort(t *testing.T) string {
