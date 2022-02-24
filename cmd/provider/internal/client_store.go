@@ -70,7 +70,7 @@ func newProviderClientStore() *ProviderClientStore {
 }
 
 func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Cid) (cid.Cid, []multihash.Multihash, error) {
-	n, err := s.LinkSystem.Load(linking.LinkContext{}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
+	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
