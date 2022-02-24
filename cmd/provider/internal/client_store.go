@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -69,22 +70,12 @@ func newProviderClientStore() *ProviderClientStore {
 }
 
 func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Cid) (cid.Cid, []multihash.Multihash, error) {
-	val, err := s.Batching.Get(ctx, datastore.NewKey(target.String()))
-	if err != nil {
-		return cid.Undef, nil, err
-	}
-	nb := schema.Type.EntryChunk.NewBuilder()
-	decoder, err := multicodec.LookupDecoder(target.Prefix().Codec)
+	n, err := s.LinkSystem.Load(linking.LinkContext{}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
 
-	err = decoder(nb, bytes.NewBuffer(val))
-	if err != nil {
-		return cid.Undef, nil, err
-	}
-
-	node := nb.Build().(schema.EntryChunk)
+	node := n.(schema.EntryChunk)
 	var next cid.Cid
 	if node.FieldNext().IsAbsent() || node.FieldNext().IsNull() {
 		next = cid.Undef
