@@ -2,12 +2,9 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/filecoin-project/go-legs"
-	"github.com/filecoin-project/go-legs/dtsync"
-	"github.com/filecoin-project/go-legs/httpsync"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
@@ -22,35 +19,18 @@ type (
 		GetAdvertisement(ctx context.Context, id cid.Cid) (*Advertisement, error)
 		Close() error
 	}
-	providerGraphSyncClient struct {
-		close  func() error
-		syncer legs.Syncer
-		store  *ProviderClientStore
+	providerClient struct {
+		sub *legs.Subscriber
+
+		store     *ProviderClientStore
+		publisher peer.AddrInfo
 
 		adSel  ipld.Node
 		entSel ipld.Node
 	}
 )
 
-func NewHttpProviderClient(provAddr peer.AddrInfo) (ProviderClient, error) {
-	store := newProviderClientStore()
-	hsync := httpsync.NewSync(store.LinkSystem, nil, nil)
-	syncer, err := hsync.NewSyncer(provAddr.ID, provAddr.Addrs[0])
-	if err != nil {
-		return nil, err
-	}
-	return &providerGraphSyncClient{
-		close: func() error {
-			hsync.Close()
-			return nil
-		},
-		syncer: syncer,
-		store:  store,
-	}, nil
-}
-
-func NewGraphSyncProviderClient(provAddr peer.AddrInfo, o ...Option) (ProviderClient, error) {
-
+func NewProviderClient(provAddr peer.AddrInfo, o ...Option) (ProviderClient, error) {
 	opts, err := newOptions(o...)
 	if err != nil {
 		return nil, err
@@ -63,11 +43,10 @@ func NewGraphSyncProviderClient(provAddr peer.AddrInfo, o ...Option) (ProviderCl
 	h.Peerstore().AddAddrs(provAddr.ID, provAddr.Addrs, time.Hour)
 
 	store := newProviderClientStore()
-	dtSync, err := dtsync.NewSync(h, store.Batching, store.LinkSystem, nil)
+	sub, err := legs.NewSubscriber(h, store.Batching, store.LinkSystem, opts.topic, nil)
 	if err != nil {
 		return nil, err
 	}
-	syncer := dtSync.NewSyncer(provAddr.ID, opts.topic)
 
 	ssb := selectorbuilder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
 	adSel := ssb.ExploreRecursive(selector.RecursionLimitDepth(1), ssb.ExploreFields(
@@ -80,30 +59,19 @@ func NewGraphSyncProviderClient(provAddr peer.AddrInfo, o ...Option) (ProviderCl
 			efsb.Insert("Next", ssb.ExploreRecursiveEdge())
 		})).Node()
 
-	return &providerGraphSyncClient{
-		close:  dtSync.Close,
-		syncer: syncer,
-		store:  store,
-		adSel:  adSel,
-		entSel: entSel,
+	return &providerClient{
+		sub:       sub,
+		publisher: provAddr,
+		store:     store,
+		adSel:     adSel,
+		entSel:    entSel,
 	}, nil
 }
 
-func (p *providerGraphSyncClient) GetAdvertisement(ctx context.Context, id cid.Cid) (*Advertisement, error) {
-	if id == cid.Undef {
-		head, err := p.syncer.GetHead(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		if head == cid.Undef {
-			return nil, errors.New("no head advertisement exists")
-		}
-		id = head
-	}
-
+func (p *providerClient) GetAdvertisement(ctx context.Context, id cid.Cid) (*Advertisement, error) {
 	// Sync the advertisement without entries first.
-	if err := p.syncer.Sync(ctx, id, p.adSel); err != nil {
+	id, err := p.sub.Sync(ctx, p.publisher.ID, id, p.adSel, p.publisher.Addrs[0])
+	if err != nil {
 		return nil, err
 	}
 
@@ -115,13 +83,13 @@ func (p *providerGraphSyncClient) GetAdvertisement(ctx context.Context, id cid.C
 
 	// Only sync its entries recursively if it is not a removal advertisement and has entries.
 	if !ad.IsRemove && ad.HasEntries() {
-		err = p.syncer.Sync(ctx, ad.Entries.root, p.entSel)
+		_, err = p.sub.Sync(ctx, p.publisher.ID, ad.Entries.root, p.entSel, p.publisher.Addrs[0])
 	}
 
 	// Return the partially synced advertisement useful for output to client.
 	return ad, err
 }
 
-func (p *providerGraphSyncClient) Close() error {
-	return p.close()
+func (p *providerClient) Close() error {
+	return p.sub.Close()
 }

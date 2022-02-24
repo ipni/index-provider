@@ -82,11 +82,6 @@ func toProviderClient(addrStr string, topic string) (internal.ProviderClient, er
 		return nil, err
 	}
 	addrInfo := addrInfos[0]
-	for _, p := range addrInfo.Addrs[0].Protocols() {
-		if p.Code == multiaddr.P_HTTP || p.Code == multiaddr.P_HTTPS {
-			return internal.NewHttpProviderClient(addrInfo)
-		}
-	}
 
 	if topic == "" {
 		return nil, errors.New("topic must be configured when graphsync endpoint is specified")
@@ -103,7 +98,7 @@ func toProviderClient(addrStr string, topic string) (internal.ProviderClient, er
 		entRecurLim = selector.RecursionLimitDepth(adEntriesRecurLimitFlagValue)
 	}
 
-	return internal.NewGraphSyncProviderClient(addrInfo, internal.WithTopic(topic), internal.WithEntriesRecursionLimit(entRecurLim))
+	return internal.NewProviderClient(addrInfo, internal.WithTopic(topic), internal.WithEntriesRecursionLimit(entRecurLim))
 }
 
 func doGetAdvertisements(cctx *cli.Context) error {

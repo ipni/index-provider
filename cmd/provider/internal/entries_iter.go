@@ -52,7 +52,7 @@ func (d *EntriesIterator) Next() (multihash.Multihash, error) {
 		return d.chunkIter.Next()
 	}
 
-	if isPresent(d.next) {
+	if !isPresent(d.next) {
 		return nil, io.EOF
 	}
 
