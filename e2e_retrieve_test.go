@@ -3,6 +3,7 @@ package provider_test
 import (
 	"context"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/filecoin-project/go-legs"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
-	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/supplier"
@@ -29,9 +29,7 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 )
@@ -40,24 +38,45 @@ const testTopic = "test/topic"
 
 type testCase struct {
 	name             string
-	serverConfigOpts []func(*config.Ingest)
+	serverConfigOpts func(*testing.T) []engine.Option
 }
 
 var testCases = []testCase{
 	{
-		name:             "DT Publisher",
-		serverConfigOpts: nil,
+		name: "DT Publisher",
+		serverConfigOpts: func(t *testing.T) []engine.Option {
+			// Use env var to signal what publisher kind is being used.
+			setPubKindEnvVarKey(t, engine.DataTransferPublisher)
+			return []engine.Option{
+				engine.WithTopicName(testTopic),
+				engine.WithPublisherKind(engine.DataTransferPublisher),
+			}
+		},
 	},
 	{
 		name: "HTTP Publisher",
-		serverConfigOpts: []func(*config.Ingest){
-			func(c *config.Ingest) {
-				httpPublisherCfg := config.NewHttpPublisher()
-				c.PublisherKind = config.HttpPublisherKind
-				c.HttpPublisher = httpPublisherCfg
-			},
+		serverConfigOpts: func(t *testing.T) []engine.Option {
+			// Use env var to signal what publisher kind is being used.
+			setPubKindEnvVarKey(t, engine.HttpPublisher)
+			return []engine.Option{
+				engine.WithTopicName(testTopic),
+				engine.WithPublisherKind(engine.HttpPublisher),
+			}
 		},
 	},
+}
+
+// setPubKindEnvVarKey to signal to newTestServer, which publisher kind is being used so that
+// the test server can be configured correctly.
+func setPubKindEnvVarKey(t *testing.T, kind engine.PublisherKind) {
+	// Set env var via direct call to os instead of t.SetEnv, because CI runs tests on 1.16 and
+	// that function is only available after 1.17
+	key := pubKindEnvVarKey(t)
+	err := os.Setenv(key, string(kind))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.Unsetenv(key)
+	})
 }
 
 func TestRetrievalRoundTrip(t *testing.T) {
@@ -73,7 +92,7 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	defer cancel()
 
 	// Initialize everything
-	server := newTestServer(t, ctx, tc.serverConfigOpts...)
+	server := newTestServer(t, ctx, tc.serverConfigOpts(t)...)
 	client := newTestClient(t)
 	disseminateNetworkState(server.h, client.h)
 
@@ -163,7 +182,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	server := newTestServer(t, ctx, tc.serverConfigOpts...)
+	server := newTestServer(t, ctx, tc.serverConfigOpts(t)...)
 	client := newTestClient(t)
 	disseminateNetworkState(server.h, client.h)
 
@@ -257,47 +276,27 @@ type testServer struct {
 	publisherAddr multiaddr.Multiaddr
 }
 
-func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.Ingest)) *testServer {
-	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
-	require.NoError(t, err)
-	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"), libp2p.Identity(priv))
-	require.NoError(t, err)
-	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	t.Cleanup(func() {
-		h.Close()
-	})
+func newTestServer(t *testing.T, ctx context.Context, o ...engine.Option) *testServer {
 
+	// Explicitly override host so that the host is known for testing purposes.
+	h := newHost(t)
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	ingestCfg := config.Ingest{
-		PubSubTopic: testTopic,
-	}
-	for _, f := range cfgOpts {
-		f(&ingestCfg)
-	}
+	o = append(o, engine.WithHost(h), engine.WithDatastore(store), engine.WithDataTransfer(dt))
 
 	var publisherAddr multiaddr.Multiaddr
-	if ingestCfg.PublisherKind == config.HttpPublisherKind {
+	pubKind := engine.PublisherKind(os.Getenv(pubKindEnvVarKey(t)))
+	if pubKind == engine.HttpPublisher {
+		var err error
 		port := findOpenPort(t)
-		publisherAddr, err = multiaddr.NewMultiaddr(ingestCfg.HttpPublisher.ListenMultiaddr)
+		publisherAddr, err = multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/" + port + "/http")
 		require.NoError(t, err)
-
-		// Replace the default port with a port we know is open so that tests can
-		// run in parallel.
-		parts := multiaddr.Split(publisherAddr)
-		for i, p := range parts {
-			if p.Protocols()[0].Code == multiaddr.P_TCP {
-				parts[i], err = multiaddr.NewMultiaddr("/tcp/" + port)
-				require.NoError(t, err)
-			}
-		}
-		publisherAddr = multiaddr.Join(parts...)
-		ingestCfg.HttpPublisher.ListenMultiaddr = publisherAddr.String()
-
+		o = append(o, engine.WithHttpPublisherListenAddr("0.0.0.0:"+port))
 	} else {
 		publisherAddr = h.Addrs()[0]
 	}
 
-	e, err := engine.New(ingestCfg, priv, dt, h, store, nil)
+	e, err := engine.New(o...)
 	require.NoError(t, err)
 	require.NoError(t, e.Start(ctx))
 
@@ -312,6 +311,10 @@ func newTestServer(t *testing.T, ctx context.Context, cfgOpts ...func(*config.In
 	}
 }
 
+func pubKindEnvVarKey(t *testing.T) string {
+	return t.Name() + "_publisher_kind"
+}
+
 type testClient struct {
 	h     host.Host
 	dt    datatransfer.Manager
@@ -324,12 +327,7 @@ func newTestClient(t *testing.T) *testClient {
 	blockStore := blockstore.NewBlockstore(store)
 	lsys := storeutil.LinkSystemForBlockstore(blockStore)
 	h := newHost(t)
-	t.Cleanup(func() {
-		h.Close()
-	})
-
 	dt := testutil.SetupDataTransferOnHost(t, h, store, lsys)
-
 	return &testClient{
 		h:     h,
 		dt:    dt,
@@ -341,6 +339,9 @@ func newTestClient(t *testing.T) *testClient {
 func newHost(t *testing.T) host.Host {
 	h, err := libp2p.New()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		h.Close()
+	})
 	return h
 }
 

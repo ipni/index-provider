@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	dt "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/go-legs/dtsync"
 	"github.com/filecoin-project/go-legs/httpsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
-	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
@@ -23,8 +21,6 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
 )
 
 const (
@@ -35,43 +31,20 @@ const (
 	linksCachePath         = "/cache/links"
 )
 
-var dsLatestAdvKey = datastore.NewKey(latestAdvKey)
-var log = logging.Logger("provider/engine")
+var (
+	log = logging.Logger("provider/engine")
+
+	dsLatestAdvKey = datastore.NewKey(latestAdvKey)
+)
 
 // Engine is an implementation of the core reference provider interface
 type Engine struct {
-	// privKey is the provider's privateKey
-	privKey crypto.PrivKey
-	// host is the libp2p host running the provider process
-	host host.Host
-	// dataTransfer is the data transfer module used by legs
-	dataTransfer dt.Manager
-	// addrs is a list of multiaddr strings which are the addresses advertised
-	// for content retrieval
-	addrs []string
-	// lsys is the main linksystem used for reference provider
+	*options
 	lsys ipld.LinkSystem
 
 	entriesChunker *chunker.CachedEntriesChunker
 
-	// ds is the datastore used for persistence of different assets (advertisements,
-	// indexed data, etc.)
-	ds datastore.Batching
-
-	publisherKind   config.PublisherKind
-	publisher       legs.Publisher
-	extraGossipData []byte
-
-	httpPublisherCfg *config.HttpPublisher
-
-	// pubsubtopic where the provider will push advertisements
-	pubSubTopic     string
-	linkedChunkSize int
-
-	// purgeLinkCache indicates whether to purge the link cache on startup
-	purgeLinkCache bool
-	// linkCacheSize is the capacity of the link cache LRU
-	linkCacheSize int
+	publisher legs.Publisher
 
 	// cb is the callback used in the linkSystem
 	cb   provider.Callback
@@ -99,56 +72,19 @@ var _ provider.Interface = (*Engine)(nil)
 //
 // The engine must be started via Engine.Start before use and discarded via Engine.Shutdown when no longer needed.
 // See: Engine.Start, Engine.Shutdown.
-func New(ingestCfg config.Ingest, privKey crypto.PrivKey, dt dt.Manager, h host.Host, ds datastore.Batching, retAddrs []string, options ...Option) (*Engine, error) {
-	var cfg engineConfig
-	err := cfg.apply(options)
+func New(o ...Option) (*Engine, error) {
+	opts, err := newOptions(o...)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(retAddrs) == 0 {
-		retAddrs = []string{h.Addrs()[0].String()}
-		log.Infof("Retrieval address not configured, using %s", retAddrs[0])
-	}
-
-	ingestCfg.PopulateDefaults()
-
-	// TODO(security): We should not keep the privkey decoded here.
-	// We should probably unlock it and lock it every time we need it.
-	// Once we start encrypting the key locally.
 	e := &Engine{
-		host:            h,
-		dataTransfer:    dt,
-		ds:              ds,
-		privKey:         privKey,
-		pubSubTopic:     ingestCfg.PubSubTopic,
-		linkedChunkSize: ingestCfg.LinkedChunkSize,
-		purgeLinkCache:  ingestCfg.PurgeLinkCache,
-		linkCacheSize:   ingestCfg.LinkCacheSize,
-
-		addrs:            retAddrs,
-		httpPublisherCfg: &ingestCfg.HttpPublisher,
-		publisherKind:    ingestCfg.PublisherKind,
-		extraGossipData:  cfg.extraGossipData,
+		options: opts,
 	}
 
 	e.lsys = e.mkLinkSystem()
 
 	return e, nil
-}
-
-// NewFromConfig instantiates a new engine by using the given config.Config.
-// The instantiation gets the private key via config.Identity, and uses RetrievalMultiaddrs in
-// config.ProviderServer as retrieval addresses in advertisements.
-//
-// See: engine.New .
-func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastore.Batching, options ...Option) (*Engine, error) {
-	log.Info("Instantiating a new index provider engine")
-	privKey, err := cfg.Identity.DecodePrivateKey("")
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode private key: %s", err)
-	}
-	return New(cfg.Ingest, privKey, dt, host, ds, cfg.ProviderServer.RetrievalMultiaddrs, options...)
 }
 
 // Start starts the engine by instantiating the internal storage and joins the configured gossipsub
@@ -160,12 +96,12 @@ func NewFromConfig(cfg config.Config, dt dt.Manager, host host.Host, ds datastor
 func (e *Engine) Start(ctx context.Context) error {
 	// Create datastore entriesChunker
 	entriesCacheDs := dsn.Wrap(e.ds, datastore.NewKey(linksCachePath))
-	cachedChunker, err := chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.linkedChunkSize, e.linkCacheSize)
+	cachedChunker, err := chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.entChunkSize, e.entCacheCap)
 	if err != nil {
 		return err
 	}
 
-	if e.purgeLinkCache {
+	if e.purgeCache {
 		err := cachedChunker.Clear(ctx)
 		if err != nil {
 			return err
@@ -174,18 +110,10 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.entriesChunker = cachedChunker
 
-	if e.publisherKind == config.HttpPublisherKind {
-		var addr string
-		addr, err = e.httpPublisherCfg.ListenNetAddr()
-		if err != nil {
-			return fmt.Errorf("cannot format http addr for httpPublisher: %s", err)
-		}
-		e.publisher, err = httpsync.NewPublisher(addr, e.lsys, e.host.ID(), e.privKey)
-	} else {
-		e.publisher, err = dtsync.NewPublisherFromExisting(e.dataTransfer, e.host, e.pubSubTopic, e.lsys, dtsync.WithExtraData(e.extraGossipData))
-	}
+	e.publisher, err = e.newPublisher()
 	if err != nil {
-		return fmt.Errorf("cannot initialize publisher: %s", err)
+		log.Errorw("Failed to instantiate legs publisher", "err", "err", "kind", e.pubKind)
+		return err
 	}
 
 	err = e.PublishLatest(ctx)
@@ -197,6 +125,25 @@ func (e *Engine) Start(ctx context.Context) error {
 	return nil
 }
 
+func (e *Engine) newPublisher() (legs.Publisher, error) {
+	switch e.pubKind {
+	case NoPublisher:
+		log.Info("Remote announcements is disabled; all advertisements will only be store locally.")
+		return nil, nil
+	case DataTransferPublisher:
+		dtOpts := []dtsync.Option{dtsync.Topic(e.pubTopic), dtsync.WithExtraData(e.pubExtraGossipData)}
+		if e.pubDT != nil {
+			return dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtOpts...)
+		}
+		ds := dsn.Wrap(e.ds, datastore.NewKey("/legs/dtsync/pub"))
+		return dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtOpts...)
+	case HttpPublisher:
+		return httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.h.ID(), e.key)
+	default:
+		return nil, fmt.Errorf("unknown publisher kind: %s", e.pubKind)
+	}
+}
+
 // PublishLocal stores the advertisement in the local link system and marks it locally as the latest
 // advertisement.
 //
@@ -204,21 +151,19 @@ func (e *Engine) Start(ctx context.Context) error {
 //
 // See: Engine.Publish.
 func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
-	adLnk, err := schema.AdvertisementLink(e.lsys, adv)
+	lnk, err := e.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, adv.Representation())
 	if err != nil {
 		return cid.Undef, fmt.Errorf("cannot generate advertisement link: %s", err)
 	}
+	c := lnk.(cidlink.Link).Cid
+	log := log.With("adCid", c)
+	log.Info("Stored ad in local link system")
 
-	c := adLnk.ToCid()
-	// Store latest advertisement published from the chain
-	//
-	// NOTE: The datastore should be thread-safe, if not we need a lock to
-	// protect races on this value.
-	log.Infow("Storing advertisement locally", "cid", c.String())
-	err = e.putLatestAdv(ctx, c.Bytes())
-	if err != nil {
-		return cid.Undef, fmt.Errorf("cannot store latest advertisement in blockstore: %s", err)
+	if err := e.putLatestAdv(ctx, c.Bytes()); err != nil {
+		log.Errorw("Failed to update reference to the latest advertisement", "err", err)
+		return cid.Undef, fmt.Errorf("failed to update reference to latest advertisement: %w", err)
 	}
+	log.Info("Updated reference to the latest advertisement successfully")
 	return c, nil
 }
 
@@ -229,36 +174,45 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 // The publication mechanism uses legs.Publisher internally.
 // See: https://github.com/filecoin-project/go-legs
 func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
-	// Store the advertisement locally.
 	c, err := e.PublishLocal(ctx, adv)
 	if err != nil {
-		return cid.Undef, fmt.Errorf("failed to publish advertisement locally: %s", err)
+		log.Errorw("Failed to store advertisement locally", "err", err)
+		return cid.Undef, fmt.Errorf("failed to publish advertisement locally: %w", err)
 	}
 
-	log.Infow("Publishing advertisement in pubsub channel", "cid", c)
-	// Publish the advertisement.
-	err = e.publisher.UpdateRoot(ctx, c)
-	if err != nil {
-		return cid.Undef, err
+	// Only announce the advertisement CID if publisher is configured.
+	if e.publisher != nil {
+		log := log.With("adCid", c)
+		log.Info("Publishing advertisement in pubsub channel")
+		err = e.publisher.UpdateRoot(ctx, c)
+		if err != nil {
+			log.Errorw("Failed to announce advertisement on pubsub channel ", "err", err)
+			return cid.Undef, err
+		}
 	}
 	return c, nil
 }
 
 // PublishLatest re-publishes the latest existing advertisement to pubsub.
 func (e *Engine) PublishLatest(ctx context.Context) error {
-	adCid, err := e.getLatestAdCid(ctx)
-	if err != nil {
-		return fmt.Errorf("could not get latest advertisement cid from blockstore: %s", err)
-	}
-
-	if adCid == cid.Undef {
-		log.Info("No previously published advertisements")
+	// Skip announcing the latest advertisement CID if there is no publisher.
+	if e.publisher == nil {
+		log.Infow("Skipped announcing the latest: remote announcements are disabled.")
 		return nil
 	}
 
+	adCid, err := e.getLatestAdCid(ctx)
+	if err != nil {
+		log.Errorw("Failed to get the latest advertisement CID", "err", err)
+		return fmt.Errorf("failed to get latest advertisement cid from blockstore: %w", err)
+	}
+
+	if adCid == cid.Undef {
+		log.Info("Skipped announcing the latest: no previously published advertisements.")
+		return nil
+	}
 	log.Infow("Republishing latest advertisement", "cid", adCid)
 
-	// Re-publish the advertisement.
 	return e.publisher.UpdateRoot(ctx, adCid)
 }
 
@@ -305,14 +259,14 @@ func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, e
 // The engine is no longer usable after the call to this function.
 func (e *Engine) Shutdown() error {
 	var errs error
-	err := e.publisher.Close()
-	if err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("error closing leg publisher: %s", err))
+	if e.publisher != nil {
+		if err := e.publisher.Close(); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("error closing leg publisher: %s", err))
+		}
 	}
-	if err = e.entriesChunker.Close(); err != nil {
+	if err := e.entriesChunker.Close(); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
 	}
-
 	return errs
 }
 
@@ -480,8 +434,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		previousLnk = nb.Build().(schema.Link_Advertisement)
 	}
 
-	adv, err := schema.NewAdvertisement(e.privKey, previousLnk, cidsLnk,
-		contextID, metadata, isRm, e.host.ID().String(), e.addrs)
+	adv, err := schema.NewAdvertisement(e.key, previousLnk, cidsLnk,
+		contextID, metadata, isRm, e.h.ID().String(), e.retrievalAddrsAsString())
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to create advertisement: %s", err)
 	}

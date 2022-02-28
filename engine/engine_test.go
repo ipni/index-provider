@@ -11,7 +11,6 @@ import (
 
 	"github.com/filecoin-project/go-legs"
 	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/testutil"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
@@ -127,20 +126,11 @@ func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 }
 
 func mkEngine(t *testing.T) *Engine {
-	ingestCfg := config.NewIngest()
-	ingestCfg.PubSubTopic = testTopic
-	return mkEngineWithConfig(t, ingestCfg)
+	return mkEngineWithOptions(t, WithTopicName(testTopic), WithPublisherKind(DataTransferPublisher))
 }
 
-func mkEngineWithConfig(t *testing.T, cfg config.Ingest) *Engine {
-	priv, _, err := test.RandTestKeyPair(crypto.Ed25519, 256)
-	require.NoError(t, err)
-	h := mkTestHost(t)
-
-	store := dssync.MutexWrap(datastore.NewMapDatastore())
-
-	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	engine, err := New(cfg, priv, dt, h, store, nil)
+func mkEngineWithOptions(t *testing.T, o ...Option) *Engine {
+	engine, err := New(o...)
 	require.NoError(t, err)
 	err = engine.Start(context.Background())
 	require.NoError(t, err)
@@ -249,7 +239,7 @@ func TestNotifyPublish(t *testing.T) {
 	t.Cleanup(clean(ls, e, cncl))
 
 	// Connect subscribe with provider engine.
-	connectHosts(t, e.host, lh)
+	connectHosts(t, e.h, lh)
 
 	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
 	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
@@ -290,7 +280,7 @@ func TestNotifyPutAndRemoveCids(t *testing.T) {
 
 	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
-	connectHosts(t, e.host, lh)
+	connectHosts(t, e.h, lh)
 
 	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
 	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
@@ -375,7 +365,7 @@ func TestNotifyPutWithCallback(t *testing.T) {
 
 	t.Cleanup(clean(ls, e, cncl))
 	// Connect subscribe with provider engine.
-	connectHosts(t, e.host, lh)
+	connectHosts(t, e.h, lh)
 
 	// per https://github.com/libp2p/go-libp2p-pubsub/blob/e6ad80cf4782fca31f46e3a8ba8d1a450d562f49/gossipsub_test.go#L103
 	// we don't seem to have a way to manually trigger needed gossip-sub heartbeats for mesh establishment.
@@ -454,10 +444,9 @@ func skipFlaky(t *testing.T) {
 }
 
 func Test_EmptyConfigSetsDefaults(t *testing.T) {
-	engine, err := New(config.Ingest{}, nil, nil, mkTestHost(t), nil, nil)
+	engine, err := New()
 	require.NoError(t, err)
-	require.True(t, engine.linkedChunkSize > 0)
-	require.True(t, engine.linkCacheSize > 0)
-	require.True(t, engine.pubSubTopic != "")
-	require.True(t, engine.pubSubTopic != "")
+	require.True(t, engine.entChunkSize > 0)
+	require.True(t, engine.entCacheCap > 0)
+	require.True(t, engine.pubTopicName != "")
 }
