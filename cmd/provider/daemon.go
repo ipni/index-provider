@@ -116,7 +116,14 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 
 	// Starting provider core
-	eng, err := engine.New(cfg.Ingest, privKey, dt, h, ds, cfg.ProviderServer.RetrievalMultiaddrs)
+	eng, err := engine.New(
+		engine.WithDatastore(ds),
+		engine.WithDataTransfer(dt),
+		engine.WithHost(h),
+		engine.WithEntriesCacheCapacity(cfg.Ingest.LinkCacheSize),
+		engine.WithEntriesChunkSize(cfg.Ingest.LinkedChunkSize),
+		engine.WithTopicName(cfg.Ingest.PubSubTopic),
+		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)))
 	if err != nil {
 		return err
 	}

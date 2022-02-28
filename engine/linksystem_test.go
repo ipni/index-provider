@@ -9,7 +9,6 @@ import (
 	"time"
 
 	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
@@ -99,20 +98,19 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cfg := config.NewIngest()
-	cfg.LinkedChunkSize = 2
-	cfg.LinkCacheSize = 1
-	subject := mkEngineWithConfig(t, cfg)
+	chunkSize := 2
+	cacheCap := 1
+	subject := mkEngineWithOptions(t, WithEntriesCacheCapacity(cacheCap), WithEntriesChunkSize(chunkSize))
 
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
-	wantAd1EntriesChainLen := ad1MhCount / cfg.LinkedChunkSize
+	wantAd1EntriesChainLen := ad1MhCount / chunkSize
 	ad1Mhs, err := testutil.RandomCids(rng, ad1MhCount)
 	require.NoError(t, err)
 
 	ad2CtxID := []byte("second")
 	ad2MhCount := 10
-	wantAd2ChunkLen := ad2MhCount / cfg.LinkedChunkSize
+	wantAd2ChunkLen := ad2MhCount / chunkSize
 	ad2Mhs, err := testutil.RandomCids(rng, ad2MhCount)
 	require.NoError(t, err)
 
