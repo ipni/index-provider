@@ -69,6 +69,24 @@ func newProviderClientStore() *ProviderClientStore {
 	}
 }
 
+func (s *ProviderClientStore) getNextChunkLink(ctx context.Context, target cid.Cid) (cid.Cid, error) {
+	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	node := n.(schema.EntryChunk)
+	if node.FieldNext().IsAbsent() || node.FieldNext().IsNull() {
+		return cid.Undef, nil
+	}
+
+	lnk, err := node.FieldNext().AsNode().AsLink()
+	if err != nil {
+		return cid.Undef, err
+	}
+	return lnk.(cidlink.Link).Cid, nil
+}
+
 func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Cid) (cid.Cid, []multihash.Multihash, error) {
 	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
 	if err != nil {
