@@ -98,7 +98,7 @@ func toProviderClient(addrStr string, topic string) (internal.ProviderClient, er
 		entRecurLim = selector.RecursionLimitDepth(adEntriesRecurLimitFlagValue)
 	}
 
-	return internal.NewProviderClient(addrInfo, internal.WithTopic(topic), internal.WithEntriesRecursionLimit(entRecurLim))
+	return internal.NewProviderClient(addrInfo, internal.WithTopicName(topic), internal.WithEntriesRecursionLimit(entRecurLim))
 }
 
 func doGetAdvertisements(cctx *cli.Context) error {

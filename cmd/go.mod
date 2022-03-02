@@ -18,6 +18,7 @@ require (
 	github.com/libp2p/go-libp2p v0.18.0-rc3
 	github.com/libp2p/go-libp2p-core v0.14.0
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/montanaflynn/stats v0.6.6
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/multiformats/go-multicodec v0.4.1
 	github.com/multiformats/go-multihash v0.1.0

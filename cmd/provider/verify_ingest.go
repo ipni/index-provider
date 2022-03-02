@@ -1,25 +1,21 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
 	"path"
 	"time"
 
+	"github.com/filecoin-project/index-provider/cmd/provider/internal"
 	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
-	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 )
-
-const verifyChunkSize = 4096
 
 var (
 	carPath           string
@@ -31,7 +27,7 @@ var (
 	adCidStr          string
 	adRecurLimit      int
 	printUnindexedMhs bool
-	include           sampleSelector
+	include           internal.Sampler
 	VerifyIngestCmd   = &cli.Command{
 		Name:  "verify-ingest",
 		Usage: "Verifies ingestion of multihashes to an indexer node from a CAR file or a CARv2 Index",
@@ -220,11 +216,8 @@ Example output:
 	}
 )
 
-type sampleSelector func() bool
-
-func beforeVerifyIngest(cctx *cli.Context) error {
+func beforeVerifyIngest(_ *cli.Context) error {
 	if samplingProb <= 0 || samplingProb > 1 {
-		showVerifyIngestHelp(cctx)
 		return cli.Exit("Sampling probability must be larger than 0.0 and smaller or equal to 1.0.", 1)
 	}
 
@@ -248,7 +241,6 @@ func beforeVerifyIngest(cctx *cli.Context) error {
 }
 
 func doVerifyIngest(cctx *cli.Context) error {
-
 	if pAddrInfo != "" {
 		if carPath != "" || carIndexPath != "" {
 			return errOneMultihashSourceOnly(cctx)
@@ -263,7 +255,7 @@ func doVerifyIngest(cctx *cli.Context) error {
 
 	if carPath != "" {
 		if carIndexPath != "" {
-			return errVerifyIngestMultipleSources(cctx)
+			return errVerifyIngestMultipleSources()
 		}
 		carPath = path.Clean(carPath)
 		return doVerifyIngestFromCar(cctx)
@@ -291,8 +283,14 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 	} else {
 		adRecurLimitStr = fmt.Sprintf("%d", adRecurLimit)
 	}
-	var aggResult verifyIngestResult
-	rmCtxIDs := make(map[string]interface{})
+	var aggResult internal.VerifyIngestResult
+	finder, err := httpfinderclient.New(indexerAddr)
+	if err != nil {
+		return err
+	}
+
+	stats := internal.NewAdStats(include)
+
 	for i := 1; i <= adRecurLimit; i++ {
 		ad, err := provClient.GetAdvertisement(cctx.Context, adCid)
 		if err != nil {
@@ -301,51 +299,39 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 			}
 			fmt.Fprintf(os.Stderr, "⚠️ Failed to fully sync advertisement %s. Output shows partially synced ad.\n  Error: %s\n", adCid, err.Error())
 		}
+		ads := stats.Sample(ad)
 
 		fmt.Printf("Advertisement ID:          %s\n", ad.ID)
 		fmt.Printf("Previous Advertisement ID: %s\n", ad.PreviousID)
 		fmt.Printf("Verifying ingest... (%d/%s)\n", i, adRecurLimitStr)
-		ctxID := string(ad.ContextID)
-		if _, removed := rmCtxIDs[ctxID]; removed {
+		if ads.NoLongerProvided {
 			fmt.Println("🧹 Removed in later advertisements; skipping verification.")
 		} else if ad.IsRemove {
-			rmCtxIDs[ctxID] = nil
 			fmt.Println("✂️ Removal advertisement; skipping verification.")
 		} else if !ad.HasEntries() {
 			fmt.Println("Has no entries; skipping verification.")
-
 		} else {
 			var entriesOutput string
-			allMhs, err := ad.Entries.Drain()
-			if err == datastore.ErrNotFound {
-				entriesOutput = "; skipped syncing the remaining chunks due to recursion limit or error while syncing."
-			} else if err != nil {
-				return err
+			if ads.PartiallySynced {
+				entriesOutput = "; ad entries are partially synced due to: " + ads.SyncErr.Error()
 			}
 
-			var mhs []multihash.Multihash
-			for _, mh := range allMhs {
-				if include() {
-					mhs = append(mhs, mh)
+			fmt.Printf("Total Entries:             %d over %d chunk(s)%s\n", ads.MhCount, ads.ChunkCount, entriesOutput)
+			fmt.Print("Verification: ")
+			if len(ads.MhSample) == 0 {
+				fmt.Println("🔘 Skipped; sampling did not include any multihashes.")
+			} else {
+				result, err := internal.VerifyIngestFromMhs(finder, provId, ads.MhSample)
+				if err != nil {
+					return err
+				}
+				aggResult.Add(result)
+				if result.PassedVerification() {
+					fmt.Println("✅ Pass")
+				} else {
+					fmt.Println("❌ Fail")
 				}
 			}
-
-			fmt.Printf("Total Entries:             %d over %d chunk(s)%s\n", len(allMhs), ad.Entries.ChunkCount(), entriesOutput)
-			finder, err := httpfinderclient.New(indexerAddr)
-			if err != nil {
-				return err
-			}
-			result, err := verifyIngestFromMhs(finder, mhs)
-			if err != nil {
-				return err
-			}
-			fmt.Print("Verification: ")
-			if result.passedVerification() {
-				fmt.Println("✅ Pass")
-			} else {
-				fmt.Println("❌ Fail")
-			}
-			aggResult.add(result)
 		}
 		fmt.Println("-----------------------")
 
@@ -357,11 +343,12 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 		adCid = ad.PreviousID
 	}
 
-	return aggResult.printAndExit()
+	printVerificationResult(&aggResult)
+	printAdStats(stats)
+	return nil
 }
 
 func errOneMultihashSourceOnly(cctx *cli.Context) error {
-	showVerifyIngestHelp(cctx)
 	return cli.Exit("Exactly one multihash source must be specified.", 1)
 }
 
@@ -381,7 +368,8 @@ func doVerifyIngestFromCar(_ *cli.Context) error {
 		return err
 	}
 
-	return result.printAndExit()
+	printVerificationResult(result)
+	return nil
 }
 
 func getOrGenerateCarIndex() (index.IterableIndex, error) {
@@ -442,89 +430,19 @@ func doVerifyIngestFromCarIndex() error {
 		return err
 	}
 
-	return result.printAndExit()
+	printVerificationResult(result)
+	return nil
 }
 
 func errInvalidCarIndexFormat() cli.ExitCoder {
 	return cli.Exit("CAR index must be in iterable multihash format; see: multicodec.CarMultihashIndexSorted", 1)
 }
 
-func errVerifyIngestMultipleSources(cctx *cli.Context) error {
-	showVerifyIngestHelp(cctx)
+func errVerifyIngestMultipleSources() error {
 	return cli.Exit("Multiple multihash sources are specified. Only a single source at a time is supported.", 1)
 }
 
-func showVerifyIngestHelp(cctx *cli.Context) {
-	// Ignore error since it only occues if usage is not found for command.
-	_ = cli.ShowCommandHelp(cctx, "verify-ingest")
-}
-
-type verifyIngestResult struct {
-	total             int
-	providerMissmatch int
-	present           int
-	absent            int
-	err               int
-	errCauses         []error
-	mhs               []multihash.Multihash
-}
-
-func (r *verifyIngestResult) passedVerification() bool {
-	return r.present == r.total
-}
-
-func (r *verifyIngestResult) printAndExit() error {
-	fmt.Println()
-	fmt.Println("Verification result:")
-	fmt.Printf("  # failed to verify:                   %d\n", r.err)
-	fmt.Printf("  # unindexed:                          %d\n", r.absent)
-	fmt.Printf("  # indexed with another provider ID:   %d\n", r.providerMissmatch)
-	fmt.Printf("  # indexed with expected provider ID:  %d\n", r.present)
-	fmt.Println("--------------------------------------------")
-	fmt.Printf("total Multihashes checked:              %d\n", r.total)
-	fmt.Println()
-	fmt.Printf("sampling probability:                   %.2f\n", samplingProb)
-	fmt.Printf("RNG seed:                               %d\n", rngSeed)
-	fmt.Println()
-
-	if r.total == 0 {
-		return cli.Exit("⚠️ Inconclusive; no multihashes were verified.", 0)
-	}
-
-	if r.passedVerification() {
-		return cli.Exit("🎉 Passed verification check.", 0)
-	}
-
-	if len(r.errCauses) != 0 {
-		fmt.Println("Error(s):")
-		for _, err := range r.errCauses {
-			fmt.Printf("  %s\n", err)
-		}
-		fmt.Println()
-	}
-
-	if printUnindexedMhs && len(r.mhs) != 0 {
-		fmt.Println("Unindexed Multihash(es):")
-		for _, mh := range r.mhs {
-			fmt.Printf("  %s\n", mh.B58String())
-		}
-		fmt.Println()
-	}
-
-	return cli.Exit("❌ Failed verification check.", 1)
-}
-
-func (r *verifyIngestResult) add(other *verifyIngestResult) {
-	r.total += other.total
-	r.providerMissmatch += other.providerMissmatch
-	r.present += other.present
-	r.absent += other.absent
-	r.err += other.err
-	r.errCauses = append(r.errCauses, other.errCauses...)
-	r.mhs = append(r.mhs, other.mhs...)
-}
-
-func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index.IterableIndex) (*verifyIngestResult, error) {
+func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index.IterableIndex) (*internal.VerifyIngestResult, error) {
 	var mhs []multihash.Multihash
 	if err := idx.ForEach(func(mh multihash.Multihash, _ uint64) error {
 		if include() {
@@ -534,73 +452,5 @@ func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index
 	}); err != nil {
 		return nil, err
 	}
-	return verifyIngestFromMhs(finder, mhs)
-}
-
-func verifyIngestFromMhs(finder *httpfinderclient.Client, mhs []multihash.Multihash) (*verifyIngestResult, error) {
-	aggResult := &verifyIngestResult{}
-	for len(mhs) >= verifyChunkSize {
-		result, err := verifyIngestChunk(finder, mhs[:verifyChunkSize])
-		if err != nil {
-			return nil, err
-		}
-		aggResult.add(result)
-		mhs = mhs[verifyChunkSize:]
-	}
-	if len(mhs) != 0 {
-		result, err := verifyIngestChunk(finder, mhs)
-		if err != nil {
-			return nil, err
-		}
-		aggResult.add(result)
-	}
-	return aggResult, nil
-}
-
-func verifyIngestChunk(finder *httpfinderclient.Client, mhs []multihash.Multihash) (*verifyIngestResult, error) {
-	result := &verifyIngestResult{}
-	mhsCount := len(mhs)
-	result.total = mhsCount
-	response, err := finder.FindBatch(context.Background(), mhs)
-	if err != nil {
-		// Set number multihashes failed to verify instead of returning error since at this point
-		// the number of multihashes is known.
-		result.err = mhsCount
-		err = fmt.Errorf("failed to connect to indexer: %w", err)
-		result.errCauses = append(result.errCauses, err)
-		return result, nil
-	}
-	result.mhs = mhs
-
-	if len(response.MultihashResults) == 0 {
-		result.absent = mhsCount
-		return result, nil
-	}
-
-	mhLookup := make(map[string]model.MultihashResult, len(response.MultihashResults))
-	for _, mr := range response.MultihashResults {
-		mhLookup[mr.Multihash.String()] = mr
-	}
-
-	for _, mh := range mhs {
-		mr, ok := mhLookup[mh.String()]
-		if !ok || len(mr.ProviderResults) == 0 {
-			result.absent++
-			continue
-		}
-
-		var matchedProvider bool
-		for _, p := range mr.ProviderResults {
-			id := p.Provider.ID.String()
-			if id == provId {
-				result.present++
-				matchedProvider = true
-				break
-			}
-		}
-		if !matchedProvider {
-			result.providerMissmatch++
-		}
-	}
-	return result, nil
+	return internal.VerifyIngestFromMhs(finder, provId, mhs)
 }
