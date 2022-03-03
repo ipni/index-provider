@@ -42,11 +42,6 @@ type carDataTransfer struct {
 	stores   *stores.ReadOnlyBlockstores
 }
 
-// TBD: this is really for internal use only
-// -- maybe we find something that doesn't overlap a protocol range?
-
-const ContextIDCodec multicodec.Code = 0x300001
-
 func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) error {
 	cdt := &carDataTransfer{
 		dt:       dt,
@@ -72,7 +67,7 @@ func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) 
 func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
 	pieceCid, err := cid.Prefix{
 		Version:  1,
-		Codec:    uint64(ContextIDCodec),
+		Codec:    uint64(multicodec.TransportGraphsyncFilecoinv1),
 		MhType:   multihash.IDENTITY,
 		MhLength: -1,
 	}.Sum(contextID)
@@ -148,7 +143,7 @@ func (cdt *carDataTransfer) attemptAcceptDeal(providerDealID ProviderDealID, pro
 
 	// get contextID
 	prefix := proposal.PieceCID.Prefix()
-	if prefix.Codec != uint64(ContextIDCodec) {
+	if prefix.Codec != uint64(multicodec.TransportGraphsyncFilecoinv1) {
 		return DealStatusErrored, errors.New("incorrect Piece CID codec")
 	}
 	if prefix.MhType != multihash.IDENTITY {
