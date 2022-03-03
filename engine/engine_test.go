@@ -26,13 +26,14 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
+	"github.com/multiformats/go-multicodec"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
 const (
 	testTopic  = "indexer/test"
-	protocolID = 0x300000
+	protocolID = multicodec.TransportGraphsyncFilecoinv1
 )
 
 var _ provider.MultihashIterator = (*sliceMhIterator)(nil)

@@ -25,7 +25,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.6.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.5.0
-	github.com/multiformats/go-multicodec v0.4.0
+	github.com/multiformats/go-multicodec v0.4.1
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/stretchr/testify v1.7.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20220224212727-7a699437a831

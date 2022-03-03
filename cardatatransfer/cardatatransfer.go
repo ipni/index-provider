@@ -79,16 +79,12 @@ func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
 	if err != nil {
 		return stiapi.Metadata{}, err
 	}
-	filecoinV1Metadata := &metadata.FilecoinV1Data{
+	filecoinV1Metadata := &metadata.GraphsyncFilecoinV1Metadata{
 		PieceCID:      pieceCid,
 		VerifiedDeal:  true,
 		FastRetrieval: true,
 	}
-	dataTransferMetadata, err := filecoinV1Metadata.Encode(metadata.GraphSyncV1)
-	if err != nil {
-		return stiapi.Metadata{}, err
-	}
-	return dataTransferMetadata.ToIndexerMetadata(), nil
+	return filecoinV1Metadata.ToIndexerMetadata()
 }
 
 // ValidatePush validates a push request received from the peer that will send data

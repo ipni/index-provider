@@ -133,16 +133,15 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	var receivedMd stiapi.Metadata
 	err = receivedMd.UnmarshalBinary(mdb)
 	require.NoError(t, err)
-	dtm, err := metadata.FromIndexerMetadata(receivedMd)
-	require.NoError(t, err)
-	fv1, err := metadata.DecodeFilecoinV1Data(dtm)
+	dtm := &metadata.GraphsyncFilecoinV1Metadata{}
+	err = dtm.FromIndexerMetadata(receivedMd)
 	require.NoError(t, err)
 
 	proposal := &cardatatransfer.DealProposal{
 		PayloadCID: roots[0],
 		ID:         1,
 		Params: cardatatransfer.Params{
-			PieceCID: &fv1.PieceCID,
+			PieceCID: &dtm.PieceCID,
 		},
 	}
 	done := make(chan bool, 1)
