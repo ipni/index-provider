@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/multiformats/go-multicodec"
 	"github.com/urfave/cli/v2"
 )
 
@@ -32,7 +33,7 @@ var (
 		Action:  doImportCar,
 	}
 	metadata = stiapi.Metadata{
-		ProtocolID: cardatatransfer.ContextIDCodec,
+		ProtocolID: multicodec.TransportGraphsyncFilecoinv1,
 	}
 )
 

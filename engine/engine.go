@@ -10,7 +10,6 @@ import (
 	"github.com/filecoin-project/go-legs/dtsync"
 	"github.com/filecoin-project/go-legs/httpsync"
 	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
@@ -21,6 +20,7 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/multiformats/go-multicodec"
 )
 
 const (
@@ -410,7 +410,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		// The advertisement still requires a valid metadata even though
 		// metadata is not used for removal.  Create a valid empty metadata.
 		metadata = stiapi.Metadata{
-			ProtocolID: cardatatransfer.ContextIDCodec,
+			ProtocolID: multicodec.TransportGraphsyncFilecoinv1,
 		}
 	}
 
