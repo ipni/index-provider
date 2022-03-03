@@ -2,15 +2,10 @@ package metadata
 
 import (
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/multiformats/go-multicodec"
 )
 
-const (
-	// BitswapMetadataV1 is the 2021-era ipfs-bitswap transport protocol
-	BitswapMetadataV1 = 0x3E0000
-)
-
-// BitswapMetadata is a signalling indicator for the bitswap transport
+// BitswapMetadata represents the indexing metadata that uses multicodec.TransportBitswap.
 var BitswapMetadata = stiapi.Metadata{
-	ProtocolID: BitswapMetadataV1,
-	Data:       []byte{},
+	ProtocolID: multicodec.TransportBitswap,
 }
