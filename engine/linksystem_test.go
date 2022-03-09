@@ -1,4 +1,4 @@
-package engine
+package engine_test
 
 import (
 	"bytes"
@@ -6,9 +6,9 @@ import (
 	"errors"
 	"math/rand"
 	"testing"
-	"time"
 
 	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
@@ -23,22 +23,26 @@ import (
 )
 
 func Test_SchemaNoEntriesErr(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	ctx := contextWithTimeout(t)
 
-	subject := mkEngine(t)
+	subject, err := engine.New()
+	require.NoError(t, err)
+	err = subject.Start(ctx)
+	require.NoError(t, err)
 	defer subject.Shutdown()
 	// Assert both add and remove advertisements can be loaded
-	_, err := subject.lsys.Load(ipld.LinkContext{Ctx: ctx}, schema.NoEntries, schema.Type.Advertisement)
-	require.Equal(t, errNoEntries, err)
+	_, err = subject.LinkSystem().Load(ipld.LinkContext{Ctx: ctx}, schema.NoEntries, schema.Type.Advertisement)
+	require.Equal(t, "no entries; see schema.NoEntries", err.Error())
 }
 
 func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	ctx := contextWithTimeout(t)
 
-	subject := mkEngine(t)
+	subject, err := engine.New()
+	require.NoError(t, err)
+	err = subject.Start(ctx)
+	require.NoError(t, err)
 	defer subject.Shutdown()
 
 	ctxID := []byte("added then removed content")
@@ -64,11 +68,11 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	require.NotEqual(t, schema.NoEntries, adAddEntriesRoot)
 
 	// Assert entries chunk from content added is resolvable
-	_, err = subject.lsys.Load(ipld.LinkContext{}, adAddEntriesRoot, schema.Type.EntryChunk)
+	_, err = subject.LinkSystem().Load(ipld.LinkContext{}, adAddEntriesRoot, schema.Type.EntryChunk)
 	require.NoError(t, err)
 
 	// Clear cached entries to force re-generation of chunks on traversal
-	require.NoError(t, subject.entriesChunker.Clear(ctx))
+	require.NoError(t, subject.Chunker().Clear(ctx))
 
 	// Signal to callback that context ID must no longer be found
 	removed = true
@@ -83,24 +87,27 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 
 	lCtx := ipld.LinkContext{Ctx: ctx}
 	// Assert both add and remove advertisements can be loaded
-	_, err = subject.lsys.Load(lCtx, cidlink.Link{Cid: adAddCid}, schema.Type.Advertisement)
+	_, err = subject.LinkSystem().Load(lCtx, cidlink.Link{Cid: adAddCid}, schema.Type.Advertisement)
 	require.NoError(t, err)
-	_, err = subject.lsys.Load(lCtx, cidlink.Link{Cid: adRemoveCid}, schema.Type.Advertisement)
+	_, err = subject.LinkSystem().Load(lCtx, cidlink.Link{Cid: adRemoveCid}, schema.Type.Advertisement)
 	require.NoError(t, err)
 
 	// Assert chunks from advertisement that added content are not found
-	_, err = subject.lsys.Load(lCtx, adAddEntriesRoot, schema.Type.EntryChunk)
+	_, err = subject.LinkSystem().Load(lCtx, adAddEntriesRoot, schema.Type.EntryChunk)
 	require.Equal(t, datastore.ErrNotFound, err)
 }
 
 func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	ctx := contextWithTimeout(t)
 
 	chunkSize := 2
 	cacheCap := 1
-	subject := mkEngineWithOptions(t, WithEntriesCacheCapacity(cacheCap), WithEntriesChunkSize(chunkSize))
+	subject, err := engine.New(engine.WithEntriesCacheCapacity(cacheCap), engine.WithEntriesChunkSize(chunkSize))
+	require.NoError(t, err)
+	err = subject.Start(ctx)
+	require.NoError(t, err)
+	defer subject.Shutdown()
 
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
@@ -130,9 +137,9 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	ad1, err := subject.GetAdv(ctx, ad1Cid)
 	require.NoError(t, err)
 	ad1EntriesRoot := requireAdEntriesLink(t, ad1)
-	ad1EntriesChain := listEntriesChainFromCache(t, subject.entriesChunker, ad1EntriesRoot)
+	ad1EntriesChain := listEntriesChainFromCache(t, subject.Chunker(), ad1EntriesRoot)
 	require.Len(t, ad1EntriesChain, wantAd1EntriesChainLen)
-	requireChunkIsCached(t, subject.entriesChunker, ad1EntriesChain...)
+	requireChunkIsCached(t, subject.Chunker(), ad1EntriesChain...)
 	a1Chunks := requireLoadEntryChunkFromEngine(t, subject, ad1EntriesChain...)
 
 	ad2Cid, err := subject.NotifyPut(ctx, ad2CtxID, metadata.BitswapMetadata)
@@ -140,18 +147,18 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	ad2, err := subject.GetAdv(ctx, ad2Cid)
 	require.NoError(t, err)
 	ad2EntriesRoot := requireAdEntriesLink(t, ad2)
-	ad2EntriesChain := listEntriesChainFromCache(t, subject.entriesChunker, ad2EntriesRoot)
+	ad2EntriesChain := listEntriesChainFromCache(t, subject.Chunker(), ad2EntriesRoot)
 	require.Len(t, ad2EntriesChain, wantAd2ChunkLen)
-	requireChunkIsCached(t, subject.entriesChunker, ad2EntriesChain...)
+	requireChunkIsCached(t, subject.Chunker(), ad2EntriesChain...)
 	a2Chunks := requireLoadEntryChunkFromEngine(t, subject, ad2EntriesChain...)
 
 	// Assert ad1 entries chain is evicted since cache capacity is set to 1.
-	requireChunkIsNotCached(t, subject.entriesChunker, ad1EntriesChain...)
+	requireChunkIsNotCached(t, subject.Chunker(), ad1EntriesChain...)
 	a1ChunksAfterReGen := requireLoadEntryChunkFromEngine(t, subject, ad1EntriesChain...)
 	require.Equal(t, a1Chunks, a1ChunksAfterReGen)
 
 	// Assert ad2 entries are no longer cached since ad1 entries were re-generated and cached.
-	requireChunkIsNotCached(t, subject.entriesChunker, ad2EntriesChain...)
+	requireChunkIsNotCached(t, subject.Chunker(), ad2EntriesChain...)
 	a2ChunksAfterReGen := requireLoadEntryChunkFromEngine(t, subject, ad2EntriesChain...)
 	require.Equal(t, a2Chunks, a2ChunksAfterReGen)
 }
@@ -194,10 +201,10 @@ func listEntriesChainFromCache(t *testing.T, e *chunker.CachedEntriesChunker, ro
 	return links
 }
 
-func requireLoadEntryChunkFromEngine(t *testing.T, e *Engine, l ...ipld.Link) []schema.EntryChunk {
+func requireLoadEntryChunkFromEngine(t *testing.T, e *engine.Engine, l ...ipld.Link) []schema.EntryChunk {
 	var chunks []schema.EntryChunk
 	for _, link := range l {
-		n, err := e.lsys.Load(ipld.LinkContext{}, link, schema.Type.EntryChunk)
+		n, err := e.LinkSystem().Load(ipld.LinkContext{}, link, schema.Type.EntryChunk)
 		require.NoError(t, err)
 		chunk, ok := n.(schema.EntryChunk)
 		require.True(t, ok)

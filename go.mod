@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/filecoin-project/go-data-transfer v1.14.0
-	github.com/filecoin-project/go-legs v0.3.7
+	github.com/filecoin-project/go-legs v0.3.8
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/filecoin-project/storetheindex v0.3.5
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -27,6 +27,6 @@ require (
 	github.com/multiformats/go-multicodec v0.4.1
 	github.com/multiformats/go-multihash v0.1.0
 	github.com/stretchr/testify v1.7.0
-	github.com/whyrusleeping/cbor-gen v0.0.0-20220224212727-7a699437a831
+	github.com/whyrusleeping/cbor-gen v0.0.0-20220302191723-37c43cae8e14
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
