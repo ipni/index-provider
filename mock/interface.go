@@ -151,9 +151,9 @@ func (m *MockInterface) Shutdown() error {
 }
 
 // Shutdown indicates an expected call of Shutdown.
-func (mr *MockInterfaceMockRecorder) Shutdown(arg0 interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) Shutdown() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockInterface)(nil).Shutdown))
 }
 
 // MockMultihashIterator is a mock of MultihashIterator interface.
