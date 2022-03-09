@@ -2,16 +2,13 @@ package adminserver
 
 import (
 	"context"
-	"net"
-	"net/http"
-	"time"
-
-	"github.com/filecoin-project/index-provider/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/gorilla/mux"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
+	"net"
+	"net/http"
 )
 
 var log = logging.Logger("adminserver")
@@ -23,12 +20,14 @@ type Server struct {
 	e      *engine.Engine
 }
 
-func New(cfg config.AdminServer, h host.Host, e *engine.Engine, cs *supplier.CarSupplier) (*Server, error) {
-	listen, err := cfg.ListenNetAddr()
+func New(h host.Host, e *engine.Engine, cs *supplier.CarSupplier, o ...Option) (*Server, error) {
+
+	opts, err := newOptions(o...)
 	if err != nil {
 		return nil, err
 	}
-	l, err := net.Listen("tcp", listen)
+
+	l, err := net.Listen("tcp", opts.listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +35,8 @@ func New(cfg config.AdminServer, h host.Host, e *engine.Engine, cs *supplier.Car
 	r := mux.NewRouter().StrictSlash(true)
 	server := &http.Server{
 		Handler:      r,
-		WriteTimeout: time.Duration(cfg.WriteTimeout),
-		ReadTimeout:  time.Duration(cfg.ReadTimeout),
+		ReadTimeout:  opts.readTimeout,
+		WriteTimeout: opts.writeTimeout,
 	}
 	s := &Server{server, l, h, e}
 

@@ -11,7 +11,7 @@ import (
 	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
-	"github.com/filecoin-project/index-provider/config"
+	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	"github.com/filecoin-project/index-provider/supplier"
@@ -142,11 +142,21 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
+	// TODO: unclear why the admin config takes multiaddr if it is always converted to net addr; simplify.
+	addr, err := cfg.AdminServer.ListenNetAddr()
+	if err != nil {
+		return err
+	}
+
 	adminSvr, err := adminserver.New(
-		cfg.AdminServer,
 		h,
 		eng,
-		cs)
+		cs,
+		adminserver.WithListenAddr(addr),
+		adminserver.WithReadTimeout(time.Duration(cfg.AdminServer.ReadTimeout)),
+		adminserver.WithWriteTimeout(time.Duration(cfg.AdminServer.WriteTimeout)),
+	)
+
 	if err != nil {
 		return err
 	}
