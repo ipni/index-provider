@@ -133,7 +133,7 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	// Instantiate CAR supplier and register it as a callback onto the engine.
+	// Instantiate CAR supplier and register it as the multihash lister onto the engine.
 	cs := supplier.NewCarSupplier(eng, ds, car.ZeroLengthSectionAsEOF(carZeroLengthAsEOFFlagValue))
 
 	// Start serving CAR files for retrieval requests

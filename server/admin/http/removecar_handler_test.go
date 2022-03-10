@@ -30,7 +30,7 @@ func Test_removeCarHandler(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
@@ -66,7 +66,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
@@ -96,7 +96,7 @@ func Test_removeCarHandler_NonExistingCarIsNotFound(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
@@ -114,7 +114,7 @@ func Test_removeCarHandler_UnspecifiedKeyIsBadRequest(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
@@ -132,7 +132,7 @@ func Test_removeCarHandler_InvalidJsonIsBadRequest(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 

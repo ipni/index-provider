@@ -129,7 +129,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.NoError(t, err)
 
 	wantContextID := []byte("fish")
-	subject.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		if string(contextID) == string(wantContextID) {
 			return &sliceMhIterator{
 				mhs: mhs,
@@ -216,7 +216,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEngine_NotifyPutWithoutCallbackIsError(t *testing.T) {
+func TestEngine_NotifyPutWithoutListerIsError(t *testing.T) {
 	ctx := contextWithTimeout(t)
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestEngine_NotifyPutWithoutCallbackIsError(t *testing.T) {
 	defer subject.Shutdown()
 
 	gotCid, err := subject.NotifyPut(ctx, []byte("fish"), metadata.BitswapMetadata)
-	require.Error(t, err, provider.ErrNoCallback)
+	require.Error(t, err, provider.ErrNoMultihashLister)
 	require.Equal(t, cid.Undef, gotCid)
 }
 
@@ -243,7 +243,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 	defer subject.Shutdown()
 
 	wantContextID := []byte("fish")
-	subject.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		if string(contextID) == string(wantContextID) {
 			return &sliceMhIterator{
 				mhs: mhs,

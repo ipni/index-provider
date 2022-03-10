@@ -28,9 +28,9 @@ var ErrNotFound = errors.New("no CID iterator found for given key")
 
 var log = logging.Logger("provider/carsupplier")
 
-// CarSupplier supplies multihashes to an implementation of Provider.Interface via provider.Callback.
-// It allows the users to advertise addition and removal of multihashes within CAR files by simply
-// calling CarSupplier.Put and CarSupplier.Remove.
+// CarSupplier supplies multihashes to an implementation of Provider.Interface via
+// provider.MultihashLister. It allows the users to advertise addition and removal of multihashes
+// within CAR files by simply calling CarSupplier.Put and CarSupplier.Remove.
 //
 // CarSupplier accepts both CARv1 and CARv2, and will automatically generate an index if one is not
 // present or the index codec and characteristics are not sufficient for provider.Interface purposes.
@@ -42,7 +42,7 @@ type CarSupplier struct {
 	opts []car.ReadOption
 }
 
-// NewCarSupplier instantiates a new CarSupplier and registers it as the provider.Callback of the
+// NewCarSupplier instantiates a new CarSupplier and registers it as the provider.MultihashLister of the
 // given provider.Interface.
 func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.ReadOption) *CarSupplier {
 	cs := &CarSupplier{
@@ -50,7 +50,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 		ds:   ds,
 		opts: opts,
 	}
-	eng.RegisterCallback(cs.Callback)
+	eng.RegisterMultihashLister(cs.ListMultihashes)
 	return cs
 }
 
@@ -101,9 +101,9 @@ func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, e
 	return cs.eng.NotifyRemove(ctx, contextID)
 }
 
-// Callback supplies an iterator over CIDs of the CAR file that corresponds to
+// ListMultihashes supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) Callback(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+func (cs *CarSupplier) ListMultihashes(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 	idx, err := cs.lookupIterableIndex(ctx, contextID)
 	if err != nil {
 		return nil, err

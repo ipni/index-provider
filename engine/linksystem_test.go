@@ -49,9 +49,9 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	mhs, err := testutil.RandomCids(rng, 12)
 	require.NoError(t, err)
 
-	// Register callback with removal handle
+	// Register lister with removal handle
 	var removed bool
-	subject.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		strCtxID := string(contextID)
 		if strCtxID == string(ctxID) && !removed {
 			return getMhIterator(t, mhs), nil
@@ -74,7 +74,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	// Clear cached entries to force re-generation of chunks on traversal
 	require.NoError(t, subject.Chunker().Clear(ctx))
 
-	// Signal to callback that context ID must no longer be found
+	// Signal to lister that context ID must no longer be found
 	removed = true
 
 	// Publish content removed advertisement
@@ -121,7 +121,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	ad2Mhs, err := testutil.RandomCids(rng, ad2MhCount)
 	require.NoError(t, err)
 
-	subject.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		strCtxID := string(contextID)
 		if strCtxID == string(ad1CtxID) {
 			return getMhIterator(t, ad1Mhs), nil

@@ -16,7 +16,7 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-// Interface represents an index provider that manages the advertisement of
+// Interface represents an index provider that manages the advertisement for
 // multihashes to indexer nodes.
 type Interface interface {
 	// PublishLocal appends adv to the locally stored advertisement chain and
@@ -33,20 +33,20 @@ type Interface interface {
 	// represents the ID of the advertisement appended to the chain.
 	Publish(context.Context, schema.Advertisement) (cid.Cid, error)
 
-	// RegisterCallback registers the callback used by the provider to look up
-	// a list of multihashes by context ID.  Only a single callback is
+	// RegisterMultihashLister registers the hook that is used by the provider to look up
+	// a list of multihashes by context ID. Only a single registration is
 	// supported; repeated calls to this function will replace the previous
-	// callback.
-	RegisterCallback(Callback)
+	// registration.
+	RegisterMultihashLister(MultihashLister)
 
 	// NotifyPut signals the provider that the list of multihashes looked up by
 	// the given contextID is available.  The given contextID is then used to
-	// look up the list of multihashes via Callback.  An advertisement is then
+	// look up the list of multihashes via MultihashLister.  An advertisement is then
 	// generated, appended to the chain of advertisements and published onto
 	// the gossip pubsub channel.
 	//
-	// A Callback must be registered prior to using this function.
-	// ErrNoCallback is returned if no such callback is registered.
+	// A MultihashLister must be registered prior to using this function.
+	// ErrNoMultihashLister is returned if no such lister is registered.
 	//
 	// The metadata is data that provides hints about how to retrieve data and
 	// is protocol dependant.  The metadata must at least specify a protocol
@@ -58,7 +58,7 @@ type Interface interface {
 	// This function returns the ID of the advertisement published.
 	NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error)
 
-	// NotifyRemove sginals to the provider that the multihashes that
+	// NotifyRemove signals to the provider that the multihashes that
 	// corresponded to the given contextID are no longer available.  An advertisement
 	// is then generated, appended to the chain of advertisements and published
 	// onto the gossip pubsub channel.
@@ -76,7 +76,7 @@ type Interface interface {
 	GetLatestAdv(context.Context) (cid.Cid, schema.Advertisement, error)
 
 	// Shutdown shuts down this provider, and blocks until all resources
-	// occupied by it are discared.  After calling this function the provider
+	// occupied by it are discarded.  After calling this function the provider
 	// is no longer available for use.
 	Shutdown() error
 }
@@ -92,9 +92,9 @@ type MultihashIterator interface {
 	Next() (multihash.Multihash, error)
 }
 
-// Callback is used by provider to look up a list of multihashes associated to
-// a context ID.  The callback must be deterministic: it must produce the same
-// list of multihashes in the same order for the same context ID.
+// MultihashLister lists the multihashes that correspond to a given contextID.
+// The lister must be deterministic: it must produce the same list of multihashes in the same
+// order for the same context ID.
 //
 // See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator.
-type Callback func(ctx context.Context, contextID []byte) (MultihashIterator, error)
+type MultihashLister func(ctx context.Context, contextID []byte) (MultihashIterator, error)

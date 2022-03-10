@@ -41,7 +41,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
@@ -90,7 +90,7 @@ func Test_importCarHandlerFail(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
@@ -131,7 +131,7 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 
 	mc := gomock.NewController(t)
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	cs := supplier.NewCarSupplier(mockEng, ds)
 

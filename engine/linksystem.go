@@ -55,10 +55,10 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 		// Not an advertisement, so this means we are receiving ingestion data.
 
-		// If no callback registered return error
-		if e.cb == nil {
-			log.Error("No callback has been registered in engine")
-			return nil, provider.ErrNoCallback
+		// If no lister registered return error
+		if e.mhLister == nil {
+			log.Error("No multihash lister has been registered in engine")
+			return nil, provider.ErrNoMultihashLister
 		}
 
 		log.Debugw("Checking cache for data", "cid", c)
@@ -82,7 +82,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			log.Infow("Entry for CID is not cached, generating chunks", "cid", c)
 			// If the link is not found, it means that the root link of the list has
 			// not been generated and we need to get the relationship between the cid
-			// received and the contextID so the callback knows how to
+			// received and the contextID so the lister knows how to
 			// regenerate the list of CIDs.
 			key, err := e.getCidKeyMap(ctx, c)
 			if err != nil {
@@ -95,7 +95,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// deletes all indexes for the contextID in the removal
 			// advertisement.  Only if the removal had no contextID would the
 			// indexer ask for entry chunks to remove.
-			mhIter, err := e.cb(ctx, key)
+			mhIter, err := e.mhLister(ctx, key)
 			if err != nil {
 				return nil, err
 			}
@@ -105,7 +105,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// datastore.
 			_, err = e.entriesChunker.Chunk(ctx, mhIter)
 			if err != nil {
-				log.Errorf("Error generating linked list from callback: %s", err)
+				log.Errorf("Error generating linked list from multihash lister: %s", err)
 				return nil, err
 			}
 		} else {

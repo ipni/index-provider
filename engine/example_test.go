@@ -45,13 +45,13 @@ func Example_advertiseHelloWorld() {
 	fmt.Println("✓ Instantiated provider engine")
 	defer engine.Shutdown()
 
-	engine.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	engine.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		if string(contextID) == sayHelloCtxID {
 			return &singleMhIterator{mh: mh}, nil
 		}
 		return nil, fmt.Errorf("no content is found for context ID: %v", contextID)
 	})
-	fmt.Printf("✓ Registered callback for context ID: %s\n", sayHelloCtxID)
+	fmt.Printf("✓ Registered lister for context ID: %s\n", sayHelloCtxID)
 
 	// Start the engine
 	if err = engine.Start(context.Background()); err != nil {
@@ -77,7 +77,7 @@ func Example_advertiseHelloWorld() {
 	//✓ Generated content multihash: QmWvQxTqbG2Z9HPJgG57jjwR154cKhbtJenbyYTWkjgF3e
 	//✓ Instantiated new libp2p host with peer ID: Qm...
 	//✓ Instantiated provider engine
-	//✓ Registered callback for context ID: Say hello
+	//✓ Registered lister for context ID: Say hello
 	//✓ Provider engine started.
 	//✓ Published advertisement for content with CID: bag...
 }
