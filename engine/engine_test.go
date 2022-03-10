@@ -32,8 +32,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testTopicName = "test-topic"
-
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -89,15 +87,46 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.NoError(t, err)
 
 	wantExtraGossipData := []byte("🐠")
+	// Use test name as gossip topic name for uniqueness per test.
+	topic := t.Name()
+
+	subHost, err := libp2p.New()
+	require.NoError(t, err)
+
+	pubHost, err := libp2p.New()
+	require.NoError(t, err)
+	pubG, err := pubsub.NewGossipSub(ctx, pubHost,
+		pubsub.WithDirectConnectTicks(1),
+		pubsub.WithDirectPeers([]peer.AddrInfo{subHost.Peerstore().PeerInfo(subHost.ID())}),
+	)
+	require.NoError(t, err)
+
+	pubT, err := pubG.Join(topic)
+	require.NoError(t, err)
+
 	subject, err := engine.New(
+		engine.WithHost(pubHost),
 		engine.WithPublisherKind(engine.DataTransferPublisher),
-		engine.WithTopicName(testTopicName),
+		engine.WithTopic(pubT),
+		engine.WithTopicName(topic),
 		engine.WithExtraGossipData(wantExtraGossipData),
 	)
 	require.NoError(t, err)
 	err = subject.Start(ctx)
 	require.NoError(t, err)
 	defer subject.Shutdown()
+
+	subG, err := pubsub.NewGossipSub(ctx, subHost,
+		pubsub.WithDirectConnectTicks(1),
+		pubsub.WithDirectPeers([]peer.AddrInfo{pubHost.Peerstore().PeerInfo(pubHost.ID())}),
+	)
+	require.NoError(t, err)
+
+	subT, err := subG.Join(topic)
+	require.NoError(t, err)
+
+	subsc, err := subT.Subscribe()
+	require.NoError(t, err)
 
 	wantContextID := []byte("fish")
 	subject.RegisterCallback(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
@@ -109,24 +138,11 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	subHost, err := libp2p.New()
-	require.NoError(t, err)
-	subHost.Peerstore().AddAddrs(subject.Host().ID(), subject.Host().Addrs(), time.Hour)
-	err = subHost.Connect(ctx, subject.Host().Peerstore().PeerInfo(subject.Host().ID()))
-	require.NoError(t, err)
-
-	g, err := pubsub.NewGossipSub(ctx, subHost,
-		pubsub.WithPeerExchange(true),
-		pubsub.WithFloodPublish(true),
-		pubsub.WithDirectConnectTicks(1),
-		pubsub.WithDirectPeers([]peer.AddrInfo{subject.Host().Peerstore().PeerInfo(subject.Host().ID())}),
-	)
-	require.NoError(t, err)
-
-	pp, err := g.Join(testTopicName)
-	require.NoError(t, err)
-	subscribe, err := pp.Subscribe()
-	require.NoError(t, err)
+	// Await subscriber connection to publisher.
+	requireTrueEventually(t, func() bool {
+		pubPeers := pubG.ListPeers(topic)
+		return len(pubPeers) == 1 && pubPeers[0] == subHost.ID()
+	}, time.Second, 5*time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, &sliceMhIterator{
 		mhs: mhs,
@@ -153,10 +169,10 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.True(t, ipld.DeepEqual(wantAd, gotLatestAd))
 	require.Equal(t, gotLatestAdCid, gotPublishedAdCid)
 
-	next, err := subscribe.Next(ctx)
+	pubsubMsg, err := subsc.Next(ctx)
 	require.NoError(t, err)
-	require.Equal(t, next.GetFrom(), subject.Host().ID())
-	require.Equal(t, next.GetTopic(), testTopicName)
+	require.Equal(t, pubsubMsg.GetFrom(), pubHost.ID())
+	require.Equal(t, pubsubMsg.GetTopic(), topic)
 
 	wantMessage := dtsync.Message{
 		Cid:       gotPublishedAdCid,
@@ -165,11 +181,11 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	wantMessage.SetAddrs(subject.Host().Addrs())
 
 	gotMessage := dtsync.Message{}
-	err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(next.Data))
+	err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
 	require.NoError(t, err)
 	requireEqualLegsMessage(t, wantMessage, gotMessage)
 
-	gotRootCid, err := head.QueryRootCid(ctx, subHost, testTopicName, subject.Host().ID())
+	gotRootCid, err := head.QueryRootCid(ctx, subHost, topic, pubHost.ID())
 	require.NoError(t, err)
 	require.Equal(t, gotPublishedAdCid, gotRootCid)
 
@@ -181,7 +197,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	sync, err := dtsync.NewSync(subHost, ds, ls, nil)
 	require.NoError(t, err)
-	syncer := sync.NewSyncer(subject.Host().ID(), testTopicName)
+	syncer := sync.NewSyncer(subject.Host().ID(), topic)
 	gotHead, err := syncer.GetHead(ctx)
 	require.NoError(t, err)
 	require.Equal(t, gotLatestAdCid, gotHead)
@@ -255,7 +271,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 }
 
 func contextWithTimeout(t *testing.T) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	return ctx
 }
@@ -280,4 +296,22 @@ func multiAddsToString(addrs []multiaddr.Multiaddr) []string {
 		rAddrs = append(rAddrs, addr.String())
 	}
 	return rAddrs
+}
+
+func requireTrueEventually(t *testing.T, attempt func() bool, interval time.Duration, timeout time.Duration, msgAndArgs ...interface{}) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		if attempt() {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "timed out awaiting eventual success", msgAndArgs...)
+			return
+		case <-ticker.C:
+		}
+	}
 }
