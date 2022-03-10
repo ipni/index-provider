@@ -24,7 +24,7 @@ A list of features include:
       chunking functionality
     * Announcement of changes to the advertised content over GossipSub
       using [`go-legs`](https://github.com/filecoin-project/go-legs)
-    * `Callback` integration point for fully customizable look up of advertised multihashes.
+    * `MultihashLister` integration point for fully customizable look up of advertised multihashes.
     * Utilities to advertise multihashes directly [from CAR files](supplier/car_supplier.go)
       or [detached CARv2 index](index_mh_iter.go) files.
     * Index advertisement [`metadata`](metadata) schema for retrieval
@@ -128,9 +128,9 @@ Each advertisement contains:
 Within each advertisement there is an entries link that points to a list of chunked multihashes. It
 is the multihashes that
 
-To do this it requires a `Callback` to be registered. The `Callback` is then used to look up the
-list of multihashes associated to a content advertisement. For an example on how to startup a 
-provider engine, register a callback and advertise content, see:
+To do this it requires a `MultihashLister` to be registered. The `MultihashLister` is then used to
+look up the list of multihashes associated to a content advertisement. For an example on how to
+start up a provider engine, register a lister and advertise content, see:
 
 * [`engine/example_test.go`](engine/example_test.go)
 

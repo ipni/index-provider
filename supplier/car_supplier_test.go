@@ -59,7 +59,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			defer cancel()
 			mockEng := mock_provider.NewMockInterface(mc)
 			ds := datastore.NewMapDatastore()
-			mockEng.EXPECT().RegisterCallback(gomock.Any())
+			mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 			subject := NewCarSupplier(mockEng, ds, tt.opts...)
 			t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
@@ -102,7 +102,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, wantCid, gotCid)
 
-			gotIterator, err := subject.Callback(ctx, gotContextID)
+			gotIterator, err := subject.ListMultihashes(ctx, gotContextID)
 			require.NoError(t, err)
 
 			gotMultihashes := 0
@@ -139,7 +139,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	ds := datastore.NewMapDatastore()
 
 	mockEng := mock_provider.NewMockInterface(mc)
-	mockEng.EXPECT().RegisterCallback(gomock.Any())
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	subject := NewCarSupplier(mockEng, ds)
 	t.Cleanup(func() { require.NoError(t, subject.Close()) })
 

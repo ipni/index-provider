@@ -46,9 +46,8 @@ type Engine struct {
 
 	publisher legs.Publisher
 
-	// cb is the callback used in the linkSystem
-	cb   provider.Callback
-	cblk sync.Mutex
+	mhLister provider.MultihashLister
+	cblk     sync.Mutex
 }
 
 var _ provider.Interface = (*Engine)(nil)
@@ -67,8 +66,8 @@ var _ provider.Interface = (*Engine)(nil)
 // Note that if no retAddrs is specified the listen addresses of the given libp2p host are used.
 //
 // The engine also provides the ability to generate advertisements via Engine.NotifyPut and
-// Engine.NotifyRemove as long as a provider.Callback is registered.
-// See: provider.Callback, Engine.RegisterCallback.
+// Engine.NotifyRemove as long as a provider.MultihashLister is registered.
+// See: provider.MultihashLister, Engine.RegisterMultihashLister.
 //
 // The engine must be started via Engine.Start before use and discarded via Engine.Shutdown when no longer needed.
 // See: Engine.Start, Engine.Shutdown.
@@ -216,31 +215,31 @@ func (e *Engine) PublishLatest(ctx context.Context) error {
 	return e.publisher.UpdateRoot(ctx, adCid)
 }
 
-// RegisterCallback registers a provider.Callback that is used to look up the
-// list of multihashes associated to a context ID. At least one such callback
+// RegisterMultihashLister registers a provider.MultihashLister that is used to look up the
+// list of multihashes associated to a context ID. At least one such registration
 // must be registered before calls to Engine.NotifyPut and Engine.NotifyRemove.
 //
-// Note that successive calls to this function will replace the previous callback.
-// Only a single callback is supported.
+// Note that successive calls to this function will replace the previous registration.
+// Only a single registration is supported.
 //
 // See: provider.Interface
-func (e *Engine) RegisterCallback(cb provider.Callback) {
-	log.Debugf("Registering callback in engine")
+func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
+	log.Debugf("Registering multihash lister in engine")
 	e.cblk.Lock()
 	defer e.cblk.Unlock()
-	e.cb = cb
+	e.mhLister = mhl
 }
 
 // NotifyPut publishes an advertisement that signals the list of multihashes
 // associated to the given contextID is available by this provider with the
-// given metadata. A provider.Callback is required, and is used to look up the
+// given metadata. A provider.MultihashLister is required, and is used to look up the
 // list of multihashes associated to a context ID.
 //
-// Note that prior to calling this function a provider.Callback must be registered.
+// Note that prior to calling this function a provider.MultihashLister must be registered.
 //
-// See: Engine.RegisterCallback, Engine.Publish.
+// See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error) {
-	// The callback must have been registered for the linkSystem to know how to
+	// The multihash lister must have been registered for the linkSystem to know how to
 	// go from contextID to list of CIDs.
 	return e.publishAdvForIndex(ctx, contextID, metadata, false)
 }
@@ -248,9 +247,9 @@ func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiap
 // NotifyRemove publishes an advertisement that signals the list of multihashes associated to the given
 // contextID is no longer available by this provider.
 //
-// Note that prior to calling this function a provider.Callback must be registered.
+// Note that prior to calling this function a provider.MultihashLister must be registered.
 //
-// See: Engine.RegisterCallback, Engine.Publish.
+// See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
 	return e.publishAdvForIndex(ctx, contextID, stiapi.Metadata{}, true)
 }
@@ -327,20 +326,20 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 	}
 
 	// If we are not removing, we need to generate the link for the list
-	// of CIDs from the contextID using the callback, and store the relationship
+	// of CIDs from the contextID using the multihash lister, and store the relationship
 	if !isRm {
 		log.Info("Creating advertisement")
 
 		// If no previously-published ad for this context ID.
 		if c == cid.Undef {
 			log.Info("Generating entries linked list for advertisement")
-			// If no callback registered return error
-			if e.cb == nil {
-				return cid.Undef, provider.ErrNoCallback
+			// If no lister registered return error
+			if e.mhLister == nil {
+				return cid.Undef, provider.ErrNoMultihashLister
 			}
 
-			// Call the callback
-			mhIter, err := e.cb(ctx, contextID)
+			// Call the lister
+			mhIter, err := e.mhLister(ctx, contextID)
 			if err != nil {
 				return cid.Undef, err
 			}
@@ -450,7 +449,7 @@ func (e *Engine) putKeyCidMap(ctx context.Context, contextID []byte, c cid.Cid) 
 		return err
 	}
 	// And the other way around when graphsync ios making a request,
-	// so the callback in the linksystem knows to what contextID we are referring.
+	// so the lister in the linksystem knows to what contextID we are referring.
 	return e.ds.Put(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
 }
 
