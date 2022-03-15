@@ -129,7 +129,7 @@ Each advertisement contains:
 
 The Entries link points to the IPLD node that contains a list of mulitihashes being advertised. The 
 list is represented as a chain of "Entry Chunk"s where each chunk contains a list of multihashes and
-a link to the next chunk. This is to accommodate pagination for large number of multihashes.
+a link to the next chunk. This is to accommodate pagination for a large number of multihashes.
 
 The engine can be configured to dynamically look up the list of multihashes that correspond to the
 context ID of an advertisement. To do this, the engine requires a `MultihashLister` to be 
