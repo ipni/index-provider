@@ -6,8 +6,8 @@ import (
 	"io"
 	"path/filepath"
 
-	provider "github.com/filecoin-project/index-provider"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
@@ -59,7 +59,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 // get an iterator over CIDs that belong to the CAR.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, metadata stiapi.Metadata) (cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, metadata metadata.Metadata) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 

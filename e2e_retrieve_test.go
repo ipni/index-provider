@@ -103,8 +103,9 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	carBs.Close()
 
 	contextID := []byte("applesauce")
-	md, err := cardatatransfer.MetadataFromContextID(contextID)
+	tp, err := cardatatransfer.TransportFromContextID(contextID)
 	require.NoError(t, err)
+	md := metadata.New(tp)
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
@@ -130,11 +131,8 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	mdb, err := adv.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
-	var receivedMd stiapi.Metadata
-	err = receivedMd.UnmarshalBinary(mdb)
-	require.NoError(t, err)
-	dtm := &metadata.GraphsyncFilecoinV1Metadata{}
-	err = dtm.FromIndexerMetadata(receivedMd)
+	dtm := &metadata.GraphsyncFilecoinV1{}
+	err = dtm.UnmarshalBinary(mdb)
 	require.NoError(t, err)
 
 	proposal := &cardatatransfer.DealProposal{
@@ -186,8 +184,9 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	disseminateNetworkState(server.h, client.h)
 
 	contextID := []byte("applesauce")
-	md, err := cardatatransfer.MetadataFromContextID(contextID)
+	tp, err := cardatatransfer.TransportFromContextID(contextID)
 	require.NoError(t, err)
+	md := metadata.New(tp)
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
@@ -220,8 +219,9 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 
 	// Test that reimporting CAR with same contextID and different metadata generates new advertisement.
 	contextID2 := []byte("applesauce2")
-	md2, err := cardatatransfer.MetadataFromContextID(contextID2)
+	tp2, err := cardatatransfer.TransportFromContextID(contextID2)
 	require.NoError(t, err)
+	md2 := metadata.New(tp2)
 	advCid2, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md2)
 	require.NoError(t, err)
 

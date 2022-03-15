@@ -231,12 +231,9 @@ func (fs *fakeSupplier) ReadOnlyBlockstore(contextID []byte) (supplier.ClosableB
 }
 
 func pieceCIDFromContextID(t *testing.T, contextID []byte) cid.Cid {
-	md, err := cardatatransfer.MetadataFromContextID(contextID)
+	md, err := cardatatransfer.TransportFromContextID(contextID)
 	require.NoError(t, err)
-	dtm := &metadata.GraphsyncFilecoinV1Metadata{}
-	err = dtm.FromIndexerMetadata(md)
-	require.NoError(t, err)
-	return dtm.PieceCID
+	return md.(*metadata.GraphsyncFilecoinV1).PieceCID
 }
 
 func copySelectorOutputToBlockstore(t *testing.T, sourceBs bstore.Blockstore, root cid.Cid, selectorNode datamodel.Node, np datamodel.NodePrototype) (bstore.Blockstore, int) {

@@ -4,6 +4,6 @@
 // multihashes advertised by a provider. It is represented as an array of bytes in the indexer
 // protocol, starting with a varint ProtocolID that defines how to decode the remaining bytes.
 //
-// Two metadata types are currently represented here: BitswapMetadata and
-// GraphsyncFilecoinV1Metadata.
+// Two metadata types are currently represented here: Bitswap and
+// GraphsyncFilecoinV1.
 package metadata

@@ -73,17 +73,7 @@ var indexFlags = []cli.Flag{
 		Usage:    "Context ID",
 		Required: true,
 	},
-	&cli.StringFlag{
-		Name:     "meta",
-		Usage:    "Metadata bytes.",
-		Aliases:  []string{"m"},
-		Required: false,
-	},
-	&cli.IntFlag{
-		Name:     "proto",
-		Usage:    "Specify retrieval protocol ID",
-		Required: true,
-	},
+	metadataFlag,
 }
 
 var registerFlags = []cli.Flag{

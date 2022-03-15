@@ -10,7 +10,7 @@ package provider
 import (
 	"context"
 
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
@@ -56,7 +56,7 @@ type Interface interface {
 	// NotifyPut, then ErrAlreadyAdvertised is returned.
 	//
 	// This function returns the ID of the advertisement published.
-	NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error)
+	NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error)
 
 	// NotifyRemove signals to the provider that the multihashes that
 	// corresponded to the given contextID are no longer available.  An advertisement

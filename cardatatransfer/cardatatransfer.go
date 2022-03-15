@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-graphsync/storeutil"
 	logging "github.com/ipfs/go-log/v2"
@@ -64,7 +63,7 @@ func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) 
 	return nil
 }
 
-func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
+func TransportFromContextID(contextID []byte) (metadata.Protocol, error) {
 	pieceCid, err := cid.Prefix{
 		Version:  1,
 		Codec:    uint64(multicodec.TransportGraphsyncFilecoinv1),
@@ -72,14 +71,13 @@ func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
 		MhLength: -1,
 	}.Sum(contextID)
 	if err != nil {
-		return stiapi.Metadata{}, err
+		return nil, err
 	}
-	filecoinV1Metadata := &metadata.GraphsyncFilecoinV1Metadata{
+	return &metadata.GraphsyncFilecoinV1{
 		PieceCID:      pieceCid,
 		VerifiedDeal:  true,
 		FastRetrieval: true,
-	}
-	return filecoinV1Metadata.ToIndexerMetadata()
+	}, nil
 }
 
 // ValidatePush validates a push request received from the peer that will send data

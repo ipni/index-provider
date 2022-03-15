@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/index-provider/metadata"
 	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 )
@@ -61,12 +61,24 @@ func indexCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	metadata := stiapi.Metadata{
-		ProtocolID: multicodec.Code(cctx.Int("proto")),
-		Data:       []byte(cctx.String("meta")),
+	decoded, err := base64.StdEncoding.DecodeString(metadataFlagValue)
+	if err != nil {
+		return errors.New("metadata is not a valid base64 encoded string")
+	}
+	md = metadata.New()
+	err = md.UnmarshalBinary(decoded)
+	if err != nil {
+		return err
 	}
 
-	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), metadata, cctx.StringSlice("addr"))
+	// TODO: Temporary workaround: Once v0.Metadata is stripped off in sti, remove this code and
+	//       simply pass in bytes value of md.
+	stimd, err := md.ToStiMetadata()
+	if err != nil {
+		return err
+	}
+
+	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), stimd, cctx.StringSlice("addr"))
 	if err != nil {
 		return err
 	}

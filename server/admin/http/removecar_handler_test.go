@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/filecoin-project/index-provider/metadata"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -160,10 +161,10 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 }
 
 func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *supplier.CarSupplier, rng *rand.Rand) {
-	wantMetadata, err := cardatatransfer.MetadataFromContextID(key)
+	wantTp, err := cardatatransfer.TransportFromContextID(key)
 	require.NoError(t, err)
 	wantCid := requireRandomCid(t, rng)
-
+	wantMetadata := metadata.New(wantTp)
 	mockEng.
 		EXPECT().
 		NotifyPut(gomock.Any(), gomock.Eq(key), wantMetadata).
