@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"sort"
 
 	"github.com/multiformats/go-multicodec"
@@ -126,20 +125,35 @@ func (m *Metadata) UnmarshalBinary(data []byte) error {
 	return m.Validate()
 }
 
-// Equals checks whether this Metadata is equal with the other Metadata.
+// Equal checks whether this Metadata is equal with the other Metadata.
 // The two are considered equal if they have the same transports with the same order.
-func (m *Metadata) Equals(other *Metadata) bool {
+func (m Metadata) Equal(other Metadata) bool {
 	if len(m.protocols) != len(other.protocols) {
 		return false
 	}
 	for i, this := range m.protocols {
 		that := other.protocols[i]
-		// TODO: Is it more efficient to check fields individually?
-		if !reflect.DeepEqual(this, that) {
+		if !protocolEqual(this, that) {
 			return false
 		}
 	}
 	return true
+}
+
+func protocolEqual(one, other Protocol) bool {
+	if one.ID() != other.ID() {
+		return false
+	}
+
+	oneBytes, err := one.MarshalBinary()
+	if err != nil {
+		return false
+	}
+	otherBytes, err := other.MarshalBinary()
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(oneBytes, otherBytes)
 }
 
 func newTransport(id multicodec.Code) (Protocol, error) {
