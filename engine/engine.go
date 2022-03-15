@@ -366,7 +366,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 				log.Warn("No metadata for existing context ID, generating new advertisement")
 			}
 
-			if md.Equals(prevMetadata) {
+			if md.Equal(prevMetadata) {
 				// Metadata is the same; no change, no need for new advertisement.
 				return cid.Undef, provider.ErrAlreadyAdvertised
 			}
@@ -430,14 +430,13 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		previousLnk = nb.Build().(schema.Link_Advertisement)
 	}
 
-	//TODO: to be removed after https://github.com/filecoin-project/storetheindex/pull/250
-	stimd, err := md.ToStiMetadata()
+	mdBytes, err := md.MarshalBinary()
 	if err != nil {
 		return cid.Undef, err
 	}
 
 	adv, err := schema.NewAdvertisement(e.key, previousLnk, cidsLnk,
-		contextID, stimd, isRm, e.h.ID().String(), e.retrievalAddrsAsString())
+		contextID, mdBytes, isRm, e.h.ID().String(), e.retrievalAddrsAsString())
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to create advertisement: %s", err)
 	}
@@ -485,16 +484,16 @@ func (e *Engine) putKeyMetadataMap(ctx context.Context, contextID []byte, metada
 	return e.ds.Put(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)), data)
 }
 
-func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (*metadata.Metadata, error) {
+func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (metadata.Metadata, error) {
 	data, err := e.ds.Get(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)))
 	if err != nil {
-		return nil, err
+		return metadata.Metadata{}, err
 	}
-	var metadata metadata.Metadata
-	if err = metadata.UnmarshalBinary(data); err != nil {
-		return nil, err
+	var md metadata.Metadata
+	if err := md.UnmarshalBinary(data); err != nil {
+		return metadata.Metadata{}, err
 	}
-	return &metadata, nil
+	return md, nil
 }
 
 func (e *Engine) deleteKeyMetadataMap(ctx context.Context, contextID []byte) error {

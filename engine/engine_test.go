@@ -59,14 +59,14 @@ func TestEngine_PublishLocal(t *testing.T) {
 	require.NoError(t, err)
 
 	md := metadata.New(metadata.Bitswap{})
-	stiMetadata, err := md.ToStiMetadata()
+	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
 	wantAd, err := schema.NewAdvertisement(
 		subject.Key(),
 		nil,
 		chunkLnk,
 		[]byte("fish"),
-		stiMetadata,
+		mdBytes,
 		false,
 		subject.Host().ID().String(),
 		multiAddsToString(subject.Host().Addrs()))
@@ -152,14 +152,14 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	})
 	require.NoError(t, err)
 	md := metadata.New(metadata.Bitswap{})
-	stiMetadata, err := md.ToStiMetadata()
+	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
 	wantAd, err := schema.NewAdvertisement(
 		subject.Key(),
 		nil,
 		chunkLnk,
 		wantContextID,
-		stiMetadata,
+		mdBytes,
 		false,
 		subject.Host().ID().String(),
 		multiAddsToString(subject.Host().Addrs()))

@@ -17,7 +17,6 @@ import (
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/filecoin-project/index-provider/testutil"
-	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -208,7 +207,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	mdb, err := adv.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
-	var receivedMd stiapi.Metadata
+	var receivedMd metadata.Metadata
 	err = receivedMd.UnmarshalBinary(mdb)
 	require.NoError(t, err)
 
@@ -242,11 +241,11 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	mdb2, err := adv2.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
-	var receivedMd2 stiapi.Metadata
+	var receivedMd2 metadata.Metadata
 	err = receivedMd2.UnmarshalBinary(mdb2)
 	require.NoError(t, err)
 
-	require.False(t, receivedMd2.Equal(receivedMd))
+	require.NotEqual(t, receivedMd2, receivedMd)
 
 	// Check that both advertisements have the same entries link.
 	lnk, err := adv.FieldEntries().AsLink()

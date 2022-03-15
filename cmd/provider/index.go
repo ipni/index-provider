@@ -71,14 +71,7 @@ func indexCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: Temporary workaround: Once v0.Metadata is stripped off in sti, remove this code and
-	//       simply pass in bytes value of md.
-	stimd, err := md.ToStiMetadata()
-	if err != nil {
-		return err
-	}
-
-	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), stimd, cctx.StringSlice("addr"))
+	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), decoded, cctx.StringSlice("addr"))
 	if err != nil {
 		return err
 	}

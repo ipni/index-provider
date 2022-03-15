@@ -60,7 +60,7 @@ func TestMetadata(t *testing.T) {
 			err = subjectFromBytes.UnmarshalBinary(gotBytes)
 			require.NoError(t, err)
 			require.Equal(t, subject, subjectFromBytes)
-			require.True(t, subject.Equals(&subjectFromBytes))
+			require.True(t, subject.Equal(subjectFromBytes))
 
 			err = subject.Validate()
 			if test.wantValidateErr != "" {
