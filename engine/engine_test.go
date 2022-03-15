@@ -15,8 +15,8 @@ import (
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
-	v0util "github.com/filecoin-project/storetheindex/api/v0/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -59,12 +59,16 @@ func TestEngine_PublishLocal(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	metadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.BitswapMetadata{}}}
+	encMeta, err := metadata.MarshalBinary()
+	require.NoError(t, err)
+
 	wantAd, err := schema.NewAdvertisement(
 		subject.Key(),
 		nil,
 		chunkLnk,
 		[]byte("fish"),
-		metadata.BitswapMetadata,
+		stiapi.Metadata(encMeta),
 		false,
 		subject.Host().ID().String(),
 		multiAddsToString(subject.Host().Addrs()))
@@ -150,12 +154,16 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	metadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.BitswapMetadata{}}}
+	encMeta, err := metadata.MarshalBinary()
+	require.NoError(t, err)
+
 	wantAd, err := schema.NewAdvertisement(
 		subject.Key(),
 		nil,
 		chunkLnk,
 		wantContextID,
-		metadata.BitswapMetadata,
+		stiapi.Metadata(encMeta),
 		false,
 		subject.Host().ID().String(),
 		multiAddsToString(subject.Host().Addrs()))
@@ -225,7 +233,9 @@ func TestEngine_NotifyPutWithoutListerIsError(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	gotCid, err := subject.NotifyPut(ctx, []byte("fish"), metadata.BitswapMetadata)
+	parsedMetadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.BitswapMetadata{}}}
+
+	gotCid, err := subject.NotifyPut(ctx, []byte("fish"), parsedMetadata)
 	require.Error(t, err, provider.ErrNoMultihashLister)
 	require.Equal(t, cid.Undef, gotCid)
 }
@@ -253,7 +263,9 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	gotPutAdCid, err := subject.NotifyPut(ctx, wantContextID, metadata.BitswapMetadata)
+	parsedMetadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.BitswapMetadata{}}}
+
+	gotPutAdCid, err := subject.NotifyPut(ctx, wantContextID, parsedMetadata)
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid)
 
