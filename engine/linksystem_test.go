@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var testMetadata = metadata.New(metadata.Bitswap{})
+
 func Test_SchemaNoEntriesErr(t *testing.T) {
 	ctx := contextWithTimeout(t)
 
@@ -60,7 +62,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	})
 
 	// Publish content added advertisement.
-	adAddCid, err := subject.NotifyPut(ctx, ctxID, metadata.BitswapMetadata)
+	adAddCid, err := subject.NotifyPut(ctx, ctxID, testMetadata)
 	require.NoError(t, err)
 	adAdd, err := subject.GetAdv(ctx, adAddCid)
 	require.NoError(t, err)
@@ -132,7 +134,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	ad1Cid, err := subject.NotifyPut(ctx, ad1CtxID, metadata.BitswapMetadata)
+	ad1Cid, err := subject.NotifyPut(ctx, ad1CtxID, testMetadata)
 	require.NoError(t, err)
 	ad1, err := subject.GetAdv(ctx, ad1Cid)
 	require.NoError(t, err)
@@ -142,7 +144,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	requireChunkIsCached(t, subject.Chunker(), ad1EntriesChain...)
 	a1Chunks := requireLoadEntryChunkFromEngine(t, subject, ad1EntriesChain...)
 
-	ad2Cid, err := subject.NotifyPut(ctx, ad2CtxID, metadata.BitswapMetadata)
+	ad2Cid, err := subject.NotifyPut(ctx, ad2CtxID, testMetadata)
 	require.NoError(t, err)
 	ad2, err := subject.GetAdv(ctx, ad2Cid)
 	require.NoError(t, err)

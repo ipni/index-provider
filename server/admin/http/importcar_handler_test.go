@@ -12,6 +12,7 @@ import (
 
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
+	"github.com/filecoin-project/index-provider/metadata"
 	mock_provider "github.com/filecoin-project/index-provider/mock"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/filecoin-project/index-provider/testutil"
@@ -25,12 +26,19 @@ import (
 func Test_importCarHandler(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
-	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
+	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
 	require.NoError(t, err)
+
+	wantMetadata := metadata.New(wantTp)
+	require.NoError(t, err)
+
+	mdBytes, err := wantMetadata.MarshalBinary()
+	require.NoError(t, err)
+
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
-		Metadata: wantMetadata,
+		Metadata: mdBytes,
 	}
 
 	jsonReq, err := json.Marshal(icReq)
@@ -74,12 +82,15 @@ func Test_importCarHandler(t *testing.T) {
 
 func Test_importCarHandlerFail(t *testing.T) {
 	wantKey := []byte("lobster")
-	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
+	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
+	require.NoError(t, err)
+	wantMetadata := metadata.New(wantTp)
+	mdBytes, err := wantMetadata.MarshalBinary()
 	require.NoError(t, err)
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
-		Metadata: wantMetadata,
+		Metadata: mdBytes,
 	}
 
 	jsonReq, err := json.Marshal(icReq)
@@ -115,12 +126,15 @@ func Test_importCarHandlerFail(t *testing.T) {
 
 func Test_importCarAlreadyAdvertised(t *testing.T) {
 	wantKey := []byte("lobster")
-	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
+	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
+	require.NoError(t, err)
+	wantMetadata := metadata.New(wantTp)
+	mdBytes, err := wantMetadata.MarshalBinary()
 	require.NoError(t, err)
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
-		Metadata: wantMetadata,
+		Metadata: mdBytes,
 	}
 
 	jsonReq, err := json.Marshal(icReq)

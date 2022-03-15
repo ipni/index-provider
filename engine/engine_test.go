@@ -58,12 +58,15 @@ func TestEngine_PublishLocal(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	md := metadata.New(metadata.Bitswap{})
+	stiMetadata, err := md.ToStiMetadata()
+	require.NoError(t, err)
 	wantAd, err := schema.NewAdvertisement(
 		subject.Key(),
 		nil,
 		chunkLnk,
 		[]byte("fish"),
-		metadata.BitswapMetadata,
+		stiMetadata,
 		false,
 		subject.Host().ID().String(),
 		multiAddsToString(subject.Host().Addrs()))
@@ -148,13 +151,15 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		mhs: mhs,
 	})
 	require.NoError(t, err)
-
+	md := metadata.New(metadata.Bitswap{})
+	stiMetadata, err := md.ToStiMetadata()
+	require.NoError(t, err)
 	wantAd, err := schema.NewAdvertisement(
 		subject.Key(),
 		nil,
 		chunkLnk,
 		wantContextID,
-		metadata.BitswapMetadata,
+		stiMetadata,
 		false,
 		subject.Host().ID().String(),
 		multiAddsToString(subject.Host().Addrs()))
@@ -224,7 +229,7 @@ func TestEngine_NotifyPutWithoutListerIsError(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	gotCid, err := subject.NotifyPut(ctx, []byte("fish"), metadata.BitswapMetadata)
+	gotCid, err := subject.NotifyPut(ctx, []byte("fish"), metadata.New(metadata.Bitswap{}))
 	require.Error(t, err, provider.ErrNoMultihashLister)
 	require.Equal(t, cid.Undef, gotCid)
 }
@@ -252,7 +257,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	gotPutAdCid, err := subject.NotifyPut(ctx, wantContextID, metadata.BitswapMetadata)
+	gotPutAdCid, err := subject.NotifyPut(ctx, wantContextID, metadata.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid)
 

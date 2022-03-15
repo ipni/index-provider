@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/ipfs/go-cid"
 )
@@ -31,8 +32,16 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	var err error
 	ctx := context.Background()
 
+	var md metadata.Metadata
+	if err := md.UnmarshalBinary(req.Metadata); err != nil {
+		msg := fmt.Sprintf("failed to unmarshal metadata: %v", err)
+		log.Errorw(msg, "err", err)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
 	log.Info("importing CAR")
-	advID, err = h.cs.Put(ctx, req.Key, req.Path, req.Metadata)
+	advID, err = h.cs.Put(ctx, req.Key, req.Path, md)
 
 	// Respond with cause of failure.
 	if err != nil {

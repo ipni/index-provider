@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	provider "github.com/filecoin-project/index-provider"
-	v0 "github.com/filecoin-project/storetheindex/api/v0"
+	"github.com/filecoin-project/index-provider/metadata"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
@@ -71,9 +71,9 @@ func (mr *MockInterfaceMockRecorder) GetLatestAdv(arg0 interface{}) *gomock.Call
 }
 
 // NotifyPut mocks base method.
-func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, metadata v0.Metadata) (cid.Cid, error) {
+func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyPut", ctx, contextID, metadata)
+	ret := m.ctrl.Call(m, "NotifyPut", ctx, contextID, md)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
