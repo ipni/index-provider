@@ -124,13 +124,18 @@ Each advertisement contains:
 * Provider ID: the libp2p peer ID of the content provider.
 * Addresses: a list of addresses from which the content can be retrieved.
 * [Metadata](metadata): a blob of bytes capturing how to retrieve the data.
+* Entries: a link pointing to a list of chunked multihashes.
+* Context ID: a key for the content being advertised.
 
-Within each advertisement there is an entries link that points to a list of chunked multihashes. It
-is the multihashes that
+The Entries link points to the IPLD node that contains a list of mulitihashes being advertised. The 
+list is represented as a chain of "Entry Chunk"s where each chunk contains a list of multihashes and
+a link to the next chunk. This is to accommodate pagination for large number of multihashes.
 
-To do this it requires a `MultihashLister` to be registered. The `MultihashLister` is then used to
-look up the list of multihashes associated to a content advertisement. For an example on how to
-start up a provider engine, register a lister and advertise content, see:
+The engine can be configured to dynamically look up the list of multihashes that correspond to the
+context ID of an advertisement. To do this, the engine requires a `MultihashLister` to be 
+registered. The `MultihashLister` is then used to look up the list of multihashes associated to a 
+content advertisement. For an example on how to start up a provider engine, register a lister and 
+advertise content, see:
 
 * [`engine/example_test.go`](engine/example_test.go)
 
