@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
+	md "github.com/filecoin-project/index-provider/metadata"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 )
@@ -61,12 +61,13 @@ func indexCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	metadata := stiapi.Metadata{
-		ProtocolID: multicodec.Code(cctx.Int("proto")),
-		Data:       []byte(cctx.String("meta")),
+	metadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&md.GraphsyncFilecoinV1Metadata{}}}
+	rawMetadata, err := metadata.MarshalBinary()
+	if err != nil {
+		return err
 	}
 
-	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), metadata, cctx.StringSlice("addr"))
+	err = client.IndexContent(cctx.Context, peerID, privKey, mh, []byte(cctx.String("ctxid")), rawMetadata, cctx.StringSlice("addr"))
 	if err != nil {
 		return err
 	}

@@ -86,7 +86,7 @@ func findCommand(cctx *cli.Context) error {
 		for _, pr := range resp.MultihashResults[i].ProviderResults {
 			fmt.Println("       Provider:", pr.Provider)
 			fmt.Println("       ContextID:", base64.StdEncoding.EncodeToString(pr.ContextID))
-			fmt.Println("       Metadata:", base64.StdEncoding.EncodeToString(pr.Metadata.Data))
+			fmt.Println("       Metadata:", base64.StdEncoding.EncodeToString(*pr.Metadata))
 		}
 	}
 

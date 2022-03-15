@@ -11,7 +11,6 @@ import (
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
-	"github.com/multiformats/go-multicodec"
 	"github.com/urfave/cli/v2"
 )
 
@@ -32,9 +31,8 @@ var (
 		Before:  beforeImportCar,
 		Action:  doImportCar,
 	}
-	metadata = stiapi.Metadata{
-		ProtocolID: multicodec.TransportGraphsyncFilecoinv1,
-	}
+
+	metadata stiapi.ParsedMetadata
 )
 
 func beforeImportCar(cctx *cli.Context) error {
@@ -54,7 +52,10 @@ func beforeImportCar(cctx *cli.Context) error {
 		if err != nil {
 			return errors.New("metadata is not a valid base64 encoded string")
 		}
-		metadata.Data = decoded
+		err = metadata.UnmarshalBinary(decoded)
+		if err != nil {
+			return err
+		}
 	} else {
 		// If no metadata is set, generate metadata that is compatible for FileCoin retrieval base
 		// on the context ID
@@ -68,10 +69,15 @@ func beforeImportCar(cctx *cli.Context) error {
 }
 
 func doImportCar(cctx *cli.Context) error {
+	rawMetadata, err := metadata.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
 	req := adminserver.ImportCarReq{
 		Path:     carPathFlagValue,
 		Key:      importCarKey,
-		Metadata: metadata,
+		Metadata: rawMetadata,
 	}
 	resp, err := doHttpPostReq(cctx.Context, adminAPIFlagValue+"/admin/import/car", req)
 	if err != nil {
