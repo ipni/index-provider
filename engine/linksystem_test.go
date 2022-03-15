@@ -12,6 +12,7 @@ import (
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
+	"github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -59,8 +60,10 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
+	parsedMetadata := v0.ParsedMetadata{Protocols: []v0.ProtocolMetadata{&metadata.GraphsyncFilecoinV1Metadata{}}}
+
 	// Publish content added advertisement.
-	adAddCid, err := subject.NotifyPut(ctx, ctxID, metadata.BitswapMetadata)
+	adAddCid, err := subject.NotifyPut(ctx, ctxID, parsedMetadata)
 	require.NoError(t, err)
 	adAdd, err := subject.GetAdv(ctx, adAddCid)
 	require.NoError(t, err)
@@ -132,7 +135,9 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	ad1Cid, err := subject.NotifyPut(ctx, ad1CtxID, metadata.BitswapMetadata)
+	parsedMetadata := v0.ParsedMetadata{Protocols: []v0.ProtocolMetadata{&metadata.GraphsyncFilecoinV1Metadata{}}}
+
+	ad1Cid, err := subject.NotifyPut(ctx, ad1CtxID, parsedMetadata)
 	require.NoError(t, err)
 	ad1, err := subject.GetAdv(ctx, ad1Cid)
 	require.NoError(t, err)
@@ -142,7 +147,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	requireChunkIsCached(t, subject.Chunker(), ad1EntriesChain...)
 	a1Chunks := requireLoadEntryChunkFromEngine(t, subject, ad1EntriesChain...)
 
-	ad2Cid, err := subject.NotifyPut(ctx, ad2CtxID, metadata.BitswapMetadata)
+	ad2Cid, err := subject.NotifyPut(ctx, ad2CtxID, parsedMetadata)
 	require.NoError(t, err)
 	ad2, err := subject.GetAdv(ctx, ad2Cid)
 	require.NoError(t, err)

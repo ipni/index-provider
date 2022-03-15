@@ -34,6 +34,12 @@ var indexerFlag = &cli.StringFlag{
 	Required: true,
 }
 
+var indexerIDFlag = &cli.StringFlag{
+	Name:     "peerid",
+	Usage:    "Peer ID of indexer to use, when using libp2p",
+	Required: false,
+}
+
 var addrFlag = &cli.StringSliceFlag{
 	Name:     "addr",
 	Usage:    `Provider address as multiaddr string, example: "/ip4/127.0.0.1/tcp/3103"`,
@@ -43,6 +49,7 @@ var addrFlag = &cli.StringSliceFlag{
 
 var findFlags = []cli.Flag{
 	indexerFlag,
+	indexerIDFlag,
 	&cli.StringSliceFlag{
 		Name:     "mh",
 		Usage:    "Specify multihash to use as indexer key, multiple OK",
@@ -51,6 +58,12 @@ var findFlags = []cli.Flag{
 	&cli.StringSliceFlag{
 		Name:     "cid",
 		Usage:    "Specify CID to use as indexer key, multiple OK",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name:     "protocol",
+		Usage:    "Protocol to query the indexer (http, libp2p currently supported)",
+		Value:    "http",
 		Required: false,
 	},
 }

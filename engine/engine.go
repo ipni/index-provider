@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/go-legs/httpsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine/chunker"
+	md "github.com/filecoin-project/index-provider/metadata"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/hashicorp/go-multierror"
@@ -20,7 +21,6 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/multiformats/go-multicodec"
 )
 
 const (
@@ -238,7 +238,7 @@ func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
 // Note that prior to calling this function a provider.MultihashLister must be registered.
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
-func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error) {
+func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.ParsedMetadata) (cid.Cid, error) {
 	// The multihash lister must have been registered for the linkSystem to know how to
 	// go from contextID to list of CIDs.
 	return e.publishAdvForIndex(ctx, contextID, metadata, false)
@@ -251,7 +251,7 @@ func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, metadata stiap
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
-	return e.publishAdvForIndex(ctx, contextID, stiapi.Metadata{}, true)
+	return e.publishAdvForIndex(ctx, contextID, stiapi.ParsedMetadata{}, true)
 }
 
 // Shutdown shuts down the engine and discards all resources opened by the engine.
@@ -312,7 +312,7 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisemen
 	return latestAdCid, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metadata stiapi.Metadata, isRm bool) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metadata stiapi.ParsedMetadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
@@ -408,9 +408,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 
 		// The advertisement still requires a valid metadata even though
 		// metadata is not used for removal.  Create a valid empty metadata.
-		metadata = stiapi.Metadata{
-			ProtocolID: multicodec.TransportGraphsyncFilecoinv1,
-		}
+		metadata = stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&md.GraphsyncFilecoinV1Metadata{}}}
 	}
 
 	// Get the previous advertisement that was generated
@@ -433,8 +431,12 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, metad
 		previousLnk = nb.Build().(schema.Link_Advertisement)
 	}
 
+	encMeta, err := metadata.MarshalBinary()
+	if err != nil {
+		return cid.Undef, fmt.Errorf("failed to marshal metadata: %w", err)
+	}
 	adv, err := schema.NewAdvertisement(e.key, previousLnk, cidsLnk,
-		contextID, metadata, isRm, e.h.ID().String(), e.retrievalAddrsAsString())
+		contextID, stiapi.Metadata(encMeta), isRm, e.h.ID().String(), e.retrievalAddrsAsString())
 	if err != nil {
 		return cid.Undef, fmt.Errorf("failed to create advertisement: %s", err)
 	}
@@ -474,7 +476,7 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) ([]byte, error) {
 	return e.ds.Get(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()))
 }
 
-func (e *Engine) putKeyMetadataMap(ctx context.Context, contextID []byte, metadata stiapi.Metadata) error {
+func (e *Engine) putKeyMetadataMap(ctx context.Context, contextID []byte, metadata stiapi.ParsedMetadata) error {
 	data, err := metadata.MarshalBinary()
 	if err != nil {
 		return err
@@ -482,16 +484,16 @@ func (e *Engine) putKeyMetadataMap(ctx context.Context, contextID []byte, metada
 	return e.ds.Put(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)), data)
 }
 
-func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (stiapi.Metadata, error) {
+func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (stiapi.ParsedMetadata, error) {
 	data, err := e.ds.Get(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)))
 	if err != nil {
-		return stiapi.Metadata{}, err
+		return stiapi.ParsedMetadata{}, err
 	}
-	var metadata stiapi.Metadata
-	if err = metadata.UnmarshalBinary(data); err != nil {
-		return stiapi.Metadata{}, err
+	m := stiapi.ParsedMetadata{}
+	if err := m.UnmarshalBinary(data); err != nil {
+		return stiapi.ParsedMetadata{}, err
 	}
-	return metadata, nil
+	return m, nil
 }
 
 func (e *Engine) deleteKeyMetadataMap(ctx context.Context, contextID []byte) error {

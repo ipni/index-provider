@@ -7,6 +7,7 @@ import (
 
 	"github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/supplier"
+	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/ipfs/go-cid"
 )
 
@@ -32,7 +33,14 @@ func (h *importCarHandler) handle(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	log.Info("importing CAR")
-	advID, err = h.cs.Put(ctx, req.Key, req.Path, req.Metadata)
+	var parsedMetadata stiapi.ParsedMetadata
+	if err = parsedMetadata.UnmarshalBinary(req.Metadata); err != nil {
+		msg := fmt.Sprintf("failed to unmarshal binary: %v", err)
+		log.Errorw(msg, "err", err)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+	advID, err = h.cs.Put(ctx, req.Key, req.Path, parsedMetadata)
 
 	// Respond with cause of failure.
 	if err != nil {

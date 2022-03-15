@@ -56,7 +56,7 @@ type Interface interface {
 	// NotifyPut, then ErrAlreadyAdvertised is returned.
 	//
 	// This function returns the ID of the advertisement published.
-	NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.Metadata) (cid.Cid, error)
+	NotifyPut(ctx context.Context, contextID []byte, metadata stiapi.ParsedMetadata) (cid.Cid, error)
 
 	// NotifyRemove signals to the provider that the multihashes that
 	// corresponded to the given contextID are no longer available.  An advertisement

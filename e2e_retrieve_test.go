@@ -130,10 +130,12 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	mdb, err := adv.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
-	var receivedMd stiapi.Metadata
+	cids := testutil.GenerateCids(1)
+	pieceCID := cids[0]
+	receivedMd := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.GraphsyncFilecoinV1Metadata{PieceCID: pieceCID}}}
 	err = receivedMd.UnmarshalBinary(mdb)
 	require.NoError(t, err)
-	dtm := &metadata.GraphsyncFilecoinV1Metadata{}
+	dtm := metadata.GraphsyncFilecoinV1Metadata{}
 	err = dtm.FromIndexerMetadata(receivedMd)
 	require.NoError(t, err)
 
@@ -209,7 +211,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	mdb, err := adv.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
-	var receivedMd stiapi.Metadata
+	var receivedMd stiapi.ParsedMetadata
 	err = receivedMd.UnmarshalBinary(mdb)
 	require.NoError(t, err)
 
@@ -242,7 +244,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	mdb2, err := adv2.FieldMetadata().AsBytes()
 	require.NoError(t, err)
 
-	var receivedMd2 stiapi.Metadata
+	var receivedMd2 stiapi.ParsedMetadata
 	err = receivedMd2.UnmarshalBinary(mdb2)
 	require.NoError(t, err)
 

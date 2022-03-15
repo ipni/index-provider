@@ -59,7 +59,7 @@ func NewCarSupplier(eng provider.Interface, ds datastore.Datastore, opts ...car.
 // get an iterator over CIDs that belong to the CAR.
 //
 // This function accepts both CARv1 and CARv2 formats.
-func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, metadata stiapi.Metadata) (cid.Cid, error) {
+func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, metadata stiapi.ParsedMetadata) (cid.Cid, error) {
 	// Clean path to CAR.
 	path = filepath.Clean(path)
 

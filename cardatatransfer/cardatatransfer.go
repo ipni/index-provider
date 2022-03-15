@@ -64,7 +64,7 @@ func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) 
 	return nil
 }
 
-func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
+func MetadataFromContextID(contextID []byte) (stiapi.ParsedMetadata, error) {
 	pieceCid, err := cid.Prefix{
 		Version:  1,
 		Codec:    uint64(multicodec.TransportGraphsyncFilecoinv1),
@@ -72,7 +72,7 @@ func MetadataFromContextID(contextID []byte) (stiapi.Metadata, error) {
 		MhLength: -1,
 	}.Sum(contextID)
 	if err != nil {
-		return stiapi.Metadata{}, err
+		return stiapi.ParsedMetadata{}, err
 	}
 	filecoinV1Metadata := &metadata.GraphsyncFilecoinV1Metadata{
 		PieceCID:      pieceCid,

@@ -8,6 +8,7 @@ import (
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/libp2p/go-libp2p"
 	"github.com/multiformats/go-multihash"
 )
@@ -59,9 +60,11 @@ func Example_advertiseHelloWorld() {
 	}
 	fmt.Println("✓ Provider engine started.")
 
+	parsedMetadata := v0.ParsedMetadata{Protocols: []v0.ProtocolMetadata{&metadata.BitswapMetadata{}}}
+
 	// Note that this example publishes an ad with bitswap metadata as an example.
 	// But it does not instantiate a bitswap server to serve retrievals.
-	adCid, err := engine.NotifyPut(context.Background(), []byte(sayHelloCtxID), metadata.BitswapMetadata)
+	adCid, err := engine.NotifyPut(context.Background(), []byte(sayHelloCtxID), parsedMetadata)
 	if err != nil {
 		panic(err)
 	}

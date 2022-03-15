@@ -16,6 +16,7 @@ import (
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	v0util "github.com/filecoin-project/storetheindex/api/v0/util"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"

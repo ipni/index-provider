@@ -27,10 +27,13 @@ func Test_importCarHandler(t *testing.T) {
 	wantKey := []byte("lobster")
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
 	require.NoError(t, err)
+	wantRawMetadata, err := wantMetadata.MarshalBinary()
+	require.NoError(t, err)
+
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
-		Metadata: wantMetadata,
+		Metadata: wantRawMetadata,
 	}
 
 	jsonReq, err := json.Marshal(icReq)
@@ -76,10 +79,13 @@ func Test_importCarHandlerFail(t *testing.T) {
 	wantKey := []byte("lobster")
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
 	require.NoError(t, err)
+	wantRawMetadata, err := wantMetadata.MarshalBinary()
+	require.NoError(t, err)
+
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
-		Metadata: wantMetadata,
+		Metadata: wantRawMetadata,
 	}
 
 	jsonReq, err := json.Marshal(icReq)
@@ -117,10 +123,13 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 	wantKey := []byte("lobster")
 	wantMetadata, err := cardatatransfer.MetadataFromContextID(wantKey)
 	require.NoError(t, err)
+	wantRawMetadata, err := wantMetadata.MarshalBinary()
+	require.NoError(t, err)
+
 	icReq := &ImportCarReq{
 		Path:     "fish",
 		Key:      wantKey,
-		Metadata: wantMetadata,
+		Metadata: wantRawMetadata,
 	}
 
 	jsonReq, err := json.Marshal(icReq)

@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/filecoin-project/index-provider/metadata"
 	mock_provider "github.com/filecoin-project/index-provider/mock"
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/golang/mock/gomock"
@@ -18,8 +19,6 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
-
-const testProtocolID = 0x300000
 
 func TestPutCarReturnsExpectedIterator(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
@@ -47,9 +46,8 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			carPath: "../testdata/sample-wrapped-v2.car",
 		},
 	}
-	metadata := stiapi.Metadata{
-		ProtocolID: testProtocolID,
-	}
+	parsedMetadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.GraphsyncFilecoinV1Metadata{}}}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := gomock.NewController(t)
@@ -94,11 +92,11 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			wantCid := generateCidV1(t, rng)
 			mockEng.
 				EXPECT().
-				NotifyPut(ctx, gomock.Any(), metadata).
+				NotifyPut(ctx, gomock.Any(), parsedMetadata).
 				Return(wantCid, nil)
 
 			gotContextID := sha256.New().Sum([]byte(tt.carPath))
-			gotCid, err := subject.Put(ctx, gotContextID, tt.carPath, metadata)
+			gotCid, err := subject.Put(ctx, gotContextID, tt.carPath, parsedMetadata)
 			require.NoError(t, err)
 			require.Equal(t, wantCid, gotCid)
 
@@ -143,18 +141,16 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	subject := NewCarSupplier(mockEng, ds)
 	t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
-	metadata := stiapi.Metadata{
-		ProtocolID: testProtocolID,
-	}
+	parsedMetadata := stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&metadata.GraphsyncFilecoinV1Metadata{}}}
 
 	wantCid := generateCidV1(t, rng)
 	mockEng.
 		EXPECT().
-		NotifyPut(ctx, gomock.Any(), metadata).
+		NotifyPut(ctx, gomock.Any(), parsedMetadata).
 		Return(wantCid, nil)
 
 	gotContextID := sha256.New().Sum([]byte(path))
-	id, err := subject.Put(ctx, gotContextID, path, metadata)
+	id, err := subject.Put(ctx, gotContextID, path, parsedMetadata)
 	require.NoError(t, err)
 	require.Equal(t, wantCid, id)
 

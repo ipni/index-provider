@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	stiapi "github.com/filecoin-project/storetheindex/api/v0"
@@ -10,6 +11,7 @@ import (
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/multiformats/go-multicodec"
+	"github.com/multiformats/go-varint"
 )
 
 // GraphsyncFilecoinV1Metadata represents the indexing metadata for multicodec.TransportGraphsyncFilecoinv1.
@@ -20,6 +22,78 @@ type GraphsyncFilecoinV1Metadata struct {
 	VerifiedDeal bool
 	// FastRetrieval indicates whether the provider claims there is an unsealed copy
 	FastRetrieval bool
+}
+
+var ParsedGraphsyncFilecoinV1MetadataMetadata = stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{&GraphsyncFilecoinV1Metadata{}}}
+
+func init() {
+	stiapi.RegisterMetadataProtocol(func() stiapi.ProtocolMetadata {
+		return &GraphsyncFilecoinV1Metadata{}
+	})
+}
+
+func (m *GraphsyncFilecoinV1Metadata) Protocol() multicodec.Code {
+	return multicodec.TransportGraphsyncFilecoinv1
+}
+
+func (dtm *GraphsyncFilecoinV1Metadata) PayloadLength() int {
+	nd := bindnode.Wrap(dtm, graphSyncfilecoinV1SchemaType)
+	encLen, err := dagcbor.EncodedLength(nd)
+	if err != nil {
+		panic(err)
+	}
+	return varint.UvarintSize(uint64(encLen)) + int(encLen)
+}
+
+func (dtm *GraphsyncFilecoinV1Metadata) MarshalBinary() ([]byte, error) {
+	nd := bindnode.Wrap(dtm, graphSyncfilecoinV1SchemaType)
+	buf := new(bytes.Buffer)
+	err := dagcbor.Encode(nd, buf)
+	if err != nil {
+		return stiapi.Metadata{}, err
+	}
+
+	uviBuf := varint.ToUvarint(uint64(buf.Len()))
+
+	var b bytes.Buffer
+	b.Grow(len(uviBuf) + buf.Len())
+	b.Write(uviBuf)
+	b.Write(buf.Bytes())
+
+	return b.Bytes(), nil
+}
+
+func (dtm *GraphsyncFilecoinV1Metadata) UnmarshalBinary(data []byte) error {
+	l, sl, err := varint.FromUvarint(data)
+	if err != nil {
+		return err
+	}
+	if int(l)+sl < len(data) {
+		return errors.New("payload too short")
+	}
+	data = data[sl:]
+
+	r := bytes.NewBuffer(data)
+	proto := bindnode.Prototype((*GraphsyncFilecoinV1Metadata)(nil), graphSyncfilecoinV1SchemaType)
+	nb := proto.NewBuilder()
+	err = dagcbor.Decode(nb, r)
+	if err != nil {
+		return err
+	}
+	nd := nb.Build()
+	gm := bindnode.Unwrap(nd).(*GraphsyncFilecoinV1Metadata)
+	dtm.VerifiedDeal = gm.VerifiedDeal
+	dtm.FastRetrieval = gm.FastRetrieval
+	dtm.PieceCID = gm.PieceCID
+	return nil
+}
+
+func (m GraphsyncFilecoinV1Metadata) Equal(other stiapi.ProtocolMetadata) bool {
+	if other.Protocol() != m.Protocol() {
+		return false
+	}
+	ogfm := other.(*GraphsyncFilecoinV1Metadata)
+	return ogfm.PieceCID == m.PieceCID && ogfm.VerifiedDeal == m.VerifiedDeal && ogfm.FastRetrieval == m.FastRetrieval
 }
 
 var graphSyncfilecoinV1SchemaType schema.Type
@@ -41,38 +115,27 @@ func init() {
 }
 
 // ToIndexerMetadata converts GraphsyncFilecoinV1Metadata into indexer Metadata format.
-func (dtm *GraphsyncFilecoinV1Metadata) ToIndexerMetadata() (stiapi.Metadata, error) {
-	nd := bindnode.Wrap(dtm, graphSyncfilecoinV1SchemaType)
-	buf := new(bytes.Buffer)
-	err := dagcbor.Encode(nd, buf)
-	if err != nil {
-		return stiapi.Metadata{}, err
-	}
-	return stiapi.Metadata{
-		ProtocolID: multicodec.TransportGraphsyncFilecoinv1,
-		Data:       buf.Bytes(),
-	}, nil
+func (dtm *GraphsyncFilecoinV1Metadata) ToIndexerMetadata() (stiapi.ParsedMetadata, error) {
+	return stiapi.ParsedMetadata{Protocols: []stiapi.ProtocolMetadata{dtm}}, nil
 }
 
 // FromIndexerMetadata decodes the indexer metadata format into GraphsyncFilecoinV1Metadata
 // if the protocol ID of the given metadata matches multicodec.TransportGraphsyncFilecoinv1.
 // Otherwise, ErrNotGraphsyncFilecoinV1 error is returned.
-func (dtm *GraphsyncFilecoinV1Metadata) FromIndexerMetadata(m stiapi.Metadata) error {
-	if m.ProtocolID != multicodec.TransportGraphsyncFilecoinv1 {
-		return ErrNotGraphsyncFilecoinV1{m.ProtocolID}
+func (dtm *GraphsyncFilecoinV1Metadata) FromIndexerMetadata(m stiapi.ParsedMetadata) error {
+	var pm stiapi.ProtocolMetadata
+	var incorrectProtocol multicodec.Code
+	for _, p := range m.Protocols {
+		if p.Protocol() == multicodec.TransportGraphsyncFilecoinv1 {
+			pm = p
+			break
+		}
+		incorrectProtocol = p.Protocol()
 	}
-	r := bytes.NewBuffer(m.Data)
-	proto := bindnode.Prototype((*GraphsyncFilecoinV1Metadata)(nil), graphSyncfilecoinV1SchemaType)
-	nb := proto.NewBuilder()
-	err := dagcbor.Decode(nb, r)
-	if err != nil {
-		return err
+	if pm == nil {
+		return ErrNotGraphsyncFilecoinV1{incorrectProtocol}
 	}
-	nd := nb.Build()
-	gm := bindnode.Unwrap(nd).(*GraphsyncFilecoinV1Metadata)
-	dtm.VerifiedDeal = gm.VerifiedDeal
-	dtm.FastRetrieval = gm.FastRetrieval
-	dtm.PieceCID = gm.PieceCID
+	*dtm = *(pm.(*GraphsyncFilecoinV1Metadata))
 	return nil
 }
 

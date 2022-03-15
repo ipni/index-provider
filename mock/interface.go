@@ -71,7 +71,7 @@ func (mr *MockInterfaceMockRecorder) GetLatestAdv(arg0 interface{}) *gomock.Call
 }
 
 // NotifyPut mocks base method.
-func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, metadata v0.Metadata) (cid.Cid, error) {
+func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, metadata v0.ParsedMetadata) (cid.Cid, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NotifyPut", ctx, contextID, metadata)
 	ret0, _ := ret[0].(cid.Cid)
