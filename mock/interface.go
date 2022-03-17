@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/metadata"
+	metadata "github.com/filecoin-project/index-provider/metadata"
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
@@ -40,10 +40,10 @@ func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 }
 
 // GetAdv mocks base method.
-func (m *MockInterface) GetAdv(arg0 context.Context, arg1 cid.Cid) (schema.Advertisement, error) {
+func (m *MockInterface) GetAdv(arg0 context.Context, arg1 cid.Cid) (*schema.Advertisement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAdv", arg0, arg1)
-	ret0, _ := ret[0].(schema.Advertisement)
+	ret0, _ := ret[0].(*schema.Advertisement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -55,11 +55,11 @@ func (mr *MockInterfaceMockRecorder) GetAdv(arg0, arg1 interface{}) *gomock.Call
 }
 
 // GetLatestAdv mocks base method.
-func (m *MockInterface) GetLatestAdv(arg0 context.Context) (cid.Cid, schema.Advertisement, error) {
+func (m *MockInterface) GetLatestAdv(arg0 context.Context) (cid.Cid, *schema.Advertisement, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLatestAdv", arg0)
 	ret0, _ := ret[0].(cid.Cid)
-	ret1, _ := ret[1].(schema.Advertisement)
+	ret1, _ := ret[1].(*schema.Advertisement)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -80,9 +80,9 @@ func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, md meta
 }
 
 // NotifyPut indicates an expected call of NotifyPut.
-func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, contextID, metadata interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, contextID, md interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), ctx, contextID, metadata)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), ctx, contextID, md)
 }
 
 // NotifyRemove mocks base method.

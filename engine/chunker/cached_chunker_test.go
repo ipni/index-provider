@@ -19,7 +19,6 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/multicodec"
-	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
@@ -232,7 +231,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	require.NoError(t, err)
 	c1 := requireDecodeAsEntryChunk(t, c1Lnk, c1Raw)
 	requireChunkEntriesMatch(t, c1, c1Cids)
-	require.True(t, c1.FieldNext().IsAbsent())
+	require.Nil(t, c1.Next)
 	require.Equal(t, 1, subject.Len())
 
 	// Chunk a total of 20 random CIDs as c2, where the CIDs are made up of 10 newly generated CIDs
@@ -252,14 +251,15 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	require.NoError(t, err)
 	c2 := requireDecodeAsEntryChunk(t, c2Lnk, c2Raw)
 	requireChunkEntriesMatch(t, c2, extraCids)
-	c2NextLnk := requireNextEntryChunkLink(t, c2)
+	require.NotNil(t, c2.Next)
+	c2NextLnk := *c2.Next
 	require.Equal(t, c1Lnk, c2NextLnk)
 
 	c2NextRaw, err := subject.GetRawCachedChunk(ctx, c2NextLnk)
 	require.NoError(t, err)
 	c2Next := requireDecodeAsEntryChunk(t, c2NextLnk, c2NextRaw)
 	requireChunkEntriesMatch(t, c2Next, c1Cids)
-	require.True(t, c2Next.FieldNext().IsAbsent())
+	require.Nil(t, c2Next.Next)
 	require.Equal(t, 1, subject.Len())
 }
 
@@ -279,18 +279,10 @@ func requireChunkIsNotCached(t *testing.T, e *chunker.CachedEntriesChunker, l ..
 	}
 }
 
-func requireChunkEntriesMatch(t *testing.T, chunk schema.EntryChunk, want []cid.Cid) {
-	entries := chunk.FieldEntries()
-	cit := entries.ListIterator()
-	var i int
-	for !cit.Done() {
-		_, cnode, _ := cit.Next()
-		h, err := cnode.AsBytes()
-		require.NoError(t, err)
-		gotMh := multihash.Multihash(h).B58String()
-		wantMh := want[i].Hash().B58String()
+func requireChunkEntriesMatch(t *testing.T, chunk *schema.EntryChunk, want []cid.Cid) {
+	for i, gotMh := range chunk.Entries {
+		wantMh := want[i].Hash()
 		require.Equal(t, wantMh, gotMh)
-		i++
 	}
 }
 
@@ -302,35 +294,27 @@ func listEntriesChain(t *testing.T, e *chunker.CachedEntriesChunker, root ipld.L
 		require.NoError(t, err)
 		chunk := requireDecodeAsEntryChunk(t, root, raw)
 		links = append(links, next)
-		if chunk.FieldNext().IsAbsent() || chunk.FieldNext().IsNull() {
+		if chunk.Next == nil {
 			break
 		}
-		next, err = chunk.FieldNext().AsNode().AsLink()
+		next = *chunk.Next
 		require.NoError(t, err)
 	}
 	return links
 }
 
-func requireNextEntryChunkLink(t *testing.T, node schema.EntryChunk) ipld.Link {
-	if node.FieldNext().IsAbsent() || node.FieldNext().IsNull() {
-		return nil
-	}
-	lnk, err := node.FieldNext().AsNode().AsLink()
-	require.NoError(t, err)
-	return lnk
-}
-
-func requireDecodeAsEntryChunk(t *testing.T, l ipld.Link, value []byte) schema.EntryChunk {
+func requireDecodeAsEntryChunk(t *testing.T, l ipld.Link, value []byte) *schema.EntryChunk {
 	c := l.(cidlink.Link).Cid
-	nb := schema.Type.EntryChunk.NewBuilder()
+	nb := schema.EntryChunkPrototype.NewBuilder()
 	decoder, err := multicodec.LookupDecoder(c.Prefix().Codec)
 	require.NoError(t, err)
 
 	err = decoder(nb, bytes.NewBuffer(value))
 	require.NoError(t, err)
-	ec, ok := nb.Build().(schema.EntryChunk)
-	require.True(t, ok)
-	return ec
+	n := nb.Build()
+	chunk, err := schema.UnwrapEntryChunk(n)
+	require.NoError(t, err)
+	return chunk
 }
 
 func getRandomMhIterator(t *testing.T, rng *rand.Rand, mhCount int) provider.MultihashIterator {

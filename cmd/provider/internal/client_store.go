@@ -3,7 +3,6 @@ package internal
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
@@ -27,6 +26,9 @@ type (
 		datastore.Batching
 		ipld.LinkSystem
 	}
+
+	// TODO: replace advertisement type with schema.Advertisement now that we have propper structs in
+	//       sti.
 
 	Advertisement struct {
 		ID         cid.Cid
@@ -70,57 +72,41 @@ func newProviderClientStore() *ProviderClientStore {
 }
 
 func (s *ProviderClientStore) getNextChunkLink(ctx context.Context, target cid.Cid) (cid.Cid, error) {
-	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
+	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.EntryChunkPrototype)
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	node := n.(schema.EntryChunk)
-	if node.FieldNext().IsAbsent() || node.FieldNext().IsNull() {
+	chunk, err := schema.UnwrapEntryChunk(n)
+	if err != nil {
+		return cid.Undef, err
+	}
+	if chunk.Next == nil {
 		return cid.Undef, nil
 	}
-
-	lnk, err := node.FieldNext().AsNode().AsLink()
-	if err != nil {
-		return cid.Undef, err
-	}
-	return lnk.(cidlink.Link).Cid, nil
+	next := *chunk.Next
+	return next.(cidlink.Link).Cid, nil
 }
 
 func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Cid) (cid.Cid, []multihash.Multihash, error) {
-	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.Type.EntryChunk)
+	n, err := s.LinkSystem.Load(linking.LinkContext{Ctx: ctx}, cidlink.Link{Cid: target}, schema.EntryChunkPrototype)
 	if err != nil {
 		return cid.Undef, nil, err
 	}
 
-	node := n.(schema.EntryChunk)
+	chunk, err := schema.UnwrapEntryChunk(n)
+	if err != nil {
+		return cid.Undef, nil, err
+	}
 	var next cid.Cid
-	if node.FieldNext().IsAbsent() || node.FieldNext().IsNull() {
+	if chunk.Next == nil {
 		next = cid.Undef
 	} else {
-		lnk, err := node.FieldNext().AsNode().AsLink()
-		if err != nil {
-			return cid.Undef, nil, err
-		}
+		lnk := *chunk.Next
 		next = lnk.(cidlink.Link).Cid
 	}
 
-	node.FieldEntries()
-	cit := node.FieldEntries().ListIterator()
-	var mhs []multihash.Multihash
-	for !cit.Done() {
-		_, cnode, _ := cit.Next()
-		h, err := cnode.AsBytes()
-		if err != nil {
-			return cid.Undef, nil, fmt.Errorf("cannot decode an entry from the ingestion list: %s", err)
-		}
-		_, m, err := multihash.MHFromBytes(h)
-		if err != nil {
-			return cid.Undef, nil, err
-		}
-		mhs = append(mhs, m)
-	}
-	return next, mhs, nil
+	return next, chunk.Entries, nil
 }
 
 func (s *ProviderClientStore) getAdvertisement(ctx context.Context, id cid.Cid) (*Advertisement, error) {
@@ -129,7 +115,7 @@ func (s *ProviderClientStore) getAdvertisement(ctx context.Context, id cid.Cid) 
 		return nil, err
 	}
 
-	nb := schema.Type.Advertisement.NewBuilder()
+	nb := schema.AdvertisementPrototype.NewBuilder()
 	decoder, err := multicodec.LookupDecoder(id.Prefix().Codec)
 	if err != nil {
 		return nil, err
@@ -139,73 +125,40 @@ func (s *ProviderClientStore) getAdvertisement(ctx context.Context, id cid.Cid) 
 	if err != nil {
 		return nil, err
 	}
-	node := nb.Build().(schema.Advertisement)
+	node := nb.Build()
 
-	provid, err := node.FieldProvider().AsString()
+	ad, err := schema.UnwrapAdvertisement(node)
 	if err != nil {
 		return nil, err
 	}
 
-	contextID, err := node.FieldContextID().AsBytes()
+	dprovid, err := peer.Decode(ad.Provider)
 	if err != nil {
 		return nil, err
 	}
 
-	meta, err := node.FieldMetadata().AsBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	adds, err := schema.IpldToGoStrings(node.FieldAddresses())
-	if err != nil {
-		return nil, err
-	}
 	var prevCid cid.Cid
-	if node.FieldPreviousID().Exists() {
-		lnk, err := node.FieldPreviousID().Must().AsLink()
-		if err != nil {
-			return nil, err
-		} else {
-			prevCid = lnk.(cidlink.Link).Cid
-		}
+	if ad.PreviousID != nil {
+		prevCid = (*ad.PreviousID).(cidlink.Link).Cid
 	}
 
-	sign, err := node.FieldSignature().AsBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	elink, err := node.FieldEntries().AsLink()
-	if err != nil {
-		return nil, err
-	}
-	entriesCid := elink.(cidlink.Link).Cid
-
-	isRm, err := node.FieldIsRm().AsBool()
-	if err != nil {
-		return nil, err
-	}
-
-	dprovid, err := peer.Decode(provid)
-	if err != nil {
-		return nil, err
-	}
+	entriesCid := ad.Entries.(cidlink.Link).Cid
 
 	a := &Advertisement{
 		ID:         id,
 		ProviderID: dprovid,
-		ContextID:  contextID,
-		Metadata:   meta,
-		Addresses:  adds,
+		ContextID:  ad.ContextID,
+		Metadata:   ad.Metadata,
+		Addresses:  ad.Addresses,
 		PreviousID: prevCid,
-		Signature:  sign,
+		Signature:  ad.Signature,
 		Entries: &EntriesIterator{
 			root:  entriesCid,
 			next:  entriesCid,
 			ctx:   ctx,
 			store: s,
 		},
-		IsRemove: isRm,
+		IsRemove: ad.IsRm,
 	}
 	return a, nil
 }

@@ -33,7 +33,7 @@ func Test_SchemaNoEntriesErr(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 	// Assert both add and remove advertisements can be loaded
-	_, err = subject.LinkSystem().Load(ipld.LinkContext{Ctx: ctx}, schema.NoEntries, schema.Type.Advertisement)
+	_, err = subject.LinkSystem().Load(ipld.LinkContext{Ctx: ctx}, schema.NoEntries, schema.AdvertisementPrototype)
 	require.Equal(t, "no entries; see schema.NoEntries", err.Error())
 }
 
@@ -66,11 +66,10 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	require.NoError(t, err)
 	adAdd, err := subject.GetAdv(ctx, adAddCid)
 	require.NoError(t, err)
-	adAddEntriesRoot := requireAdEntriesLink(t, adAdd)
-	require.NotEqual(t, schema.NoEntries, adAddEntriesRoot)
+	require.NotEqual(t, schema.NoEntries, adAdd.Entries)
 
 	// Assert entries chunk from content added is resolvable
-	_, err = subject.LinkSystem().Load(ipld.LinkContext{}, adAddEntriesRoot, schema.Type.EntryChunk)
+	_, err = subject.LinkSystem().Load(ipld.LinkContext{}, adAdd.Entries, schema.EntryChunkPrototype)
 	require.NoError(t, err)
 
 	// Clear cached entries to force re-generation of chunks on traversal
@@ -84,18 +83,17 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	require.NoError(t, err)
 	adRemove, err := subject.GetAdv(ctx, adRemoveCid)
 	require.NoError(t, err)
-	adRemoveEntriesRoot := requireAdEntriesLink(t, adRemove)
-	require.Equal(t, schema.NoEntries, adRemoveEntriesRoot)
+	require.Equal(t, schema.NoEntries, adRemove.Entries)
 
 	lCtx := ipld.LinkContext{Ctx: ctx}
 	// Assert both add and remove advertisements can be loaded
-	_, err = subject.LinkSystem().Load(lCtx, cidlink.Link{Cid: adAddCid}, schema.Type.Advertisement)
+	_, err = subject.LinkSystem().Load(lCtx, cidlink.Link{Cid: adAddCid}, schema.AdvertisementPrototype)
 	require.NoError(t, err)
-	_, err = subject.LinkSystem().Load(lCtx, cidlink.Link{Cid: adRemoveCid}, schema.Type.Advertisement)
+	_, err = subject.LinkSystem().Load(lCtx, cidlink.Link{Cid: adRemoveCid}, schema.AdvertisementPrototype)
 	require.NoError(t, err)
 
 	// Assert chunks from advertisement that added content are not found
-	_, err = subject.LinkSystem().Load(lCtx, adAddEntriesRoot, schema.Type.EntryChunk)
+	_, err = subject.LinkSystem().Load(lCtx, adAdd.Entries, schema.EntryChunkPrototype)
 	require.Equal(t, datastore.ErrNotFound, err)
 }
 
@@ -138,8 +136,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	require.NoError(t, err)
 	ad1, err := subject.GetAdv(ctx, ad1Cid)
 	require.NoError(t, err)
-	ad1EntriesRoot := requireAdEntriesLink(t, ad1)
-	ad1EntriesChain := listEntriesChainFromCache(t, subject.Chunker(), ad1EntriesRoot)
+	ad1EntriesChain := listEntriesChainFromCache(t, subject.Chunker(), ad1.Entries)
 	require.Len(t, ad1EntriesChain, wantAd1EntriesChainLen)
 	requireChunkIsCached(t, subject.Chunker(), ad1EntriesChain...)
 	a1Chunks := requireLoadEntryChunkFromEngine(t, subject, ad1EntriesChain...)
@@ -148,8 +145,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	require.NoError(t, err)
 	ad2, err := subject.GetAdv(ctx, ad2Cid)
 	require.NoError(t, err)
-	ad2EntriesRoot := requireAdEntriesLink(t, ad2)
-	ad2EntriesChain := listEntriesChainFromCache(t, subject.Chunker(), ad2EntriesRoot)
+	ad2EntriesChain := listEntriesChainFromCache(t, subject.Chunker(), ad2.Entries)
 	require.Len(t, ad2EntriesChain, wantAd2ChunkLen)
 	requireChunkIsCached(t, subject.Chunker(), ad2EntriesChain...)
 	a2Chunks := requireLoadEntryChunkFromEngine(t, subject, ad2EntriesChain...)
@@ -180,11 +176,6 @@ func getMhIterator(t *testing.T, cids []cid.Cid) provider.MultihashIterator {
 	require.NoError(t, err)
 	return iterator
 }
-func requireAdEntriesLink(t *testing.T, ad schema.Advertisement) ipld.Link {
-	lnk, err := ad.FieldEntries().AsLink()
-	require.NoError(t, err)
-	return lnk
-}
 
 func listEntriesChainFromCache(t *testing.T, e *chunker.CachedEntriesChunker, root ipld.Link) []ipld.Link {
 	next := root
@@ -194,37 +185,38 @@ func listEntriesChainFromCache(t *testing.T, e *chunker.CachedEntriesChunker, ro
 		require.NoError(t, err)
 		chunk := requireDecodeAsEntryChunk(t, root, raw)
 		links = append(links, next)
-		if chunk.FieldNext().IsAbsent() || chunk.FieldNext().IsNull() {
+		if chunk.Next == nil {
 			break
 		}
-		next, err = chunk.FieldNext().AsNode().AsLink()
-		require.NoError(t, err)
+		next = *chunk.Next
 	}
 	return links
 }
 
-func requireLoadEntryChunkFromEngine(t *testing.T, e *engine.Engine, l ...ipld.Link) []schema.EntryChunk {
-	var chunks []schema.EntryChunk
+func requireLoadEntryChunkFromEngine(t *testing.T, e *engine.Engine, l ...ipld.Link) []*schema.EntryChunk {
+	var chunks []*schema.EntryChunk
 	for _, link := range l {
-		n, err := e.LinkSystem().Load(ipld.LinkContext{}, link, schema.Type.EntryChunk)
+		n, err := e.LinkSystem().Load(ipld.LinkContext{}, link, schema.EntryChunkPrototype)
 		require.NoError(t, err)
-		chunk, ok := n.(schema.EntryChunk)
-		require.True(t, ok)
+		chunk, err := schema.UnwrapEntryChunk(n)
+		require.NoError(t, err)
 		chunks = append(chunks, chunk)
 	}
 	return chunks
 }
 
-func requireDecodeAsEntryChunk(t *testing.T, l ipld.Link, value []byte) schema.EntryChunk {
+func requireDecodeAsEntryChunk(t *testing.T, l ipld.Link, value []byte) *schema.EntryChunk {
 	c := l.(cidlink.Link).Cid
-	nb := schema.Type.EntryChunk.NewBuilder()
+	nb := schema.EntryChunkPrototype.NewBuilder()
 	decoder, err := multicodec.LookupDecoder(c.Prefix().Codec)
 	require.NoError(t, err)
 
 	err = decoder(nb, bytes.NewBuffer(value))
 	require.NoError(t, err)
-	ec, ok := nb.Build().(schema.EntryChunk)
-	require.True(t, ok)
+	n := nb.Build()
+
+	ec, err := schema.UnwrapEntryChunk(n)
+	require.NoError(t, err)
 	return ec
 }
 

@@ -69,11 +69,11 @@ type Interface interface {
 	NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error)
 
 	// GetAdv gets the advertisement that corresponds to the given cid.
-	GetAdv(context.Context, cid.Cid) (schema.Advertisement, error)
+	GetAdv(context.Context, cid.Cid) (*schema.Advertisement, error)
 
 	// GetLatestAdv gets the latest advertisement on this provider's
 	// advertisement chain and the CID to which it corresponds.
-	GetLatestAdv(context.Context) (cid.Cid, schema.Advertisement, error)
+	GetLatestAdv(context.Context) (cid.Cid, *schema.Advertisement, error)
 
 	// Shutdown shuts down this provider, and blocks until all resources
 	// occupied by it are discarded.  After calling this function the provider
