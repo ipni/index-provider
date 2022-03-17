@@ -19,7 +19,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
-	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
@@ -61,15 +60,14 @@ func TestEngine_PublishLocal(t *testing.T) {
 	md := metadata.New(metadata.Bitswap{})
 	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
-	wantAd, err := schema.NewAdvertisement(
-		subject.Key(),
-		nil,
-		chunkLnk,
-		[]byte("fish"),
-		mdBytes,
-		false,
-		subject.Host().ID().String(),
-		multiAddsToString(subject.Host().Addrs()))
+	wantAd := schema.Advertisement{
+		Provider:  subject.Host().ID().String(),
+		Addresses: multiAddsToString(subject.Host().Addrs()),
+		Entries:   chunkLnk,
+		ContextID: []byte("fish"),
+		Metadata:  mdBytes,
+	}
+	err = wantAd.Sign(subject.Key())
 	require.NoError(t, err)
 
 	gotPublishedAdCid, err := subject.PublishLocal(ctx, wantAd)
@@ -78,7 +76,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 
 	gotLatestAdCid, gotLatestAd, err := subject.GetLatestAdv(ctx)
 	require.NoError(t, err)
-	require.True(t, ipld.DeepEqual(wantAd, gotLatestAd))
+	require.Equal(t, &wantAd, gotLatestAd)
 	require.Equal(t, gotLatestAdCid, gotPublishedAdCid)
 }
 
@@ -154,15 +152,15 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	md := metadata.New(metadata.Bitswap{})
 	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
-	wantAd, err := schema.NewAdvertisement(
-		subject.Key(),
-		nil,
-		chunkLnk,
-		wantContextID,
-		mdBytes,
-		false,
-		subject.Host().ID().String(),
-		multiAddsToString(subject.Host().Addrs()))
+
+	wantAd := schema.Advertisement{
+		Provider:  subject.Host().ID().String(),
+		Addresses: multiAddsToString(subject.Host().Addrs()),
+		Entries:   chunkLnk,
+		ContextID: wantContextID,
+		Metadata:  mdBytes,
+	}
+	err = wantAd.Sign(subject.Key())
 	require.NoError(t, err)
 
 	gotPublishedAdCid, err := subject.Publish(ctx, wantAd)
@@ -171,7 +169,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	gotLatestAdCid, gotLatestAd, err := subject.GetLatestAdv(ctx)
 	require.NoError(t, err)
-	require.True(t, ipld.DeepEqual(wantAd, gotLatestAd))
+	require.Equal(t, &wantAd, gotLatestAd)
 	require.Equal(t, gotLatestAdCid, gotPublishedAdCid)
 
 	pubsubMsg, err := subsc.Next(ctx)

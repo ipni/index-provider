@@ -221,7 +221,11 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 		mhs = append(mhs, mh)
 		mhCount++
 		if len(mhs) >= ls.chunkSize {
-			next, _, err = schema.NewLinkedListOfMhs(ls.lsys, mhs, next)
+			cNode, err := newEntriesChunkNode(mhs, next)
+			if err != nil {
+				return nil, err
+			}
+			next, err = ls.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, cNode)
 			if err != nil {
 				return nil, err
 			}
@@ -232,8 +236,11 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 		}
 	}
 	if len(mhs) != 0 {
-		var err error
-		next, _, err = schema.NewLinkedListOfMhs(ls.lsys, mhs, next)
+		cNode, err := newEntriesChunkNode(mhs, next)
+		if err != nil {
+			return nil, err
+		}
+		next, err = ls.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, cNode)
 		if err != nil {
 			return nil, err
 		}
@@ -251,6 +258,16 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 	}
 	log.Infow("Generated linked chunks of multihashes", "totalMhCount", mhCount, "chunkCount", chunkCount)
 	return next, ls.sync(ctx)
+}
+
+func newEntriesChunkNode(mhs []multihash.Multihash, next ipld.Link) (ipld.Node, error) {
+	chunk := schema.EntryChunk{
+		Entries: mhs,
+	}
+	if next != nil {
+		chunk.Next = &next
+	}
+	return chunk.ToNode()
 }
 
 func (ls *CachedEntriesChunker) sync(ctx context.Context) error {
@@ -405,24 +422,20 @@ func (ls *CachedEntriesChunker) listEntriesChainLinks(ctx context.Context, root 
 	lCtx := ipld.LinkContext{Ctx: ctx}
 	next := root
 	for {
-		n, err := ls.lsys.Load(lCtx, next, schema.Type.EntryChunk)
+		n, err := ls.lsys.Load(lCtx, next, schema.EntryChunkPrototype)
 		if err != nil {
 			return links, err
 		}
-		chunk, ok := n.(schema.EntryChunk)
-		if !ok {
-			return links, fmt.Errorf("expected schema.EntryChunk for link: %s", next)
+		chunk, err := schema.UnwrapEntryChunk(n)
+		if err != nil {
+			return links, err
 		}
 		links = append(links, next)
 
-		if chunk.FieldNext().IsAbsent() || chunk.FieldNext().IsNull() {
+		if chunk.Next == nil {
 			break
 		}
-		lnk, err := chunk.FieldNext().AsNode().AsLink()
-		if err != nil {
-			return links, err
-		}
-		next = lnk
+		next = *chunk.Next
 	}
 	return links, nil
 }

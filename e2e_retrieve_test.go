@@ -123,15 +123,13 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	require.NoError(t, err)
 
 	// Get first advertisement
-	advNode, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid}, schema.Type.Advertisement)
+	advNode, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid}, schema.AdvertisementPrototype)
 	require.NoError(t, err)
-	adv := advNode.(schema.Advertisement)
-
-	mdb, err := adv.FieldMetadata().AsBytes()
+	adv, err := schema.UnwrapAdvertisement(advNode)
 	require.NoError(t, err)
 
 	dtm := &metadata.GraphsyncFilecoinV1{}
-	err = dtm.UnmarshalBinary(mdb)
+	err = dtm.UnmarshalBinary(adv.Metadata)
 	require.NoError(t, err)
 
 	proposal := &cardatatransfer.DealProposal{
@@ -200,15 +198,13 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	require.Equal(t, advCid, headCid)
 
 	// Get first advertisement
-	advNode, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid}, schema.Type.Advertisement)
+	advNode, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid}, schema.AdvertisementPrototype)
 	require.NoError(t, err)
-	adv := advNode.(schema.Advertisement)
-
-	mdb, err := adv.FieldMetadata().AsBytes()
+	adv, err := schema.UnwrapAdvertisement(advNode)
 	require.NoError(t, err)
 
 	var receivedMd metadata.Metadata
-	err = receivedMd.UnmarshalBinary(mdb)
+	err = receivedMd.UnmarshalBinary(adv.Metadata)
 	require.NoError(t, err)
 
 	// Check the reimporting CAR with same contextID and metadata does not
@@ -234,26 +230,20 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	require.NoError(t, err)
 
 	// Get second advertisement
-	advNode2, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid2}, schema.Type.Advertisement)
+	advNode2, err := client.lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: advCid2}, schema.AdvertisementPrototype)
 	require.NoError(t, err)
-	adv2 := advNode2.(schema.Advertisement)
-
-	mdb2, err := adv2.FieldMetadata().AsBytes()
+	adv2, err := schema.UnwrapAdvertisement(advNode2)
 	require.NoError(t, err)
 
 	var receivedMd2 metadata.Metadata
-	err = receivedMd2.UnmarshalBinary(mdb2)
+	err = receivedMd2.UnmarshalBinary(adv2.Metadata)
 	require.NoError(t, err)
 
 	require.NotEqual(t, receivedMd2, receivedMd)
 
 	// Check that both advertisements have the same entries link.
-	lnk, err := adv.FieldEntries().AsLink()
-	require.NoError(t, err)
-	lnk2, err := adv2.FieldEntries().AsLink()
-	require.NoError(t, err)
-	linkCid := lnk.(cidlink.Link).Cid
-	linkCid2 := lnk2.(cidlink.Link).Cid
+	linkCid := adv.Entries.(cidlink.Link).Cid
+	linkCid2 := adv2.Entries.(cidlink.Link).Cid
 	require.True(t, linkCid.Equals(linkCid2))
 }
 

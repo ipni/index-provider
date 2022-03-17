@@ -149,7 +149,17 @@ func (e *Engine) newPublisher() (legs.Publisher, error) {
 //
 // See: Engine.Publish.
 func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
-	lnk, err := e.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, adv.Representation())
+
+	if err := adv.Validate(); err != nil {
+		return cid.Undef, err
+	}
+
+	adNode, err := adv.ToNode()
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	lnk, err := e.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, adNode)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("cannot generate advertisement link: %s", err)
 	}
@@ -270,31 +280,22 @@ func (e *Engine) Shutdown() error {
 
 // GetAdv gets the advertisement associated to the given cid c.
 // The context is not used.
-func (e *Engine) GetAdv(_ context.Context, adCid cid.Cid) (schema.Advertisement, error) {
+func (e *Engine) GetAdv(_ context.Context, adCid cid.Cid) (*schema.Advertisement, error) {
 	log := log.With("cid", adCid)
 	log.Infow("Getting advertisement by CID")
 
-	l, err := schema.LinkAdvFromCid(adCid).AsLink()
-	if err != nil {
-		return nil, fmt.Errorf("cannot convert cid to advertisement link: %s", err)
-	}
-
 	lsys := e.vanillaLinkSystem()
-	n, err := lsys.Load(ipld.LinkContext{}, l, schema.Type.Advertisement)
+	n, err := lsys.Load(ipld.LinkContext{}, cidlink.Link{Cid: adCid}, schema.AdvertisementPrototype)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load advertisement from blockstore with vanilla linksystem: %s", err)
 	}
-	adv, ok := n.(schema.Advertisement)
-	if !ok {
-		return nil, fmt.Errorf("stored IPLD node for cid is not an advertisement")
-	}
-	return adv, nil
+	return schema.UnwrapAdvertisement(n)
 }
 
 // GetLatestAdv gets the latest advertisement by the provider.  If there are
 // not previously published advertisements, then cid.Undef is returned as the
 // advertisement CID.
-func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, schema.Advertisement, error) {
+func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, *schema.Advertisement, error) {
 	log.Info("Getting latest advertisement")
 	latestAdCid, err := e.getLatestAdCid(ctx)
 	if err != nil {
@@ -410,35 +411,37 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		md = metadata.New(metadata.Bitswap{})
 	}
 
-	// Get the previous advertisement that was generated
-	prevAdvID, err := e.getLatestAdCid(ctx)
-	if err != nil {
-		return cid.Undef, fmt.Errorf("could not get latest advertisement: %s", err)
-	}
-	var previousLnk schema.Link_Advertisement
-	// Check for cid.Undef for the previous link. If this is the case, then
-	// this means there is a "cid too short" error in IPLD links serialization.
-	if prevAdvID == cid.Undef {
-		log.Info("Latest advertisement CID was undefined - no previous advertisement")
-		previousLnk = nil
-	} else {
-		nb := schema.Type.Link_Advertisement.NewBuilder()
-		err = nb.AssignLink(cidlink.Link{Cid: prevAdvID})
-		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to generate link from latest advertisement cid: %s", err)
-		}
-		previousLnk = nb.Build().(schema.Link_Advertisement)
-	}
-
 	mdBytes, err := md.MarshalBinary()
 	if err != nil {
 		return cid.Undef, err
 	}
 
-	adv, err := schema.NewAdvertisement(e.key, previousLnk, cidsLnk,
-		contextID, mdBytes, isRm, e.h.ID().String(), e.retrievalAddrsAsString())
+	adv := schema.Advertisement{
+		Provider:  e.h.ID().String(),
+		Addresses: e.retrievalAddrsAsString(),
+		Entries:   cidsLnk,
+		ContextID: contextID,
+		Metadata:  mdBytes,
+		IsRm:      isRm,
+	}
+
+	// Get the previous advertisement that was generated
+	prevAdvID, err := e.getLatestAdCid(ctx)
 	if err != nil {
-		return cid.Undef, fmt.Errorf("failed to create advertisement: %s", err)
+		return cid.Undef, fmt.Errorf("could not get latest advertisement: %s", err)
+	}
+
+	// Check for cid.Undef for the previous link. If this is the case, then
+	// this means there is a "cid too short" error in IPLD links serialization.
+	if prevAdvID != cid.Undef {
+		log.Info("Latest advertisement CID was undefined - no previous advertisement")
+		prev := ipld.Link(cidlink.Link{Cid: prevAdvID})
+		adv.PreviousID = &prev
+	}
+
+	// Sign the advertisement.
+	if err := adv.Sign(e.key); err != nil {
+		return cid.Undef, err
 	}
 	return e.Publish(ctx, adv)
 }
