@@ -2,10 +2,12 @@ package metadata
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"io"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
@@ -16,9 +18,19 @@ import (
 var (
 	_ Protocol = (*GraphsyncFilecoinV1)(nil)
 
-	graphSyncfilecoinV1SchemaType schema.Type
-	graphSyncfilecoinV1Prototype  schema.TypedPrototype
+	//go:embed graphsync_filecoinv1.ipldsch
+	schemaBytes                  []byte
+	graphSyncFilecoinV1Prototype schema.TypedPrototype
 )
+
+func init() {
+	typeSystem, err := ipld.LoadSchemaBytes(schemaBytes)
+	if err != nil {
+		panic(fmt.Errorf("failed to load schema: %w", err))
+	}
+	t := typeSystem.TypeByName("GraphsyncFilecoinV1")
+	graphSyncFilecoinV1Prototype = bindnode.Prototype((*GraphsyncFilecoinV1)(nil), t)
+}
 
 // GraphsyncFilecoinV1 represents the indexing metadata for multicodec.TransportGraphsyncFilecoinv1.
 type GraphsyncFilecoinV1 struct {
@@ -34,27 +46,10 @@ func (dtm *GraphsyncFilecoinV1) ID() multicodec.Code {
 	return multicodec.TransportGraphsyncFilecoinv1
 }
 
-func init() {
-	ts := schema.TypeSystem{}
-	ts.Init()
-	ts.Accumulate(schema.SpawnLink("Link"))
-	ts.Accumulate(schema.SpawnBool("Bool"))
-	ts.Accumulate(schema.SpawnStruct("GraphsyncFilecoinV1",
-		[]schema.StructField{
-			schema.SpawnStructField("PieceCID", "Link", false, false),
-			schema.SpawnStructField("VerifiedDeal", "Bool", false, false),
-			schema.SpawnStructField("FastRetrieval", "Bool", false, false),
-		},
-		schema.SpawnStructRepresentationMap(nil),
-	))
-	graphSyncfilecoinV1SchemaType = ts.TypeByName("GraphsyncFilecoinV1")
-	graphSyncfilecoinV1Prototype = bindnode.Prototype((*GraphsyncFilecoinV1)(nil), graphSyncfilecoinV1SchemaType)
-}
-
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (dtm *GraphsyncFilecoinV1) MarshalBinary() ([]byte, error) {
 	buf := bytes.NewBuffer(varint.ToUvarint(uint64(dtm.ID())))
-	nd := bindnode.Wrap(dtm, graphSyncfilecoinV1SchemaType)
+	nd := bindnode.Wrap(dtm, graphSyncFilecoinV1Prototype.Type())
 	if err := dagcbor.Encode(nd, buf); err != nil {
 		return nil, err
 	}
@@ -79,7 +74,7 @@ func (dtm *GraphsyncFilecoinV1) ReadFrom(r io.Reader) (n int64, err error) {
 		return cr.readCount, fmt.Errorf("transport id does not match %s: %s", multicodec.TransportGraphsyncFilecoinv1, id)
 	}
 
-	nb := graphSyncfilecoinV1Prototype.NewBuilder()
+	nb := graphSyncFilecoinV1Prototype.NewBuilder()
 	err = dagcbor.Decode(nb, cr)
 	if err != nil {
 		return cr.readCount, err
