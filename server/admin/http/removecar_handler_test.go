@@ -39,7 +39,7 @@ func Test_removeCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handle)
-	wantCid := requireRandomCid(t, rng)
+	wantCid := testutil.RandomCids(t, rng, 1)[0]
 	requireMockPut(t, mockEng, wantKey, cs, rng)
 
 	mockEng.
@@ -163,7 +163,7 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *supplier.CarSupplier, rng *rand.Rand) {
 	wantTp, err := cardatatransfer.TransportFromContextID(key)
 	require.NoError(t, err)
-	wantCid := requireRandomCid(t, rng)
+	wantCid := testutil.RandomCids(t, rng, 1)[0]
 	wantMetadata := metadata.New(wantTp)
 	mockEng.
 		EXPECT().
@@ -171,10 +171,4 @@ func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []by
 		Return(wantCid, nil)
 	_, err = cs.Put(context.Background(), key, "/fish/in/da/sea", wantMetadata)
 	require.NoError(t, err)
-}
-
-func requireRandomCid(t *testing.T, rng *rand.Rand) cid.Cid {
-	randCids, err := testutil.RandomCids(rng, 1)
-	require.NoError(t, err)
-	return randCids[0]
 }

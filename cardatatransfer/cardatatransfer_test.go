@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 )
 
 func TestCarDataTransfer(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
 	contextID1 := []byte("cheese")
 	rdOnlyBS1 := testutil.OpenSampleCar(t, "sample-v1-2.car")
 
@@ -51,7 +53,7 @@ func TestCarDataTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, roots2, 1)
 
-	missingCid := testutil.GenerateCids(1)[0]
+	missingCid := testutil.RandomCids(t, rng, 1)[0]
 	missingContextID := []byte("notFound")
 
 	supplier := &fakeSupplier{blockstores: make(map[string]supplier.ClosableBlockstore)}
@@ -77,7 +79,7 @@ func TestCarDataTransfer(t *testing.T) {
 	pieceCID2 := pieceCIDFromContextID(t, contextID2)
 	missingPieceCID := pieceCIDFromContextID(t, missingContextID)
 
-	incorrectPieceCid := testutil.GenerateCids(1)[0]
+	incorrectPieceCid := testutil.RandomCids(t, rng, 1)[0]
 
 	testCases := map[string]struct {
 		voucher                  datatransfer.Voucher

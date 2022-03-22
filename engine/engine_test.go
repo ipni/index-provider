@@ -43,8 +43,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 	ctx := contextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
-	mhs, err := testutil.RandomMultihashes(rng, 42)
-	require.NoError(t, err)
+	mhs := testutil.RandomMultihashes(t, rng, 42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -84,8 +83,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	ctx := contextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
-	mhs, err := testutil.RandomMultihashes(rng, 42)
-	require.NoError(t, err)
+	mhs := testutil.RandomMultihashes(t, rng, 42)
 
 	wantExtraGossipData := []byte("🐠")
 	// Use test name as gossip topic name for uniqueness per test.
@@ -236,8 +234,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 	ctx := contextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
-	mhs, err := testutil.RandomMultihashes(rng, 42)
-	require.NoError(t, err)
+	mhs := testutil.RandomMultihashes(t, rng, 42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
