@@ -17,7 +17,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
 	gsnet "github.com/ipfs/go-graphsync/network"
-	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
@@ -26,19 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var blockGenerator = blocksutil.NewBlockGenerator()
-
-// GenerateCids produces n content identifiers.
-func GenerateCids(n int) []cid.Cid {
-	cids := make([]cid.Cid, n)
-	for i := 0; i < n; i++ {
-		c := blockGenerator.Next().Cid()
-		cids[i] = c
-	}
-	return cids
-}
-
-func RandomCids(rng *rand.Rand, n int) ([]cid.Cid, error) {
+func RandomCids(t *testing.T, rng *rand.Rand, n int) []cid.Cid {
 	prefix := schema.Linkproto.Prefix
 
 	cids := make([]cid.Cid, n)
@@ -46,15 +33,13 @@ func RandomCids(rng *rand.Rand, n int) ([]cid.Cid, error) {
 		b := make([]byte, 10*n)
 		rng.Read(b)
 		c, err := prefix.Sum(b)
-		if err != nil {
-			return nil, err
-		}
+		require.NoError(t, err)
 		cids[i] = c
 	}
-	return cids, nil
+	return cids
 }
 
-func RandomMultihashes(rng *rand.Rand, n int) ([]multihash.Multihash, error) {
+func RandomMultihashes(t *testing.T, rng *rand.Rand, n int) []multihash.Multihash {
 	prefix := schema.Linkproto.Prefix
 
 	mhashes := make([]multihash.Multihash, n)
@@ -62,12 +47,10 @@ func RandomMultihashes(rng *rand.Rand, n int) ([]multihash.Multihash, error) {
 		b := make([]byte, 10*n)
 		rng.Read(b)
 		c, err := prefix.Sum(b)
-		if err != nil {
-			return nil, err
-		}
+		require.NoError(t, err)
 		mhashes[i] = c.Hash()
 	}
-	return mhashes, nil
+	return mhashes
 }
 
 // ThisDir gets the current directory of the source file its called in

@@ -1,6 +1,7 @@
 package metadata_test
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/filecoin-project/index-provider/metadata"
@@ -11,7 +12,8 @@ import (
 )
 
 func TestRoundTripDataTransferFilecoin(t *testing.T) {
-	cids := testutil.GenerateCids(4)
+	rng := rand.New(rand.NewSource(1413))
+	cids := testutil.RandomCids(t, rng, 4)
 	filecoinV1Datas := []*metadata.GraphsyncFilecoinV1{
 		{
 			PieceCID:      cids[0],

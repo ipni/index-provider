@@ -57,7 +57,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handle)
-	randCids, err := testutil.RandomCids(rng, 1)
+	randCids := testutil.RandomCids(t, rng, 1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 

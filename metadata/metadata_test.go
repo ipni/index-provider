@@ -12,7 +12,8 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
-	cids := testutil.GenerateCids(4)
+	rng := rand.New(rand.NewSource(1413))
+	cids := testutil.RandomCids(t, rng, 4)
 	tests := []struct {
 		name            string
 		givenTransports []metadata.Protocol

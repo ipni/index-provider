@@ -33,8 +33,7 @@ func TestCachedEntriesChunker_OverlappingLinkCounter(t *testing.T) {
 	defer subject.Close()
 
 	// Cache a link with 2 full chunks
-	c1Cids, err := testutil.RandomCids(rng, 20)
-	require.NoError(t, err)
+	c1Cids := testutil.RandomCids(t, rng, 20)
 	c1Lnk, err := subject.Chunk(ctx, getMhIterator(t, c1Cids))
 	require.NoError(t, err)
 	c1Chain := listEntriesChain(t, subject, c1Lnk)
@@ -43,8 +42,7 @@ func TestCachedEntriesChunker_OverlappingLinkCounter(t *testing.T) {
 
 	for i := 1; i < capacity*2; i++ {
 		// Generate a chunk worth of CIDs
-		newCids, err := testutil.RandomCids(rng, 10*rng.Intn(4)+1)
-		require.NoError(t, err)
+		newCids := testutil.RandomCids(t, rng, 10*rng.Intn(4)+1)
 		// Append to the previously generated CIDs
 		newCids = append(c1Cids, newCids...)
 		wantChainLen := math.Ceil(float64(len(newCids)) / float64(chunkSize))
@@ -171,8 +169,7 @@ func TestCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T) {
 	requireChunkIsCached(t, subject, c1Chain...)
 
 	// Chunk another iterators with overlapping section.
-	c2Cids, err := testutil.RandomCids(rng, 12)
-	require.NoError(t, err)
+	c2Cids := testutil.RandomCids(t, rng, 12)
 	c2Lnk, err := subject.Chunk(ctx, getMhIterator(t, c2Cids))
 	require.NoError(t, err)
 
@@ -182,7 +179,7 @@ func TestCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T) {
 	requireChunkIsCached(t, subject, c2Chain...)
 
 	// Chunk and cache another multihash iterators with overlapping section.
-	c3Cids, err := testutil.RandomCids(rng, 13)
+	c3Cids := testutil.RandomCids(t, rng, 13)
 	require.NoError(t, err)
 	c3Cids = append(c2Cids, c3Cids...)
 	c3Lnk, err := subject.Chunk(ctx, getMhIterator(t, c3Cids))
@@ -223,7 +220,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	//  2. Its entries match the original CIDs
 	//  3. The length of chain is 1, i.e. the chunk has no next since chunkSize = 10
 	//  4. The cache length is 1.
-	c1Cids, err := testutil.RandomCids(rng, 10)
+	c1Cids := testutil.RandomCids(t, rng, 10)
 	require.NoError(t, err)
 	c1Lnk, err := subject.Chunk(ctx, getMhIterator(t, c1Cids))
 	require.NoError(t, err)
@@ -241,7 +238,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	//  3. The first entry in chain has all the newly generated CIDs
 	//  4. The second entry in chain is identical to c1.
 	//  5. The length of cache is still 1.
-	extraCids, err := testutil.RandomCids(rng, 10)
+	extraCids := testutil.RandomCids(t, rng, 10)
 	require.NoError(t, err)
 	c2Cids := append(c1Cids, extraCids...)
 	c2Lnk, err := subject.Chunk(ctx, getMhIterator(t, c2Cids))
@@ -318,8 +315,7 @@ func requireDecodeAsEntryChunk(t *testing.T, l ipld.Link, value []byte) *schema.
 }
 
 func getRandomMhIterator(t *testing.T, rng *rand.Rand, mhCount int) provider.MultihashIterator {
-	cids, err := testutil.RandomCids(rng, mhCount)
-	require.NoError(t, err)
+	cids := testutil.RandomCids(t, rng, mhCount)
 	return getMhIterator(t, cids)
 }
 

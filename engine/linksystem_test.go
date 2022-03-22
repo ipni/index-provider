@@ -48,7 +48,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	defer subject.Shutdown()
 
 	ctxID := []byte("added then removed content")
-	mhs, err := testutil.RandomCids(rng, 12)
+	mhs := testutil.RandomCids(t, rng, 12)
 	require.NoError(t, err)
 
 	// Register lister with removal handle
@@ -112,13 +112,13 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
 	wantAd1EntriesChainLen := ad1MhCount / chunkSize
-	ad1Mhs, err := testutil.RandomCids(rng, ad1MhCount)
+	ad1Mhs := testutil.RandomCids(t, rng, ad1MhCount)
 	require.NoError(t, err)
 
 	ad2CtxID := []byte("second")
 	ad2MhCount := 10
 	wantAd2ChunkLen := ad2MhCount / chunkSize
-	ad2Mhs, err := testutil.RandomCids(rng, ad2MhCount)
+	ad2Mhs := testutil.RandomCids(t, rng, ad2MhCount)
 	require.NoError(t, err)
 
 	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
