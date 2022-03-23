@@ -4,6 +4,10 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var announceFlags = []cli.Flag{
+	adminAPIFlag,
+}
+
 var daemonFlags = []cli.Flag{
 	carZeroLengthAsEOFFlag,
 	&cli.StringFlag{

@@ -41,16 +41,17 @@ func run() int {
 		Usage:   "Indexer Reference Provider Implementation",
 		Version: version,
 		Commands: []*cli.Command{
+			AnnounceCmd,
+			ConnectCmd,
 			DaemonCmd,
 			FindCmd,
+			ImportCmd,
 			IndexCmd,
 			InitCmd,
-			ConnectCmd,
-			ImportCmd,
+			ListCmd,
 			RegisterCmd,
 			RemoveCmd,
 			VerifyIngestCmd,
-			ListCmd,
 		},
 	}
 
