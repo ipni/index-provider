@@ -22,7 +22,6 @@ type Server struct {
 }
 
 func New(h host.Host, e *engine.Engine, cs *supplier.CarSupplier, o ...Option) (*Server, error) {
-
 	opts, err := newOptions(o...)
 	if err != nil {
 		return nil, err
@@ -42,6 +41,9 @@ func New(h host.Host, e *engine.Engine, cs *supplier.CarSupplier, o ...Option) (
 	s := &Server{server, l, h, e}
 
 	// Set protocol handlers
+	r.HandleFunc("/admin/announce", s.announceHandler).
+		Methods(http.MethodPost)
+
 	r.HandleFunc("/admin/connect", s.connectHandler).
 		Methods(http.MethodPost).
 		Headers("Content-Type", "application/json")

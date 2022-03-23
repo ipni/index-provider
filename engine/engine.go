@@ -114,10 +114,15 @@ func (e *Engine) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = e.PublishLatest(ctx)
+	// Initialize publisher with latest advertisement CID.
+	adCid, err := e.getLatestAdCid(ctx)
 	if err != nil {
-		log.Errorw("Could not republish latest advertisement", "err", err)
-		return err
+		return fmt.Errorf("could not get latest advertisement cid: %w", err)
+	}
+	if adCid != cid.Undef {
+		if err = e.publisher.SetRoot(ctx, adCid); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -211,8 +216,7 @@ func (e *Engine) PublishLatest(ctx context.Context) error {
 
 	adCid, err := e.getLatestAdCid(ctx)
 	if err != nil {
-		log.Errorw("Failed to get the latest advertisement CID", "err", err)
-		return fmt.Errorf("failed to get latest advertisement cid from blockstore: %w", err)
+		return fmt.Errorf("failed to get latest advertisement cid: %w", err)
 	}
 
 	if adCid == cid.Undef {
