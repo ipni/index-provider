@@ -50,7 +50,7 @@ func run() int {
 			RegisterCmd,
 			RemoveCmd,
 			VerifyIngestCmd,
-			GetAdCmd,
+			ListCmd,
 		},
 	}
 

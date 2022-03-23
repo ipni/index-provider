@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/filecoin-project/index-provider/metadata"
@@ -93,10 +94,18 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 				NotifyPut(ctx, gomock.Any(), md).
 				Return(wantCid, nil)
 
-			gotContextID := sha256.New().Sum([]byte(tt.carPath))
+			hash := sha256.New()
+			_, err := hash.Write([]byte(tt.carPath))
+			require.NoError(t, err)
+			gotContextID := hash.Sum(nil)
 			gotCid, err := subject.Put(ctx, gotContextID, tt.carPath, md)
 			require.NoError(t, err)
 			require.Equal(t, wantCid, gotCid)
+
+			paths, err := subject.List(ctx)
+			require.NoError(t, err)
+			require.Len(t, paths, 1)
+			require.Equal(t, filepath.Clean(tt.carPath), filepath.Clean(paths[0]))
 
 			gotIterator, err := subject.ListMultihashes(ctx, gotContextID)
 			require.NoError(t, err)
@@ -147,10 +156,18 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 		NotifyPut(ctx, gomock.Any(), md).
 		Return(wantCid, nil)
 
-	gotContextID := sha256.New().Sum([]byte(path))
+	hash := sha256.New()
+	_, err := hash.Write([]byte(path))
+	require.NoError(t, err)
+	gotContextID := hash.Sum(nil)
 	id, err := subject.Put(ctx, gotContextID, path, md)
 	require.NoError(t, err)
 	require.Equal(t, wantCid, id)
+
+	paths, err := subject.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, paths, 1)
+	require.Equal(t, filepath.Clean(path), filepath.Clean(paths[0]))
 
 	wantCid = generateCidV1(t, rng)
 	mockEng.
@@ -164,6 +181,10 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 
 	_, err = subject.Remove(ctx, gotContextID)
 	require.EqualError(t, err, "no CID iterator found for given key")
+
+	pathsAfterRm, err := subject.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, pathsAfterRm, 0)
 }
 
 func generateCidV1(t *testing.T, rng *rand.Rand) cid.Cid {

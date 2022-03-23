@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/filecoin-project/index-provider/cmd/provider/internal"
+	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
@@ -15,14 +18,20 @@ import (
 )
 
 var (
+	ListCmd = &cli.Command{
+		Name:        "list",
+		Aliases:     []string{"ls"},
+		Subcommands: []*cli.Command{listAdSubCmd, listCarSubCmd},
+	}
+
 	adCid      = cid.Undef
 	provClient internal.ProviderClient
 
 	pAddrInfo    string
 	topic        string
 	printEntries bool
-	GetAdCmd     = &cli.Command{
-		Name:        "list",
+	listAdSubCmd = &cli.Command{
+		Name:        "ad",
 		Usage:       "Lists advertisements",
 		ArgsUsage:   "[ad-cid]",
 		Description: "Advertisement CID may optionally be specified as the first argument. If not specified the latest advertisement is used.",
@@ -52,6 +61,15 @@ var (
 				Destination: &printEntries,
 			},
 			adEntriesRecurLimitFlag,
+		},
+	}
+
+	listCarSubCmd = &cli.Command{
+		Name:   "car",
+		Usage:  "Lists the local paths to CAR files provided by an standalone instance of index-provider daemon.",
+		Action: doListCars,
+		Flags: []cli.Flag{
+			adminAPIFlag,
 		},
 	}
 )
@@ -146,4 +164,28 @@ func doGetAdvertisements(cctx *cli.Context) error {
 		fmt.Println(entriesOutput)
 	}
 	return nil
+}
+
+func doListCars(cctx *cli.Context) error {
+	cl := &http.Client{}
+	resp, err := cl.Get(adminAPIFlagValue + "/admin/list/car")
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return errFromHttpResp(resp)
+	}
+
+	var res adminserver.ListCarRes
+	if _, err := res.ReadFrom(resp.Body); err != nil {
+		return fmt.Errorf("received ok response from server but cannot decode response body. %v", err)
+	}
+	var b bytes.Buffer
+	for _, path := range res.Paths {
+		b.WriteString(path)
+		b.WriteString(fmt.Sprintln())
+	}
+	_, err = cctx.App.Writer.Write(b.Bytes())
+	return err
 }
