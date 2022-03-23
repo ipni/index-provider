@@ -2,13 +2,14 @@ package adminserver
 
 import (
 	"context"
+	"net"
+	"net/http"
+
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/gorilla/mux"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/host"
-	"net"
-	"net/http"
 )
 
 var log = logging.Logger("adminserver")
@@ -45,15 +46,17 @@ func New(h host.Host, e *engine.Engine, cs *supplier.CarSupplier, o ...Option) (
 		Methods(http.MethodPost).
 		Headers("Content-Type", "application/json")
 
-	icHandler := &importCarHandler{cs}
-	r.HandleFunc("/admin/import/car", icHandler.handle).
+	cHandler := &carHandler{cs}
+	r.HandleFunc("/admin/import/car", cHandler.handleImport).
 		Methods(http.MethodPost).
 		Headers("Content-Type", "application/json")
 
-	rcHandler := &removeCarHandler{cs}
-	r.HandleFunc("/admin/remove/car", rcHandler.handle).
+	r.HandleFunc("/admin/remove/car", cHandler.handleRemove).
 		Methods(http.MethodPost).
 		Headers("Content-Type", "application/json")
+
+	r.HandleFunc("/admin/list/car", cHandler.handleList).
+		Methods(http.MethodGet)
 
 	return s, nil
 }

@@ -45,3 +45,11 @@ type (
 		AdvId cid.Cid `json:"adv_id"`
 	}
 )
+
+type (
+	// ListCarRes represents the response to list cars.
+	ListCarRes struct {
+		// The path of CARs imported.
+		Paths []string `json:"paths"`
+	}
+)

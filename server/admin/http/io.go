@@ -55,6 +55,14 @@ func (er *RemoveCarRes) ReadFrom(r io.Reader) (int64, error) {
 	return unmarshalAsJson(r, er)
 }
 
+func (er *ListCarRes) WriteTo(w io.Writer) (int64, error) {
+	return marshalToJson(w, er)
+}
+
+func (er *ListCarRes) ReadFrom(r io.Reader) (int64, error) {
+	return unmarshalAsJson(r, er)
+}
+
 func (er *ConnectReq) WriteTo(w io.Writer) (int64, error) {
 	return marshalToJson(w, er)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-datastore/query"
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car/v2"
@@ -99,6 +100,29 @@ func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, e
 	}
 
 	return cs.eng.NotifyRemove(ctx, contextID)
+}
+
+// List lists the CAR paths that are supplied by this supplier.
+//
+// See: CarSupplier.Put
+func (cs *CarSupplier) List(ctx context.Context) ([]string, error) {
+	q := query.Query{
+		Prefix: carIdDatastoreKeyPrefix,
+	}
+	results, err := cs.ds.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer results.Close()
+
+	var paths []string
+	for r := range results.Next() {
+		if r.Error != nil {
+			return nil, r.Error
+		}
+		paths = append(paths, string(r.Value))
+	}
+	return paths, nil
 }
 
 // ListMultihashes supplies an iterator over CIDs of the CAR file that corresponds to
