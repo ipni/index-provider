@@ -110,7 +110,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.publisher, err = e.newPublisher()
 	if err != nil {
-		log.Errorw("Failed to instantiate legs publisher", "err", "err", "kind", e.pubKind)
+		log.Errorw("Failed to instantiate legs publisher", "err", err, "kind", e.pubKind)
 		return err
 	}
 
