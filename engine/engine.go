@@ -421,7 +421,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 	}
 
 	adv := schema.Advertisement{
-		Provider:  e.h.ID().String(),
+		Provider:  e.options.provider.ID.String(),
 		Addresses: e.retrievalAddrsAsString(),
 		Entries:   cidsLnk,
 		ContextID: contextID,
