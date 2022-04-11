@@ -9,6 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -43,8 +44,9 @@ type (
 		// Setting an explicit identity must not be exposed unless it is tightly coupled with the
 		// host identity. Otherwise, the signature of advertisement will not match the libp2p host
 		// ID.
-		key            crypto.PrivKey
-		retrievalAddrs []multiaddr.Multiaddr
+		key crypto.PrivKey
+
+		provider peer.AddrInfo
 
 		pubKind            PublisherKind
 		pubDT              datatransfer.Manager
@@ -97,9 +99,13 @@ func newOptions(o ...Option) (*options, error) {
 		return nil, fmt.Errorf("cannot find private key in self peerstore; libp2p host is misconfigured")
 	}
 
-	if len(opts.retrievalAddrs) == 0 {
-		opts.retrievalAddrs = opts.h.Addrs()
-		log.Infow("Retrieval address not configured; using host listen addresses instead.", "retrievalAddrs", opts.retrievalAddrs)
+	if len(opts.provider.Addrs) == 0 {
+		opts.provider.Addrs = opts.h.Addrs()
+		log.Infow("Retrieval address not configured; using host listen addresses instead.", "retrievalAddrs", opts.provider.Addrs)
+	}
+	if opts.provider.ID == "" {
+		opts.provider.ID = opts.h.ID()
+		log.Infow("Retrieval ID not configured; using host ID instead.", "retrievalID", opts.provider.ID)
 	}
 
 	return opts, nil
@@ -107,7 +113,7 @@ func newOptions(o ...Option) (*options, error) {
 
 func (o *options) retrievalAddrsAsString() []string {
 	var ras []string
-	for _, ra := range o.retrievalAddrs {
+	for _, ra := range o.provider.Addrs {
 		ras = append(ras, ra.String())
 	}
 	return ras
@@ -238,7 +244,16 @@ func WithDatastore(ds datastore.Batching) Option {
 // See: WithHost.
 func WithRetrievalAddrs(addr ...multiaddr.Multiaddr) Option {
 	return func(o *options) error {
-		o.retrievalAddrs = addr
+		o.provider.Addrs = addr
+		return nil
+	}
+}
+
+// WithProvider sets the peer and addresses for the provider to put in indexing advertisements.
+// This value overrides `WithRetrievalAddrs`
+func WithProvider(provider peer.AddrInfo) Option {
+	return func(o *options) error {
+		o.provider = provider
 		return nil
 	}
 }
