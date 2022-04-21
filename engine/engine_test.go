@@ -39,6 +39,31 @@ func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	require.Equal(t, provider.ErrContextIDNotFound, err)
 }
 
+func Test_NewEngineWithNoPublisherAndRoot(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx := contextWithTimeout(t)
+	mhs := testutil.RandomMultihashes(t, rng, 1)
+	contextID := []byte("fish")
+
+	subject, err := engine.New(engine.WithPublisherKind(engine.NoPublisher))
+	require.NoError(t, err)
+	require.NoError(t, subject.Start(ctx))
+
+	subject.RegisterMultihashLister(func(_ context.Context, _ []byte) (provider.MultihashIterator, error) {
+		return &sliceMhIterator{mhs: mhs}, nil
+	})
+	adCid, err := subject.NotifyPut(ctx, contextID, metadata.New(metadata.Bitswap{}))
+	require.NoError(t, err)
+	require.NotNil(t, adCid)
+	require.NotEqual(t, adCid, cid.Undef)
+
+	err = subject.Shutdown()
+	require.NoError(t, err)
+
+	err = subject.Start(ctx)
+	require.NoError(t, err)
+}
+
 func TestEngine_PublishLocal(t *testing.T) {
 	ctx := contextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
