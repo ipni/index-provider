@@ -114,14 +114,16 @@ func (e *Engine) Start(ctx context.Context) error {
 		return err
 	}
 
-	// Initialize publisher with latest advertisement CID.
-	adCid, err := e.getLatestAdCid(ctx)
-	if err != nil {
-		return fmt.Errorf("could not get latest advertisement cid: %w", err)
-	}
-	if adCid != cid.Undef {
-		if err = e.publisher.SetRoot(ctx, adCid); err != nil {
-			return err
+	if e.publisher != nil {
+		// Initialize publisher with latest advertisement CID.
+		adCid, err := e.getLatestAdCid(ctx)
+		if err != nil {
+			return fmt.Errorf("could not get latest advertisement cid: %w", err)
+		}
+		if adCid != cid.Undef {
+			if err = e.publisher.SetRoot(ctx, adCid); err != nil {
+				return err
+			}
 		}
 	}
 
