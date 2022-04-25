@@ -83,6 +83,25 @@ func (m *Metadata) Validate() error {
 	return nil
 }
 
+// Get determines if a given protocol is included in metadata, and if so returned the parsed protocol.
+func (m *Metadata) Get(protocol multicodec.Code) Protocol {
+	for _, p := range m.protocols {
+		if p.ID() == protocol {
+			return p
+		}
+	}
+	return nil
+}
+
+// Protocols returns the transport protocols advertised in this metadata
+func (m *Metadata) Protocols() []multicodec.Code {
+	var out []multicodec.Code
+	for _, p := range m.protocols {
+		out = append(out, p.ID())
+	}
+	return out
+}
+
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (m *Metadata) MarshalBinary() ([]byte, error) {
 	sort.Sort(m)
