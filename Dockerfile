@@ -1,5 +1,4 @@
-FROM golang:1.16-buster as build
-
+FROM golang:1.17.9-buster as build
 WORKDIR /go/src/provider
 
 COPY go.mod go.sum ./
@@ -12,8 +11,8 @@ RUN go build -o /go/bin/provider
 ARG INIT_PROVIDER='true'
 RUN if test "${INIT_PROVIDER}" = 'false'; then /go/bin/provider init; else echo 'skipping provider initialization.'; fi
 
-FROM gcr.io/distroless/base-debian11
-COPY --from=build /go/bin/provider /
+FROM gcr.io/distroless/static
+COPY --from=build /go/bin/provider /usr/local/
 COPY --from=build /root/.index-provider* /root/.index-provider
-ENTRYPOINT ["/provider"]
+ENTRYPOINT ["/usr/local/provider"]
 CMD ["daemon"]
