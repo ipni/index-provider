@@ -93,6 +93,15 @@ func (m *Metadata) Get(protocol multicodec.Code) Protocol {
 	return nil
 }
 
+// Protocols returns the transport protocols advertised in this metadata
+func (m *Metadata) Protocols() []multicodec.Code {
+	var out []multicodec.Code
+	for _, p := range m.protocols {
+		out = append(out, p.ID())
+	}
+	return out
+}
+
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (m *Metadata) MarshalBinary() ([]byte, error) {
 	sort.Sort(m)
