@@ -29,7 +29,12 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
 )
+
+var testLimiter = func(publisher peer.ID) *rate.Limiter {
+	return rate.NewLimiter(100, 10)
+}
 
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	subject, err := engine.New()
@@ -221,9 +226,9 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	ls.SetReadStorage(store)
 	ls.SetWriteStorage(store)
 
-	sync, err := dtsync.NewSync(subHost, ds, ls, nil)
+	sync, err := dtsync.NewSync(subHost, ds, ls, nil, testLimiter)
 	require.NoError(t, err)
-	syncer := sync.NewSyncer(subject.Host().ID(), topic)
+	syncer := sync.NewSyncer(subject.Host().ID(), topic, rate.NewLimiter(100, 10))
 	gotHead, err := syncer.GetHead(ctx)
 	require.NoError(t, err)
 	require.Equal(t, gotLatestAdCid, gotHead)
