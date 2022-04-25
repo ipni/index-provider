@@ -10,7 +10,7 @@ builds:
       - 'amd64'
       - '386'
 release:
-  # Do not override manually written relase notes.
+  # Do not override manually written release notes.
   mode: keep-existing
 changelog:
   # Do not generate changelog since for this project release notes are written manually.

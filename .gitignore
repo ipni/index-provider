@@ -1,6 +1,2 @@
-*~
-index-provider
-cmd/provider/provider
 ./provider
-
 dist/
