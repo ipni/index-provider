@@ -3,8 +3,8 @@ module github.com/filecoin-project/index-provider
 go 1.17
 
 require (
-	github.com/filecoin-project/go-data-transfer v1.14.0
-	github.com/filecoin-project/go-legs v0.3.10
+	github.com/filecoin-project/go-data-transfer v1.15.1
+	github.com/filecoin-project/go-legs v0.3.13
 	github.com/filecoin-project/go-state-types v0.1.0
 	github.com/filecoin-project/storetheindex v0.4.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
@@ -14,7 +14,7 @@ require (
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-ds-leveldb v0.5.0
-	github.com/ipfs/go-graphsync v0.12.0
+	github.com/ipfs/go-graphsync v0.13.1
 	github.com/ipfs/go-ipfs v0.12.1
 	github.com/ipfs/go-ipfs-blockstore v1.1.2
 	github.com/ipfs/go-log/v2 v2.5.0
@@ -34,6 +34,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20220302191723-37c43cae8e14
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
 
@@ -89,7 +90,7 @@ require (
 	github.com/ipfs/go-merkledag v0.5.1 // indirect
 	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
 	github.com/ipfs/go-peertaskqueue v0.7.1 // indirect
-	github.com/ipfs/go-unixfsnode v1.2.0 // indirect
+	github.com/ipfs/go-unixfsnode v1.4.0 // indirect
 	github.com/ipfs/go-verifcid v0.0.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
