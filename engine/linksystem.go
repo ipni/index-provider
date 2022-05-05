@@ -47,10 +47,10 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			}
 			// If this was an advertisement, then return it.
 			if isAdvertisement(n) {
-				log.Infow("Retrieved advertisement from datastore", "cid", c, "size", len(val))
+				log.Debugw("Retrieved advertisement from datastore", "cid", c, "size", len(val))
 				return bytes.NewBuffer(val), nil
 			}
-			log.Infow("Retrieved non-advertisement object from datastore", "cid", c, "size", len(val))
+			log.Debugw("Retrieved non-advertisement object from datastore", "cid", c, "size", len(val))
 		}
 
 		// Not an advertisement, so this means we are receiving ingestion data.
@@ -109,7 +109,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 				return nil, err
 			}
 		} else {
-			log.Infow("Found cache entry for CID", "cid", c)
+			log.Debugw("Found cache entry for CID", "cid", c)
 		}
 
 		// Return the linked list node.
