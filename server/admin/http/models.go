@@ -1,7 +1,10 @@
 package adminserver
 
 import (
+	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multihash"
 )
 
 type (
@@ -51,5 +54,22 @@ type (
 	ListCarRes struct {
 		// The path of CARs imported.
 		Paths []string `json:"paths"`
+	}
+)
+
+type (
+	// AnnounceAdvReq represents a request for publishing a raw advertisement.
+	AnnounceAdvReq struct {
+		Indices        []multihash.Multihash
+		ContextID      []byte
+		ProviderID     peer.ID
+		RetrievalAddrs []string
+		Md             metadata.Metadata
+		IsDel          bool
+	}
+
+	// AnnounceAdvRes  represents the response to an AnnounceAdvReq.
+	AnnounceAdvRes struct {
+		AdvId cid.Cid `json:"adv_id"`
 	}
 )

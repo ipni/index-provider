@@ -10,6 +10,7 @@ import (
 )
 
 var _ MultihashIterator = (*indexMhIterator)(nil)
+var _ MultihashIterator = (*SliceMhIterator)(nil)
 
 type indexMhIterator struct {
 	steps []iteratorStep
@@ -56,4 +57,22 @@ func (i *indexMhIterator) Next() (multihash.Multihash, error) {
 	}
 	i.lastOffset = step.offset
 	return step.mh, nil
+}
+
+func NewSliceMhIterator(mhs []multihash.Multihash) MultihashIterator {
+	return &SliceMhIterator{mhs: mhs}
+}
+
+type SliceMhIterator struct {
+	mhs    []multihash.Multihash
+	offset int
+}
+
+func (s *SliceMhIterator) Next() (multihash.Multihash, error) {
+	if s.offset < len(s.mhs) {
+		next := s.mhs[s.offset]
+		s.offset++
+		return next, nil
+	}
+	return nil, io.EOF
 }

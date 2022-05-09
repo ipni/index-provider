@@ -48,6 +48,10 @@ func New(h host.Host, e *engine.Engine, cs *supplier.CarSupplier, o ...Option) (
 		Methods(http.MethodPost).
 		Headers("Content-Type", "application/json")
 
+	r.HandleFunc("/admin/publish_adv", s.publishAdvHandler).
+		Methods(http.MethodPost).
+		Headers("Content-Type", "application/json")
+
 	cHandler := &carHandler{cs}
 	r.HandleFunc("/admin/import/car", cHandler.handleImport).
 		Methods(http.MethodPost).

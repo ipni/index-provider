@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/go-legs/dtsync"
 	"github.com/filecoin-project/go-legs/httpsync"
@@ -256,7 +258,7 @@ func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
 func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
 	// The multihash lister must have been registered for the linkSystem to know how to
 	// go from contextID to list of CIDs.
-	return e.publishAdvForIndex(ctx, contextID, md, false)
+	return e.PublishAdvForIndex(ctx, contextID, nil, e.provider.ID, e.retrievalAddrsAsString(), md, false)
 }
 
 // NotifyRemove publishes an advertisement that signals the list of multihashes associated to the given
@@ -266,7 +268,7 @@ func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, md metadata.Me
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
-	return e.publishAdvForIndex(ctx, contextID, metadata.Metadata{}, true)
+	return e.PublishAdvForIndex(ctx, contextID, nil, e.provider.ID, e.retrievalAddrsAsString(), metadata.Metadata{}, true)
 }
 
 // Shutdown shuts down the engine and discards all resources opened by the engine.
@@ -318,7 +320,8 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, *schema.Advertiseme
 	return latestAdCid, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md metadata.Metadata, isRm bool) (cid.Cid, error) {
+func (e *Engine) PublishAdvForIndex(ctx context.Context, contextID []byte, mhIter provider.MultihashIterator,
+	providerID peer.ID, retrievalAddrs []string, md metadata.Metadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
@@ -339,15 +342,16 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		// If no previously-published ad for this context ID.
 		if c == cid.Undef {
 			log.Info("Generating entries linked list for advertisement")
-			// If no lister registered return error
-			if e.mhLister == nil {
-				return cid.Undef, provider.ErrNoMultihashLister
-			}
-
-			// Call the lister
-			mhIter, err := e.mhLister(ctx, contextID)
-			if err != nil {
-				return cid.Undef, err
+			if mhIter == nil {
+				// If no lister registered return error
+				if e.mhLister == nil {
+					return cid.Undef, provider.ErrNoMultihashLister
+				}
+				// Call the lister
+				mhIter, err = e.mhLister(ctx, contextID)
+				if err != nil {
+					return cid.Undef, err
+				}
 			}
 			// Generate the linked list ipld.Link that is added to the
 			// advertisement and used for ingestion.
@@ -423,8 +427,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 	}
 
 	adv := schema.Advertisement{
-		Provider:  e.options.provider.ID.String(),
-		Addresses: e.retrievalAddrsAsString(),
+		Provider:  providerID.String(),
+		Addresses: retrievalAddrs,
 		Entries:   cidsLnk,
 		ContextID: contextID,
 		Metadata:  mdBytes,
