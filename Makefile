@@ -1,7 +1,7 @@
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
-TAG ?= $(git describe --tags --abbrev=0 | sed 's/v//')
+TAG ?= $(shell git fetch --tags && git describe --tags --abbrev=0 | sed 's/v//')
 COMMIT ?= $(shell git rev-parse --short HEAD)
 CLEAN ?= $(shell git diff --quiet --exit-code || echo '-SNAPSHOT')
 VERSION = $(TAG)$(CLEAN)-$(COMMIT)
