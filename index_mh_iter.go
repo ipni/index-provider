@@ -59,6 +59,9 @@ func (i *indexMhIterator) Next() (multihash.Multihash, error) {
 	return step.mh, nil
 }
 
+// NewSliceMhIterator constructs a new MultihashIterator from multihash slice
+//
+// Make sure multihash slice be in right order.
 func NewSliceMhIterator(mhs []multihash.Multihash) MultihashIterator {
 	return &SliceMhIterator{mhs: mhs}
 }
