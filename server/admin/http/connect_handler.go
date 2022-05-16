@@ -2,6 +2,7 @@ package adminserver
 
 import (
 	"fmt"
+	"github.com/filecoin-project/index-provider/server/utils"
 	"net/http"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -46,5 +47,8 @@ func (s *Server) connectHandler(w http.ResponseWriter, r *http.Request) {
 	// Respond success case.
 	log.Infow("Connected to peer successfully", "addrInfo", addrInfo)
 	var resp ConnectRes
-	respond(w, http.StatusOK, &resp)
+	if err := utils.Respond(w, http.StatusOK, &resp); err != nil {
+		log.Errorw("failed to write response ", "err", err)
+		return
+	}
 }

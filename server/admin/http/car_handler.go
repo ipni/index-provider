@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/server/utils"
+
+	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/ipfs/go-cid"
@@ -62,7 +64,10 @@ func (h *carHandler) handleImport(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with successful import results.
 	resp := &ImportCarRes{req.Key, advID}
-	respond(w, http.StatusOK, resp)
+	if err := utils.Respond(w, http.StatusOK, resp); err != nil {
+		log.Errorw("failed to write response ", "err", err)
+		return
+	}
 }
 
 func (h *carHandler) handleRemove(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +110,10 @@ func (h *carHandler) handleRemove(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with successful remove result.
 	resp := &RemoveCarRes{AdvId: advID}
-	respond(w, http.StatusOK, resp)
+	if err := utils.Respond(w, http.StatusOK, resp); err != nil {
+		log.Errorw("failed to write response ", "err", err)
+		return
+	}
 }
 
 func (h *carHandler) handleList(w http.ResponseWriter, _ *http.Request) {
@@ -119,5 +127,8 @@ func (h *carHandler) handleList(w http.ResponseWriter, _ *http.Request) {
 	resp := &ListCarRes{
 		Paths: paths,
 	}
-	respond(w, http.StatusOK, resp)
+	if err := utils.Respond(w, http.StatusOK, resp); err != nil {
+		log.Errorw("failed to write response ", "err", err)
+		return
+	}
 }

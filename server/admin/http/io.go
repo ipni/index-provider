@@ -1,10 +1,9 @@
 package adminserver
 
 import (
-	"encoding/json"
 	"io"
-	"io/ioutil"
-	"net/http"
+
+	"github.com/filecoin-project/index-provider/server/utils"
 )
 
 var (
@@ -24,83 +23,57 @@ var (
 )
 
 func (er *ImportCarReq) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *ImportCarReq) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
+	return utils.UnmarshalAsJson(r, er)
 }
 
 func (er *ImportCarRes) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *ImportCarRes) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
+	return utils.UnmarshalAsJson(r, er)
 }
 
 func (er *RemoveCarReq) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *RemoveCarReq) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
+	return utils.UnmarshalAsJson(r, er)
 }
 
 func (er *RemoveCarRes) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *RemoveCarRes) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
+	return utils.UnmarshalAsJson(r, er)
 }
 
 func (er *ListCarRes) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *ListCarRes) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
+	return utils.UnmarshalAsJson(r, er)
 }
 
 func (er *ConnectReq) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *ConnectReq) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
+	return utils.UnmarshalAsJson(r, er)
 }
 
 func (er *ConnectRes) WriteTo(w io.Writer) (int64, error) {
-	return marshalToJson(w, er)
+	return utils.MarshalToJson(w, er)
 }
 
 func (er *ConnectRes) ReadFrom(r io.Reader) (int64, error) {
-	return unmarshalAsJson(r, er)
-}
-
-func respond(w http.ResponseWriter, statusCode int, body io.WriterTo) {
-	w.WriteHeader(statusCode)
-	// Attempt to serialize body as JSON
-	if _, err := body.WriteTo(w); err != nil {
-		log.Errorw("faild to write response ", "err", err)
-		return
-	}
-}
-
-func unmarshalAsJson(r io.Reader, dst interface{}) (int64, error) {
-	body, err := ioutil.ReadAll(r)
-	if err != nil {
-		return 0, err
-	}
-	return int64(len(body)), json.Unmarshal(body, dst)
-}
-
-func marshalToJson(w io.Writer, src interface{}) (int64, error) {
-	body, err := json.Marshal(src)
-	if err != nil {
-		return 0, err
-	}
-	written, err := w.Write(body)
-	return int64(written), err
+	return utils.UnmarshalAsJson(r, er)
 }
