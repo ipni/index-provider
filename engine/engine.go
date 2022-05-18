@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/go-legs/httpsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine/chunker"
+	"github.com/filecoin-project/index-provider/engine/policy"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/hashicorp/go-multierror"
@@ -47,6 +48,8 @@ type Engine struct {
 
 	mhLister provider.MultihashLister
 	cblk     sync.Mutex
+
+	syncPolicy *policy.Policy
 }
 
 var _ provider.Interface = (*Engine)(nil)
@@ -137,6 +140,10 @@ func (e *Engine) newPublisher() (legs.Publisher, error) {
 		return nil, nil
 	case DataTransferPublisher:
 		dtOpts := []dtsync.Option{dtsync.Topic(e.pubTopic), dtsync.WithExtraData(e.pubExtraGossipData)}
+		if e.syncPolicy != nil {
+			dtOpts = append(dtOpts, dtsync.AllowPeer(e.syncPolicy.Allowed))
+		}
+
 		if e.pubDT != nil {
 			return dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtOpts...)
 		}

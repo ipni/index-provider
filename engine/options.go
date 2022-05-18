@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/index-provider/engine/policy"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/libp2p/go-libp2p"
@@ -58,6 +59,8 @@ type (
 		entCacheCap  int
 		entChunkSize int
 		purgeCache   bool
+
+		syncPolicy *policy.Policy
 	}
 )
 
@@ -245,6 +248,13 @@ func WithDatastore(ds datastore.Batching) Option {
 func WithRetrievalAddrs(addr ...multiaddr.Multiaddr) Option {
 	return func(o *options) error {
 		o.provider.Addrs = addr
+		return nil
+	}
+}
+
+func WithSyncPolicy(syncPolicy *policy.Policy) Option {
+	return func(o *options) error {
+		o.syncPolicy = syncPolicy
 		return nil
 	}
 }
