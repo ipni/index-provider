@@ -55,7 +55,7 @@ func Test_NewEngineWithNoPublisherAndRoot(t *testing.T) {
 	require.NoError(t, subject.Start(ctx))
 
 	subject.RegisterMultihashLister(func(_ context.Context, _ []byte) (provider.MultihashIterator, error) {
-		return &sliceMhIterator{mhs: mhs}, nil
+		return provider.SliceMultihashIterator(mhs), nil
 	})
 	adCid, err := subject.NotifyPut(ctx, contextID, metadata.New(metadata.Bitswap{}))
 	require.NoError(t, err)
@@ -81,9 +81,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	chunkLnk, err := subject.Chunker().Chunk(ctx, &sliceMhIterator{
-		mhs: mhs,
-	})
+	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
 
 	md := metadata.New(metadata.Bitswap{})
@@ -160,9 +158,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	wantContextID := []byte("fish")
 	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		if string(contextID) == string(wantContextID) {
-			return &sliceMhIterator{
-				mhs: mhs,
-			}, nil
+			return provider.SliceMultihashIterator(mhs), nil
 		}
 		return nil, errors.New("not found")
 	})
@@ -173,9 +169,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		return len(pubPeers) == 1 && pubPeers[0] == subHost.ID()
 	}, time.Second, 5*time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
 
-	chunkLnk, err := subject.Chunker().Chunk(ctx, &sliceMhIterator{
-		mhs: mhs,
-	})
+	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
 	md := metadata.New(metadata.Bitswap{})
 	mdBytes, err := md.MarshalBinary()
@@ -275,9 +269,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 	wantContextID := []byte("fish")
 	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
 		if string(contextID) == string(wantContextID) {
-			return &sliceMhIterator{
-				mhs: mhs,
-			}, nil
+			return provider.SliceMultihashIterator(mhs), nil
 		}
 		return nil, errors.New("not found")
 	})

@@ -9,11 +9,9 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-var _ MultihashIterator = (*MhIterator)(nil)
-
-// MhIterator is a simple MultihashIterator implementation that iterates a
-// slice of multihash.Multihash.
-type MhIterator struct {
+// sliceMhIterator is a simple MultihashIterator implementation that
+// iterates a slice of multihash.Multihash.
+type sliceMhIterator struct {
 	mhs []multihash.Multihash
 	pos int
 }
@@ -27,29 +25,9 @@ type iteratorStep struct {
 //
 // This iterator supplies multihashes in deterministic order of their
 // corresponding CAR offset. The order is maintained consistently regardless of
-// the underlying IterableIndex implementation.
+// the underlying IterableIndex implementation. Returns error if duplicate
+// offsets detected.
 func CarMultihashIterator(idx carindex.IterableIndex) (MultihashIterator, error) {
-	mhs, err := carIndexToMultihashes(idx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MhIterator{mhs: mhs}, nil
-}
-
-// Next implements the MultihashIterator interface.
-func (it *MhIterator) Next() (multihash.Multihash, error) {
-	if it.pos >= len(it.mhs) {
-		return nil, io.EOF
-	}
-	mh := it.mhs[it.pos]
-	it.pos++
-	return mh, nil
-}
-
-// carIndexToMultihashes converts a CAR index to an ordered slice of
-// Multihash. Returns error if duplicate offsets detected.
-func carIndexToMultihashes(idx carindex.IterableIndex) ([]multihash.Multihash, error) {
 	var steps []iteratorStep
 	if err := idx.ForEach(func(mh multihash.Multihash, offset uint64) error {
 		steps = append(steps, iteratorStep{mh, offset})
@@ -70,5 +48,21 @@ func carIndexToMultihashes(idx carindex.IterableIndex) ([]multihash.Multihash, e
 		mhs[i] = steps[i].mh
 	}
 
-	return mhs, nil
+	return &sliceMhIterator{mhs: mhs}, nil
+}
+
+// SliceMultihashIterator constructs a new MultihashIterator from a slice of
+// multihashes.
+func SliceMultihashIterator(mhs []multihash.Multihash) MultihashIterator {
+	return &sliceMhIterator{mhs: mhs}
+}
+
+// Next implements the MultihashIterator interface.
+func (it *sliceMhIterator) Next() (multihash.Multihash, error) {
+	if it.pos >= len(it.mhs) {
+		return nil, io.EOF
+	}
+	mh := it.mhs[it.pos]
+	it.pos++
+	return mh, nil
 }
