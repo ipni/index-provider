@@ -104,9 +104,5 @@ func TestHttpAdv(t *testing.T) {
 	require.NoError(t, advSvr.Shutdown(ctx))
 	require.NoError(t, mhSvr.Shutdown(ctx))
 
-	select {
-	case e := <-svrErrCh:
-		require.NoError(t, e)
-	}
-
+	require.NoError(t, <-svrErrCh)
 }

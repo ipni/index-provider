@@ -20,12 +20,12 @@ const (
 	ErrToken   = "TestErrToken"
 	Token      = "TestToken"
 	ContextID  = "TestContextID"
-	ListenAddr = "0.0.0.0:3105"
+	ListenAddr = "0.0.0.0:3107"
 	PageSize   = 101
 )
 
 func TestMhIter(t *testing.T) {
-	svr, _ := NewServer(
+	svr, err := NewServer(
 		WithTokenVerify(func(reqID string, token string) error {
 			if reqID == ReqID && token == Token {
 				return nil
@@ -34,6 +34,8 @@ func TestMhIter(t *testing.T) {
 		}),
 		WithListenAddr(ListenAddr),
 	)
+
+	require.NoError(t, err)
 
 	mhsCount := 1020
 	mhs := testutil.RandomMultihashes(t, rand.New(rand.NewSource(334455)), mhsCount)
@@ -88,9 +90,5 @@ func TestMhIter(t *testing.T) {
 	svrStartErrChan <- nil
 
 	require.NoError(t, svr.Shutdown(context.TODO()))
-
-	select {
-	case e := <-svrStartErrChan:
-		require.NoError(t, e)
-	}
+	require.NoError(t, <-svrStartErrChan)
 }
