@@ -76,14 +76,16 @@ func newOptions(o ...Option) (*options, error) {
 		purgeCache:   false,
 	}
 
-	var err error
-	opts.syncPolicy, err = policy.New(true, nil)
-	if err != nil {
-		return nil, err
+	for _, apply := range o {
+		if err := apply(opts); err != nil {
+			return nil, err
+		}
 	}
 
-	for _, apply := range o {
-		if err = apply(opts); err != nil {
+	if opts.syncPolicy == nil {
+		var err error
+		opts.syncPolicy, err = policy.New(true, nil)
+		if err != nil {
 			return nil, err
 		}
 	}
