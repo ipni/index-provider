@@ -114,7 +114,12 @@ func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, chunkSi
 	ls.cache.OnEvicted = ls.onEvicted
 
 	if err := ls.restoreCache(ctx); err != nil {
-		return nil, err
+		log.Warnw("Failed to restore cache; falling back on clearing all cached chunks", "err", err)
+		if err := ls.Clear(ctx); err != nil {
+			log.Errorw("Failed to clear cache", "err", err)
+			return nil, err
+		}
+		log.Info("Cleared all cached chunks")
 	}
 
 	return ls, nil
@@ -292,9 +297,42 @@ func (ls *CachedEntriesChunker) Clear(ctx context.Context) error {
 	ls.lock.Lock()
 	defer ls.lock.Unlock()
 
-	return ls.performOnCache(ctx, func(cache *lru.Cache) {
+	// Clear loaded cache entries first, which calls OnEvict per entry.
+	if err := ls.performOnCache(ctx, func(cache *lru.Cache) {
 		cache.Clear()
-	})
+	}); err != nil {
+		return err
+	}
+
+	// Delete all datastore entries in case the cache was partially loaded.
+	// Because, the lru.Clear() above only evicts the loaded cache entries.
+	q := dsq.Query{
+		KeysOnly: true,
+	}
+	results, err := ls.ds.Query(ctx, q)
+	if err != nil {
+		log.Errorw("Failed to query keys while clearing cache", "err", err)
+		return err
+	}
+	defer results.Close()
+
+	for r := range results.Next() {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if r.Error != nil {
+			return fmt.Errorf("cannot list cache key to clear: %w", r.Error)
+		}
+
+		rawKey := datastore.RawKey(r.Key)
+		err := ls.ds.Delete(ctx, rawKey)
+		if err != nil {
+			log.Errorw("Failed to delete key while clearing cache", "err", err)
+			return err
+		}
+	}
+	log.Info("Cleared the cache successfully")
+	return nil
 }
 
 // Close syncs the backing datastore but does not close it.

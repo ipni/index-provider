@@ -260,6 +260,74 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	require.Equal(t, 1, subject.Len())
 }
 
+func TestCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx, cancel := context.WithTimeout(context.Background(), 100000*time.Second)
+	defer cancel()
+
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2)
+	require.NoError(t, err)
+	defer subject.Close()
+
+	// Chunk some data first which we won't corrupt to test partial corruption.
+	wantCids1 := testutil.RandomCids(t, rng, 10)
+	require.NoError(t, err)
+	chunkLink1, err := subject.Chunk(ctx, getMhIterator(t, wantCids1))
+	require.NoError(t, err)
+	raw1, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	gotEntryChunk1 := requireDecodeAsEntryChunk(t, chunkLink1, raw1)
+	requireChunkEntriesMatch(t, gotEntryChunk1, wantCids1)
+	require.Nil(t, gotEntryChunk1.Next)
+	require.Equal(t, 1, subject.Len())
+
+	// Chunk some more data which we will corrupt.
+	wantCids2 := testutil.RandomCids(t, rng, 10)
+	require.NoError(t, err)
+	chunkLink2, err := subject.Chunk(ctx, getMhIterator(t, wantCids2))
+	require.NoError(t, err)
+	raw2, err := subject.GetRawCachedChunk(ctx, chunkLink2)
+	require.NoError(t, err)
+	gotEntryChunk2 := requireDecodeAsEntryChunk(t, chunkLink2, raw2)
+	requireChunkEntriesMatch(t, gotEntryChunk2, wantCids2)
+	require.Nil(t, gotEntryChunk2.Next)
+	require.Equal(t, 2, subject.Len())
+
+	// Corrupt the second cached data.
+	require.NoError(t, subject.Close())
+	key2 := chunker.DSKey(chunkLink2)
+	err = store.Put(ctx, key2, []byte("fish"))
+	require.NoError(t, err)
+
+	// Assert that chunker can be re-instantiated when cached entries are corrupt.
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1)
+	require.NoError(t, err)
+
+	// Assert that data is cleared.
+	raw1Again, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	require.Nil(t, raw1Again)
+	raw2Again, err := subject.GetRawCachedChunk(ctx, chunkLink2)
+	require.NoError(t, err)
+	require.Nil(t, raw2Again)
+
+	// Cache the same data again and assert we get the same bytes back for both chunks.
+	chunkLink1After, err := subject.Chunk(ctx, getMhIterator(t, wantCids1))
+	require.NoError(t, err)
+	require.Equal(t, chunkLink1, chunkLink1After)
+	raw1After, err := subject.GetRawCachedChunk(ctx, chunkLink1After)
+	require.NoError(t, err)
+	require.Equal(t, raw1, raw1After)
+
+	chunkLink2After, err := subject.Chunk(ctx, getMhIterator(t, wantCids2))
+	require.NoError(t, err)
+	require.Equal(t, chunkLink2, chunkLink2After)
+	raw2After, err := subject.GetRawCachedChunk(ctx, chunkLink2After)
+	require.NoError(t, err)
+	require.Equal(t, raw2, raw2After)
+}
+
 func requireChunkIsCached(t *testing.T, e *chunker.CachedEntriesChunker, l ...ipld.Link) {
 	for _, link := range l {
 		chunk, err := e.GetRawCachedChunk(context.TODO(), link)
