@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -32,30 +33,20 @@ func TestNewPolicy(t *testing.T) {
 	except := []string{exceptIDStr}
 
 	_, err := New(false, except)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	_, err = New(true, except)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	except = append(except, "bad ID")
 	_, err = New(false, except)
-	if err == nil {
-		t.Error("expected error with bad except ID")
-	}
+	require.Error(t, err, "expected error with bad except ID")
 
 	_, err = New(false, nil)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	_, err = New(true, nil)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 }
 
 func TestPolicyAccess(t *testing.T) {
@@ -63,48 +54,28 @@ func TestPolicyAccess(t *testing.T) {
 	except := []string{exceptIDStr}
 
 	p, err := New(allow, except)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	if p.Allowed(otherID) {
-		t.Error("peer ID should not be allowed by policy")
-	}
-	if !p.Allowed(exceptID) {
-		t.Error("peer ID should be allowed")
-	}
+	require.False(t, p.Allowed(otherID), "peer ID should not be allowed by policy")
+	require.True(t, p.Allowed(exceptID), "peer ID should be allowed")
 
 	p.Allow(otherID)
-	if !p.Allowed(otherID) {
-		t.Error("peer ID should be allowed by policy")
-	}
+	require.True(t, p.Allowed(otherID), "peer ID should be allowed by policy")
 
 	p.Block(exceptID)
-	if p.Allowed(exceptID) {
-		t.Error("peer ID should not be allowed")
-	}
+	require.False(t, p.Allowed(exceptID), "peer ID should not be allowed")
 
 	allow = true
 	newPol, err := New(allow, except)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	p.Copy(newPol)
 
-	if !p.Allowed(otherID) {
-		t.Error("peer ID should be allowed by policy")
-	}
-	if p.Allowed(exceptID) {
-		t.Error("peer ID should not be allowed")
-	}
+	require.True(t, p.Allowed(otherID), "peer ID should be allowed by policy")
+	require.False(t, p.Allowed(exceptID), "peer ID should not be allowed")
 
 	p.Allow(exceptID)
-	if !p.Allowed(exceptID) {
-		t.Error("peer ID should be allowed by policy")
-	}
+	require.True(t, p.Allowed(exceptID), "peer ID should be allowed by policy")
 
 	p.Block(otherID)
-	if p.Allowed(otherID) {
-		t.Error("peer ID should not be allowed")
-	}
+	require.False(t, p.Allowed(otherID), "peer ID should not be allowed")
 }
