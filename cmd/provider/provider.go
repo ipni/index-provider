@@ -52,6 +52,8 @@ func run() int {
 			RegisterCmd,
 			RemoveCmd,
 			VerifyIngestCmd,
+			//Francis.Deng
+			PubCmd,
 		},
 	}
 
