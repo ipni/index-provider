@@ -92,7 +92,15 @@ func Load(filePath string) (*Config, error) {
 	}
 	defer f.Close()
 
-	var cfg Config
+	// Populate with initial values in case they are not present in config.
+	cfg := Config{
+		Bootstrap:      NewBootstrap(),
+		Datastore:      NewDatastore(),
+		Ingest:         NewIngest(),
+		AdminServer:    NewAdminServer(),
+		ProviderServer: NewProviderServer(),
+	}
+
 	if err = json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
 	}

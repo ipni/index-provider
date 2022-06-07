@@ -13,6 +13,7 @@ import (
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
+	"github.com/filecoin-project/index-provider/engine/policy"
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	"github.com/filecoin-project/index-provider/supplier"
 	leveldb "github.com/ipfs/go-ds-leveldb"
@@ -70,6 +71,11 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
+	syncPolicy, err := policy.New(cfg.Ingest.SyncPolicy.Allow, cfg.Ingest.SyncPolicy.Except)
+	if err != nil {
+		return err
+	}
+
 	p2pmaddr, err := multiaddr.NewMultiaddr(cfg.ProviderServer.ListenMultiaddr)
 	if err != nil {
 		return fmt.Errorf("bad p2p address in config %s: %s", cfg.ProviderServer.ListenMultiaddr, err)
@@ -123,7 +129,8 @@ func daemonCommand(cctx *cli.Context) error {
 		engine.WithEntriesCacheCapacity(cfg.Ingest.LinkCacheSize),
 		engine.WithEntriesChunkSize(cfg.Ingest.LinkedChunkSize),
 		engine.WithTopicName(cfg.Ingest.PubSubTopic),
-		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)))
+		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)),
+		engine.WithSyncPolicy(syncPolicy))
 	if err != nil {
 		return err
 	}

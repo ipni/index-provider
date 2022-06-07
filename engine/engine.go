@@ -136,7 +136,12 @@ func (e *Engine) newPublisher() (legs.Publisher, error) {
 		log.Info("Remote announcements is disabled; all advertisements will only be store locally.")
 		return nil, nil
 	case DataTransferPublisher:
-		dtOpts := []dtsync.Option{dtsync.Topic(e.pubTopic), dtsync.WithExtraData(e.pubExtraGossipData)}
+		dtOpts := []dtsync.Option{
+			dtsync.Topic(e.pubTopic),
+			dtsync.WithExtraData(e.pubExtraGossipData),
+			dtsync.AllowPeer(e.syncPolicy.Allowed),
+		}
+
 		if e.pubDT != nil {
 			return dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtOpts...)
 		}

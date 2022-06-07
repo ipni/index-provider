@@ -36,6 +36,10 @@ type Ingest struct {
 
 	// PublisherKind specifies which legs.Publisher implementation to use.
 	PublisherKind PublisherKind
+
+	// SyncPolicy configures which indexers are allowed to sync advertisements
+	// with this provider over a data transfer session.
+	SyncPolicy Policy
 }
 
 // NewIngest instantiates a new Ingest configuration with default values.
@@ -46,6 +50,7 @@ func NewIngest() Ingest {
 		PubSubTopic:     defaultPubSubTopic,
 		HttpPublisher:   NewHttpPublisher(),
 		PublisherKind:   DTSyncPublisherKind,
+		SyncPolicy:      NewPolicy(),
 	}
 }
 
