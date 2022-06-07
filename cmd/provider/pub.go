@@ -89,11 +89,16 @@ func pubCommand(cctx *cli.Context) error {
 			engine.WithTopicName(topicName),
 		)
 	}
-
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("initialized provider")
+
+	if err = eng.Start(context.Background());err!=nil{
+		panic(err)
+	}
+	fmt.Println("provider started")
+	defer eng.Shutdown()
 
 	eng.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error){
 		if ctxID == string(contextID) {
@@ -102,12 +107,6 @@ func pubCommand(cctx *cli.Context) error {
 
 		return nil,fmt.Errorf("no content for context id: %v", contextID)
 	})
-
-	if err = eng.Start(context.Background());err!=nil{
-		panic(err)
-	}
-	fmt.Println("provider started")
-	defer eng.Shutdown()
 
 	ad,err := eng.NotifyPut(context.Background(), []byte(ctxID), metadata.New(metadata.Bitswap{}))
 	if err != nil{
