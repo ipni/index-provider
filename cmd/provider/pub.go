@@ -64,6 +64,7 @@ func pubCommand(cctx *cli.Context) error {
 		panic(err)
 	}
 
+	fmt.Printf("pAddrInfo: %v\n", pAddrInfo)
 	if pAddrInfo == nil {
 		eng,err = engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
 	} else {
