@@ -25,9 +25,11 @@ var pubFlags = []cli.Flag{
 	},
 }
 
+// call it via "provider pub --context=xiiiv --contents=francis --contents=cissy --contents=tiger"
+
 var PubCmd = &cli.Command{
 	Name: "pub",
-	Usage: "publish customized ad",
+	Usage: "publish an ad",
 	Flags: pubFlags,
 	Action: pubCommand,
 }
@@ -84,7 +86,7 @@ func (c *contentsIter) Next() (multihash.Multihash,error)  {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("✓ Generated content multihash: %s\n", mh.B58String())
+	fmt.Printf("Generated content multihash: %s\n", mh.B58String())
 	c.offset++
 
 	return mh,nil
