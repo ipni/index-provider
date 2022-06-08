@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	provider "github.com/filecoin-project/index-provider"
+	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
+	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -13,6 +15,7 @@ import (
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -32,7 +35,14 @@ var pubFlags = []cli.Flag{
 		Required: true,
 	},
 	&cli.StringFlag{
-		Name: "peer",
+		Name: "indexer",
+		Aliases: []string{"i"},
+		Usage: "Host or host:port of indexer to use",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name: "multiaddr",
+		Aliases: []string{"a"},
 		Usage: "the index peer info",
 		Required: false,
 	},
@@ -56,16 +66,29 @@ func pubCommand(cctx *cli.Context) error {
 	)
 	contents := cctx.StringSlice("contents")
 	ctxID := cctx.String("context")
-	peerStr := cctx.String("peer")
+	ingestStr := cctx.String("indexer")
+	peerStr := cctx.String("multiaddr")
+
 	pAddrInfo,err = extractAddrInfo(peerStr)
 
-	h,err := libp2p.New()
+	identity, err := config.CreateIdentity(os.Stdout)
+	privKey, err := identity.DecodePrivateKey("")
+	if err != nil {
+		panic(err)
+	}
+	peerID, err := peer.Decode(identity.PeerID)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("pAddrInfo: %v\n", pAddrInfo)
-	if pAddrInfo == nil {
+	h,err := libp2p.New(libp2p.Identity(privKey))
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("pAddrInfo: %v ingestStr: %s\n", pAddrInfo,ingestStr)
+
+	if pAddrInfo == nil || len(ingestStr) == 0 {
 		eng,err = engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
 	} else {
 		pub,err := pubsub.NewGossipSub(context.Background(),
@@ -88,7 +111,19 @@ func pubCommand(cctx *cli.Context) error {
 			engine.WithTopic(t),
 			engine.WithTopicName(topicName),
 		)
+
+		client, err := httpc.New(ingestStr)
+		if err != nil {
+			return err
+		}
+
+		err = client.Register(cctx.Context, peerID, privKey, []string{peerStr})
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Registered provider", identity.PeerID, "at indexer", ingestStr)
 	}
+
 	if err != nil {
 		panic(err)
 	}
@@ -161,3 +196,4 @@ func extractAddrInfo(addrInfoStr string) (*peer.AddrInfo,error){
 		pid,[]multiaddr.Multiaddr{muaddr},
 	},nil
 }
+
