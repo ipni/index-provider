@@ -139,6 +139,11 @@ func pubCommand(cctx *cli.Context) error {
 		panic(err)
 	}
 	fmt.Printf("ad cid: %s\n",ad.String())
+	
+	err = eng.PublishLatest(context.Background())
+	if err != nil{
+		panic(err)
+	}
 
 	return nil
 }
