@@ -40,12 +40,6 @@ var pubFlags = []cli.Flag{
 		Usage: "Host or host:port of indexer to use",
 		Required: false,
 	},
-	&cli.StringFlag{
-		Name: "multiaddr",
-		Aliases: []string{"a"},
-		Usage: "the index peer info",
-		Required: false,
-	},
 }
 
 // call it via "provider pub --context=xiiiv --contents=francis --contents=cissy --contents=tiger"
@@ -67,9 +61,6 @@ func pubCommand(cctx *cli.Context) error {
 	contents := cctx.StringSlice("contents")
 	ctxID := cctx.String("context")
 	ingestStr := cctx.String("indexer")
-	peerStr := cctx.String("multiaddr")
-
-	pAddrInfo,err = extractAddrInfo(peerStr)
 
 	identity, err := config.CreateIdentity(os.Stdout)
 	privKey, err := identity.DecodePrivateKey("")
@@ -117,11 +108,11 @@ func pubCommand(cctx *cli.Context) error {
 			return err
 		}
 
-		err = client.Register(cctx.Context, peerID, privKey, []string{peerStr})
+		err = client.Register(cctx.Context, peerID, privKey, toStringArray(h.Addrs()))
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("Registered provider", identity.PeerID, "at indexer", ingestStr)
+		fmt.Println("Registered provider:", identity.PeerID, " addresses:" , toStringArray(h.Addrs()), " at indexer:", ingestStr)
 	}
 
 	if err != nil {
@@ -170,6 +161,15 @@ func (c *contentsIter) Next() (multihash.Multihash,error)  {
 	c.offset++
 
 	return mh,nil
+}
+
+func toStringArray(mas []multiaddr.Multiaddr) []string {
+	strArray := make([]string, 0)
+	for _,ma := range mas {
+		strArray = append(strArray, ma.String())
+	}
+
+	return strArray
 }
 
 // extract 12D3KooWSTYbrZrtw7FHxi4zkxahKt7oaV5kmHAdQkHXJ8CrvRp5@/ip4/15.7.1.42/tcp/3003
