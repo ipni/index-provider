@@ -16,7 +16,9 @@ import (
 	"github.com/urfave/cli/v2"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 var (
@@ -144,6 +146,11 @@ func pubCommand(cctx *cli.Context) error {
 	if err != nil{
 		panic(err)
 	}
+
+
+	chanel := make(chan os.Signal)
+	signal.Notify(chanel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	<-chanel
 
 	return nil
 }
