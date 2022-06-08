@@ -56,7 +56,7 @@ func pubCommand(cctx *cli.Context) error {
 		eng *engine.Engine
 		err error
 
-		pAddrInfo *peer.AddrInfo
+		//pAddrInfo *peer.AddrInfo
 	)
 	contents := cctx.StringSlice("contents")
 	ctxID := cctx.String("context")
