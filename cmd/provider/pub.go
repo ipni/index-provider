@@ -77,7 +77,7 @@ func pubCommand(cctx *cli.Context) error {
 		panic(err)
 	}
 
-	fmt.Printf("pAddrInfo: %v ingestStr: %s\n", pAddrInfo,ingestStr)
+	//fmt.Printf("pAddrInfo: %v ingestStr: %s\n", pAddrInfo,ingestStr)
 
 	if len(ingestStr) == 0 {
 		eng,err = engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -85,7 +85,7 @@ func pubCommand(cctx *cli.Context) error {
 		pub,err := pubsub.NewGossipSub(context.Background(),
 			h,
 			pubsub.WithDirectConnectTicks(1),
-			pubsub.WithDirectPeers([]peer.AddrInfo{*pAddrInfo}),
+			//pubsub.WithDirectPeers([]peer.AddrInfo{*pAddrInfo}),
 		)
 		if err != nil {
 			panic(err)
