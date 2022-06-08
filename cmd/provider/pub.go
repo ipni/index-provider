@@ -79,7 +79,7 @@ func pubCommand(cctx *cli.Context) error {
 
 	fmt.Printf("pAddrInfo: %v ingestStr: %s\n", pAddrInfo,ingestStr)
 
-	if pAddrInfo == nil || len(ingestStr) == 0 {
+	if len(ingestStr) == 0 {
 		eng,err = engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
 	} else {
 		pub,err := pubsub.NewGossipSub(context.Background(),
