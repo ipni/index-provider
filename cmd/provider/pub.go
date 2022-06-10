@@ -7,7 +7,6 @@ import (
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
-	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -69,7 +68,7 @@ func pubCommand(cctx *cli.Context) error {
 	if err != nil {
 		panic(err)
 	}
-	peerID, err := peer.Decode(identity.PeerID)
+	//peerID, err := peer.Decode(identity.PeerID)
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +103,7 @@ func pubCommand(cctx *cli.Context) error {
 			engine.WithTopic(t),
 			engine.WithTopicName(topicName),
 		)
-
+		/*
 		client, err := httpc.New(ingestStr)
 		if err != nil {
 			return err
@@ -114,7 +113,7 @@ func pubCommand(cctx *cli.Context) error {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("Registered provider:", identity.PeerID, " addresses:" , toStringArray(h.Addrs()), " at indexer:", ingestStr)
+		fmt.Println("Registered provider:", identity.PeerID, " addresses:" , toStringArray(h.Addrs()), " at indexer:", ingestStr)*/
 	}
 
 	if err != nil {

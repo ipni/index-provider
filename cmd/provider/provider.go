@@ -54,6 +54,7 @@ func run() int {
 			VerifyIngestCmd,
 			//Francis.Deng
 			PubCmd,
+			AnatomyCmd,
 		},
 	}
 
