@@ -79,7 +79,8 @@ func anatomyCommand(cctx *cli.Context) error {
 	fmt.Println("  MULTIBASE - VERSION - MULTICODEC - MULTIHASH(NAME:SIZE:DIGEST IN HEX)")
 	//fmt.Printf("%c - %d - Ox%x - (Ox%x : %d : %s)\n",mbEnc,ver,prefix.Codec,prefix.MhType,mhl,c.Hash().String())
 
-	fmt.Println("\n")
+	fmt.Println("")
+	fmt.Println("")
 
 	fmt.Println("MULTIBASE")
 	fmt.Println("PREFIX:")
@@ -87,7 +88,8 @@ func anatomyCommand(cctx *cli.Context) error {
 	fmt.Println("NAME:")
 	fmt.Printf("  %s\n", mb)
 
-	fmt.Println("\n")
+	fmt.Println("")
+	fmt.Println("")
 
 	fmt.Println("MULTICODEC")
 	fmt.Println("CODE:")
@@ -95,7 +97,8 @@ func anatomyCommand(cctx *cli.Context) error {
 	fmt.Println("NAME:")
 	fmt.Printf("  %s\n", codec)
 
-	fmt.Println("\n")
+	fmt.Println("")
+	fmt.Println("")
 
 	fmt.Println("MULTIHASH")
 	fmt.Println("CODE:")
@@ -107,12 +110,14 @@ func anatomyCommand(cctx *cli.Context) error {
 	fmt.Println("DIGEST (HEX):")
 	fmt.Printf("  %s\n",hx)
 
-	fmt.Println("\n")
+	fmt.Println("")
+	fmt.Println("")
 
 	fmt.Println("MH FOR INDEX")
 	fmt.Println("  ",c.Hash().B58String())
 
-	fmt.Println("\n")
+	fmt.Println("")
+	fmt.Println("")
 
 	if ver == 0 {
 		fmt.Println("CIDV1")

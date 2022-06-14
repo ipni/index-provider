@@ -55,6 +55,7 @@ func run() int {
 			//Francis.Deng
 			PubCmd,
 			AnatomyCmd,
+			SubCmd,
 		},
 	}
 

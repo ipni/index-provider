@@ -56,12 +56,13 @@ func pubCommand(cctx *cli.Context) error {
 	var (
 		eng *engine.Engine
 		err error
+		pub *pubsub.PubSub
 
 		//pAddrInfo *peer.AddrInfo
 	)
 	contents := cctx.StringSlice("contents")
 	ctxID := cctx.String("context")
-	ingestStr := cctx.String("indexer")
+	//ingestStr := cctx.String("indexer")
 
 	identity, err := config.CreateIdentity(os.Stdout)
 	privKey, err := identity.DecodePrivateKey("")
@@ -77,44 +78,43 @@ func pubCommand(cctx *cli.Context) error {
 	if err != nil {
 		panic(err)
 	}
-
-	//fmt.Printf("pAddrInfo: %v ingestStr: %s\n", pAddrInfo,ingestStr)
-
-	if len(ingestStr) == 0 {
-		eng,err = engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
-	} else {
-		pub,err := pubsub.NewGossipSub(context.Background(),
-			h,
-			pubsub.WithDirectConnectTicks(1),
-			//pubsub.WithDirectPeers([]peer.AddrInfo{*pAddrInfo}),
-		)
-		if err != nil {
-			panic(err)
-		}
-
-		t,err := pub.Join(topicName)
-		if err != nil {
-			panic(err)
-		}
-
-		eng,err = engine.New(
-			engine.WithHost(h),
-			engine.WithPublisherKind(engine.DataTransferPublisher),
-			engine.WithTopic(t),
-			engine.WithTopicName(topicName),
-		)
-		/*
-		client, err := httpc.New(ingestStr)
-		if err != nil {
-			return err
-		}
-
-		err = client.Register(cctx.Context, peerID, privKey, toStringArray(h.Addrs()))
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println("Registered provider:", identity.PeerID, " addresses:" , toStringArray(h.Addrs()), " at indexer:", ingestStr)*/
+	closeIt,err := boot(h.ID(), h)
+	if err != nil {
+		return err
 	}
+
+	pub,err = pubsub.NewGossipSub(context.Background(),
+		h,
+		pubsub.WithDirectConnectTicks(1),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	t,err := pub.Join(topicName)
+	if err != nil {
+		panic(err)
+	}
+
+	eng,err = engine.New(
+		engine.WithHost(h),
+		engine.WithPublisherKind(engine.DataTransferPublisher),
+		engine.WithTopic(t),
+		engine.WithTopicName(topicName),
+	)
+	/*
+	client, err := httpc.New(ingestStr)
+	if err != nil {
+		return err
+	}
+
+	err = client.Register(cctx.Context, peerID, privKey, toStringArray(h.Addrs()))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Registered provider:", identity.PeerID, " addresses:" , toStringArray(h.Addrs()), " at indexer:", ingestStr)
+	*/
+
 
 	if err != nil {
 		panic(err)
@@ -135,6 +135,10 @@ func pubCommand(cctx *cli.Context) error {
 		return nil,fmt.Errorf("no content for context id: %v", contextID)
 	})
 
+	peers := pub.ListPeers(topic)
+	fmt.Printf("%v\n", peers)
+
+
 	ad,err := eng.NotifyPut(context.Background(), []byte(ctxID), metadata.New(metadata.Bitswap{}))
 	if err != nil{
 		panic(err)
@@ -147,9 +151,29 @@ func pubCommand(cctx *cli.Context) error {
 	}
 
 
+	//go func() {
+	//	for {
+	//		//select {
+	//		//case <-time.NewTimer(3 * time.Second).C:
+	//		//	if len(subHost.Network().Peers()) > 0 {
+	//		//		fmt.Println(subHost.Network().Peers())
+	//		//	}
+	//		//default:
+	//		//
+	//		//}
+	//		time.Sleep(4 * time.Second)
+	//		if len(h.Network().Peers()) > 0 {
+	//			fmt.Println("my id",h.ID().String())
+	//			fmt.Println(h.Network().Peers())
+	//		}
+	//	}
+	//}()
+
 	chanel := make(chan os.Signal)
 	signal.Notify(chanel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	<-chanel
+
+	defer closeIt()
 
 	return nil
 }
