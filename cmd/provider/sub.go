@@ -129,8 +129,8 @@ func subCommand(cctx *cli.Context) error {
 			}
 
 			peerStore := subHost.Peerstore()
-			if peerStore != nil && len(addrs) != 0 && len(peerStore.PeerInfo(pubsubMsg.GetFrom()).Addrs) == 0{
-				fmt.Println("add new addrs: ", "from:",pubsubMsg.GetFrom(),"addrs:",addrs)
+			if peerStore != nil && len(addrs) != 0{
+				//fmt.Println("add new addrs: ", "from:",pubsubMsg.GetFrom(),"addrs:",addrs)
 				peerStore.AddAddrs(pubsubMsg.GetFrom(), addrs, 10 * time.Second)
 			}
 
@@ -153,7 +153,7 @@ func subCommand(cctx *cli.Context) error {
 				fmt.Println(fmt.Println("from:",pubsubMsg.GetFrom(),"error:", err))
 				continue
 			}
-			fmt.Println("from",pubsubMsg.GetFrom(),"topic",pubsubMsg.GetTopic(),"latest cid", gotHead.String())
+			fmt.Println("from",pubsubMsg.GetFrom(),"maddrs", addrs,"topic",pubsubMsg.GetTopic(),"latest cid", gotHead.String())
 
 			//ssb := selectorbuilder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
 			//adSel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreFields(
