@@ -5,16 +5,22 @@ import (
 	"context"
 	"fmt"
 	"github.com/filecoin-project/go-legs/dtsync"
+	"github.com/ipfs/go-datastore"
+	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-ipfs/core/bootstrap"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipld/go-ipld-prime/storage/memstore"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/time/rate"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 var (
@@ -60,12 +66,11 @@ func subCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	fmt.Println("my id",subHost.ID().String())
-	fmt.Println(subHost.Addrs())
+	fmt.Println("peerId",subHost.ID().String(),"maddrs",subHost.Addrs())
 
 	subG, err := pubsub.NewGossipSub(ctx, subHost,
 	)
-	subT, err := subG.Join(topic)
+	subT, err := subG.Join(topicName)
 	if err != nil {
 		return err
 	}
@@ -75,11 +80,7 @@ func subCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	//fmt.Println("sub addressInfo:")
-	//for _,addr := range  subHost.Addrs() {
-	//	fmt.Printf("%s/p2p/%s\n", addr.String(),subHost.ID().String())
-	//}
-	closeIt,err := boot(subHost.ID(), subHost)
+	closeIt,err := doBootstrap(subHost.ID(), subHost)
 	if err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ func subCommand(cctx *cli.Context) error {
 	//		//default:
 	//		//
 	//		//}
-	//		time.Sleep(4 * time.Second)
+	//		time.Sleep(5 * time.Second)
 	//		if len(subHost.Network().Peers()) > 0 {
 	//			fmt.Println("my id",subHost.ID().String())
 	//			fmt.Println(subHost.Network().Peers())
@@ -104,38 +105,64 @@ func subCommand(cctx *cli.Context) error {
 
 	go func() error{
 		for {
-			//peers := subG.ListPeers(topic)
-			//fmt.Printf("peers: %v\n", peers)
-
 			pubsubMsg, err := subsc.Next(ctx)
-			fmt.Println(1111)
 			if err != nil {
+				fmt.Println("subsc.Next",err)
 				return err
 			}
 
-			fmt.Println("from",pubsubMsg.GetFrom(),"topic",pubsubMsg.Topic)
+			//fmt.Println("from",pubsubMsg.GetFrom(),"topic",pubsubMsg.GetTopic())
 
 			gotMessage := dtsync.Message{}
 			err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
 			if err != nil {
+				fmt.Println("Could not decode pubsub message",err)
 				return err
 			}
 
-			//ds := dssync.MutexWrap(datastore.NewMapDatastore())
-			//ls := cidlink.DefaultLinkSystem()
-			//store := &memstore.Store{}
-			//ls.SetReadStorage(store)
-			//ls.SetWriteStorage(store)
-			//
-			//sync, err := dtsync.NewSync(subHost, ds, ls, nil, func(publisher peer.ID) *rate.Limiter {
-			//	return rate.NewLimiter(100, 10)
-			//})
-			//if err != nil {
-			//	return err
-			//}
-			//
-			//syncer := sync.NewSyncer(id, topic, rate.NewLimiter(100, 10))
-			//gotHead, err := syncer.GetHead(ctx)
+			var addrs []multiaddr.Multiaddr
+			if len(gotMessage.Addrs) != 0 {
+				addrs, err = gotMessage.GetAddrs()
+				if err != nil {
+					log.Errorw("Could not decode pubsub message", "err", err)
+				}
+			}
+
+			peerStore := subHost.Peerstore()
+			if peerStore != nil && len(addrs) != 0 && len(peerStore.PeerInfo(pubsubMsg.GetFrom()).Addrs) == 0{
+				fmt.Println("add new addrs: ", "from:",pubsubMsg.GetFrom(),"addrs:",addrs)
+				peerStore.AddAddrs(pubsubMsg.GetFrom(), addrs, 10 * time.Second)
+			}
+
+
+
+			ds := dssync.MutexWrap(datastore.NewMapDatastore())
+			ls := cidlink.DefaultLinkSystem()
+			store := &memstore.Store{}
+			ls.SetReadStorage(store)
+			ls.SetWriteStorage(store)
+
+			sync, err := dtsync.NewSync(subHost, ds, ls, nil, func(publisher peer.ID) *rate.Limiter {
+				return rate.NewLimiter(100, 10)
+			})
+
+			syncer := sync.NewSyncer(pubsubMsg.GetFrom(), topicName, rate.NewLimiter(100, 10))
+			gotHead, err := syncer.GetHead(ctx)
+
+			if err != nil {
+				fmt.Println(fmt.Println("from:",pubsubMsg.GetFrom(),"error:", err))
+				continue
+			}
+			fmt.Println("from",pubsubMsg.GetFrom(),"topic",pubsubMsg.GetTopic(),"latest cid", gotHead.String())
+
+			//ssb := selectorbuilder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
+			//adSel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreFields(
+			//	func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
+			//		efsb.Insert("PreviousID", ssb.ExploreRecursiveEdge())
+			//		efsb.Insert("Next", ssb.ExploreRecursiveEdge())
+			//		efsb.Insert("Entries", ssb.ExploreRecursiveEdge())
+			//	})).Node()
+			//err = syncer.Sync(ctx, gotPublishedAdCid, adSel)
 		}
 
 
@@ -167,7 +194,7 @@ func parsePeers(addrs []string) ([]peer.AddrInfo, error) {
 	return peer.AddrInfosFromP2pAddrs(maddrs...)
 }
 
-func boot(peerID peer.ID,p2pHost host.Host) (func() error,error){
+func doBootstrap(peerID peer.ID,p2pHost host.Host) (func() error,error){
 	addrs, err := parsePeers(BOOTSTRAP_NODES)
 	if err != nil {
 		return nil,fmt.Errorf("bad bootstrap peer: %s", err)

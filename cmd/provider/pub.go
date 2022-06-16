@@ -7,6 +7,7 @@ import (
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -54,12 +55,12 @@ var PubCmd = &cli.Command{
 
 func pubCommand(cctx *cli.Context) error {
 	var (
-		eng *engine.Engine
 		err error
 		pub *pubsub.PubSub
 
 		//pAddrInfo *peer.AddrInfo
 	)
+
 	contents := cctx.StringSlice("contents")
 	ctxID := cctx.String("context")
 	//ingestStr := cctx.String("indexer")
@@ -78,7 +79,10 @@ func pubCommand(cctx *cli.Context) error {
 	if err != nil {
 		panic(err)
 	}
-	closeIt,err := boot(h.ID(), h)
+
+	fmt.Println("peerId",h.ID().String(),"maddrs",h.Addrs())
+
+	closeIt,err := doBootstrap(h.ID(), h)
 	if err != nil {
 		return err
 	}
@@ -96,24 +100,12 @@ func pubCommand(cctx *cli.Context) error {
 		panic(err)
 	}
 
-	eng,err = engine.New(
+	eng,err := engine.New(
 		engine.WithHost(h),
 		engine.WithPublisherKind(engine.DataTransferPublisher),
 		engine.WithTopic(t),
 		engine.WithTopicName(topicName),
 	)
-	/*
-	client, err := httpc.New(ingestStr)
-	if err != nil {
-		return err
-	}
-
-	err = client.Register(cctx.Context, peerID, privKey, toStringArray(h.Addrs()))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Registered provider:", identity.PeerID, " addresses:" , toStringArray(h.Addrs()), " at indexer:", ingestStr)
-	*/
 
 
 	if err != nil {
@@ -135,16 +127,24 @@ func pubCommand(cctx *cli.Context) error {
 		return nil,fmt.Errorf("no content for context id: %v", contextID)
 	})
 
-	peers := pub.ListPeers(topic)
-	fmt.Printf("%v\n", peers)
-
+	//
+	//go func() {
+	//	for {
+	//		time.Sleep(5 * time.Second)
+	//		peers := pub.ListPeers(topic)
+	//		fmt.Printf("%v\n", peers)
+	//	}
+	//
+	//}()
+	//
+	//
 
 	ad,err := eng.NotifyPut(context.Background(), []byte(ctxID), metadata.New(metadata.Bitswap{}))
 	if err != nil{
 		panic(err)
 	}
 	fmt.Printf("ad cid: %s\n",ad.String())
-	
+
 	err = eng.PublishLatest(context.Background())
 	if err != nil{
 		panic(err)
@@ -176,6 +176,18 @@ func pubCommand(cctx *cli.Context) error {
 	defer closeIt()
 
 	return nil
+}
+
+func RandomMultihashes(contents []string) []multihash.Multihash {
+	prefix := schema.Linkproto.Prefix
+
+	mhashes := make([]multihash.Multihash, 0)
+	for _,content := range  contents {
+		c, _ := prefix.Sum([]byte(content))
+		mhashes = append(mhashes, c.Hash())
+	}
+
+	return mhashes
 }
 
 type contentsIter struct {
