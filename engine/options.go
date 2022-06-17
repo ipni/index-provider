@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
+	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/engine/policy"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multicodec"
 )
 
 const (
@@ -56,9 +58,9 @@ type (
 		pubTopic           *pubsub.Topic
 		pubExtraGossipData []byte
 
-		entCacheCap  int
-		entChunkSize int
-		purgeCache   bool
+		entCacheCap int
+		purgeCache  bool
+		chunker     chunker.NewChunkerFunc
 
 		syncPolicy *policy.Policy
 	}
@@ -69,11 +71,13 @@ func newOptions(o ...Option) (*options, error) {
 		pubKind:           NoPublisher,
 		pubHttpListenAddr: "0.0.0.0:3104",
 		pubTopicName:      "/indexer/ingest/mainnet",
-		// Keep 1024 chunks in cache; keeps 256MiB if chunks are 0.25MiB.
+		// Keep 1024 ad entry DAG in cache; note, the size on disk depends on DAG format and
+		// multihash code.
 		entCacheCap: 1024,
-		// Multihashes are 128 bytes so 16384 results in 0.25MiB chunk when full.
-		entChunkSize: 16384,
-		purgeCache:   false,
+		// By default use chained Entry Chunk as the format of advertisement entries, with maximum
+		// 16384 multihashes per chunk.
+		chunker:    chunker.NewChainChunkerFunc(16384),
+		purgeCache: false,
 	}
 
 	for _, apply := range o {
@@ -141,19 +145,47 @@ func WithPurgeCacheOnStart(p bool) Option {
 	}
 }
 
-// WithEntriesChunkSize sets the maximum number of multihashes to include in a single entries chunk.
-// If unset, the default size of 16384 is used.
+// WithChainedEntries sets format of advertisement entries to chained Entry Chunk with the
+// given chunkSize as the maximum number of multihashes per chunk.
 //
-// See: WithEntriesCacheCapacity, chunker.CachedEntriesChunker
-func WithEntriesChunkSize(s int) Option {
+// If unset, advertisement entries are formatted as chained Entry Chunk with default maximum of
+// 16384 multihashes per chunk.
+//
+// To use HAMT as the advertisement entries format, see: WithHamtEntries.
+// For caching configuration: WithEntriesCacheCapacity, chunker.CachedEntriesChunker
+func WithChainedEntries(chunkSize int) Option {
 	return func(o *options) error {
-		o.entChunkSize = s
+		o.chunker = chunker.NewChainChunkerFunc(chunkSize)
 		return nil
 	}
 }
 
-// WithEntriesCacheCapacity sets the maximum number of advertisement entries chains to cache.
-// If unset, the default capacity of 1024 is used.
+// WithHamtEntries sets format of advertisement entries to HAMT with the given hash algorithm,
+// bit-width and bucket size.
+//
+// If unset, advertisement entries are formatted as chained Entry Chunk with default maximum of
+// 16384 multihashes per chunk.
+//
+// Only multicodec.Identity, multicodec.Sha2_256 and multicodec.Murmur3X64_64 are supported as hash
+// algorithm.
+// The bit-width and bucket size must be at least 3 and 1 respectively.
+// For more information on HAMT data structure, see:
+//  - https://ipld.io/specs/advanced-data-layouts/hamt/spec
+//  - https://github.com/ipld/go-ipld-adl-hamt
+//
+// For caching configuration: WithEntriesCacheCapacity, chunker.CachedEntriesChunker
+func WithHamtEntries(hashAlg multicodec.Code, bitWidth, bucketSize int) Option {
+	return func(o *options) error {
+		o.chunker = chunker.NewHamtChunkerFunc(hashAlg, bitWidth, bucketSize)
+		return nil
+	}
+}
+
+// WithEntriesCacheCapacity sets the maximum number of advertisement entries DAG to cache. The
+// cached DAG may be in chained Entry Chunk or HAMT format. See WithChainedEntries and
+// WithHamtEntries to select the ad entries DAG format.
+//
+// If unset, the default capacity of 1024 is used. This means at most 1024 DAGs will be cached.
 //
 // The cache is evicted using LRU policy. Note that the capacity dictates the number of complete
 // chains that are cached, not individual entry chunks. This means, the maximum storage used by the
@@ -161,8 +193,6 @@ func WithEntriesChunkSize(s int) Option {
 //
 // As an example, for 128-bit long multihashes the cache with default capacity of 1024, and default
 // chunk size of 16384 can grow up to 256MiB when full.
-//
-// See: WithEntriesChunkSize, chunker.CachedEntriesChunker.
 func WithEntriesCacheCapacity(s int) Option {
 	return func(o *options) error {
 		o.entCacheCap = s

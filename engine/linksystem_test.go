@@ -103,7 +103,7 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 
 	chunkSize := 2
 	cacheCap := 1
-	subject, err := engine.New(engine.WithEntriesCacheCapacity(cacheCap), engine.WithEntriesChunkSize(chunkSize))
+	subject, err := engine.New(engine.WithEntriesCacheCapacity(cacheCap), engine.WithChainedEntries(chunkSize))
 	require.NoError(t, err)
 	err = subject.Start(ctx)
 	require.NoError(t, err)

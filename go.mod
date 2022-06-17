@@ -20,6 +20,7 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipld/go-car/v2 v2.1.1
 	github.com/ipld/go-codec-dagpb v1.3.1
+	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.17.0
 	github.com/libp2p/go-libp2p v0.20.1
 	github.com/libp2p/go-libp2p-core v0.16.1
@@ -33,7 +34,7 @@ require (
 	github.com/rogpeppe/go-internal v1.8.1
 	github.com/stretchr/testify v1.7.1
 	github.com/urfave/cli/v2 v2.8.1
-	github.com/whyrusleeping/cbor-gen v0.0.0-20220302191723-37c43cae8e14
+	github.com/whyrusleeping/cbor-gen v0.0.0-20220514204315-f29c37e9c44c
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f
 )
@@ -158,6 +159,7 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
+	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect

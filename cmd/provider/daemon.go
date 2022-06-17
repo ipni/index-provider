@@ -127,7 +127,7 @@ func daemonCommand(cctx *cli.Context) error {
 		engine.WithDataTransfer(dt),
 		engine.WithHost(h),
 		engine.WithEntriesCacheCapacity(cfg.Ingest.LinkCacheSize),
-		engine.WithEntriesChunkSize(cfg.Ingest.LinkedChunkSize),
+		engine.WithChainedEntries(cfg.Ingest.LinkedChunkSize),
 		engine.WithTopicName(cfg.Ingest.PubSubTopic),
 		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)),
 		engine.WithSyncPolicy(syncPolicy))

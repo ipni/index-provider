@@ -103,7 +103,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	var err error
 	// Create datastore entriesChunker.
 	entriesCacheDs := dsn.Wrap(e.ds, datastore.NewKey(linksCachePath))
-	e.entriesChunker, err = chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.entChunkSize, e.entCacheCap, e.purgeCache)
+	e.entriesChunker, err = chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.entCacheCap, e.chunker, e.purgeCache)
 	if err != nil {
 		return err
 	}

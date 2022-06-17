@@ -39,7 +39,7 @@ func RandomCids(t testing.TB, rng *rand.Rand, n int) []cid.Cid {
 	return cids
 }
 
-func RandomMultihashes(t *testing.T, rng *rand.Rand, n int) []multihash.Multihash {
+func RandomMultihashes(t testing.TB, rng *rand.Rand, n int) []multihash.Multihash {
 	prefix := schema.Linkproto.Prefix
 
 	mhashes := make([]multihash.Multihash, n)
