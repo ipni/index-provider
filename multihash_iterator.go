@@ -5,9 +5,14 @@ import (
 	"io"
 	"sort"
 
+	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	carindex "github.com/ipld/go-car/v2/index"
+	hamt "github.com/ipld/go-ipld-adl-hamt"
+	"github.com/ipld/go-ipld-prime"
 	"github.com/multiformats/go-multihash"
 )
+
+var _ MultihashIterator = (*sliceMhIterator)(nil)
 
 // sliceMhIterator is a simple MultihashIterator implementation that
 // iterates a slice of multihash.Multihash.
@@ -47,7 +52,6 @@ func CarMultihashIterator(idx carindex.IterableIndex) (MultihashIterator, error)
 		}
 		mhs[i] = steps[i].mh
 	}
-
 	return &sliceMhIterator{mhs: mhs}, nil
 }
 
@@ -65,4 +69,34 @@ func (it *sliceMhIterator) Next() (multihash.Multihash, error) {
 	mh := it.mhs[it.pos]
 	it.pos++
 	return mh, nil
+}
+
+var _ MultihashIterator = (*ipldMapMhIter)(nil)
+
+type ipldMapMhIter struct {
+	mi ipld.MapIterator
+}
+
+func (i *ipldMapMhIter) Next() (multihash.Multihash, error) {
+	if i.mi.Done() {
+		return nil, io.EOF
+	}
+	k, _, err := i.mi.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	// Note the IPLD hamt implementation currently writes map keys as string
+	ks, err := k.AsString()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(ks), nil
+}
+
+func HamtMultihashIterator(root *hamt.HashMapRoot, ls ipld.LinkSystem) MultihashIterator {
+	n := hamt.Node{
+		HashMapRoot: *root,
+	}.WithLinking(ls, schema.Linkproto)
+	return &ipldMapMhIter{n.MapIterator()}
 }
