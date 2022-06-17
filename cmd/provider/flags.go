@@ -8,6 +8,11 @@ var announceFlags = []cli.Flag{
 	adminAPIFlag,
 }
 
+var announceHttpFlags = []cli.Flag{
+	adminAPIFlag,
+	indexerFlag,
+}
+
 var daemonFlags = []cli.Flag{
 	carZeroLengthAsEOFFlag,
 	&cli.StringFlag{

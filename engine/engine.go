@@ -12,6 +12,7 @@ import (
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/metadata"
+	httpclient "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
@@ -20,6 +21,8 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 )
 
 const (
@@ -228,6 +231,55 @@ func (e *Engine) PublishLatest(ctx context.Context) error {
 	log.Infow("Republishing latest advertisement", "cid", adCid)
 
 	return e.publisher.UpdateRoot(ctx, adCid)
+}
+
+// PublishLatestHTTP publishes the latest existing advertisement to a specific indexer.
+func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) error {
+	// Skip announcing the latest advertisement CID if there is no publisher.
+	if e.publisher == nil {
+		log.Infow("Skipped announcing the latest: remote announcements are disabled.")
+		return nil
+	}
+
+	adCid, err := e.getLatestAdCid(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest advertisement cid: %w", err)
+	}
+
+	if adCid == cid.Undef {
+		log.Info("Skipped announcing the latest: no previously published advertisements.")
+		return nil
+	}
+
+	ai := &peer.AddrInfo{
+		ID: e.h.ID(),
+	}
+
+	switch e.pubKind {
+	case NoPublisher:
+		log.Info("Remote announcements disabled")
+		return nil
+	case DataTransferPublisher:
+		ai.Addrs = e.h.Addrs()
+	case HttpPublisher:
+		maddr, err := hostToMultiaddr(e.pubHttpListenAddr)
+		if err != nil {
+			return err
+		}
+		proto, _ := multiaddr.NewMultiaddr("/http")
+		ai.Addrs = append(ai.Addrs, multiaddr.Join(maddr, proto))
+	}
+
+	cl, err := httpclient.New(indexerHost)
+	if err != nil {
+		return err
+	}
+
+	if err = cl.Announce(ctx, ai, adCid); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // RegisterMultihashLister registers a provider.MultihashLister that is used to look up the
