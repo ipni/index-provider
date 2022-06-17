@@ -7,14 +7,16 @@ import (
 )
 
 func (s *Server) announceHandler(w http.ResponseWriter, r *http.Request) {
-	err := s.e.PublishLatest(r.Context())
+	adCid, err := s.e.PublishLatest(r.Context())
 	if err != nil {
 		log.Errorw("Could not republish latest advertisement", "err", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	// Respond with successful announce result.
+	resp := &AnnounceRes{adCid}
+	respond(w, http.StatusOK, resp)
 }
 
 func (s *Server) announceHttpHandler(w http.ResponseWriter, r *http.Request) {
@@ -36,12 +38,14 @@ func (s *Server) announceHttpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.e.PublishLatestHTTP(r.Context(), string(indexer))
+	adCid, err := s.e.PublishLatestHTTP(r.Context(), string(indexer))
 	if err != nil {
 		log.Errorw("Could not publish latest advertisement via http", "err", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	// Respond with successful announce result.
+	resp := &AnnounceRes{adCid}
+	respond(w, http.StatusOK, resp)
 }

@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
+	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	"github.com/urfave/cli/v2"
 )
 
@@ -40,7 +42,13 @@ func announceCommand(cctx *cli.Context) error {
 		return errFromHttpResp(resp)
 	}
 
-	_, err = cctx.App.Writer.Write([]byte("Announced latest advertisement\n"))
+	var res adminserver.AnnounceRes
+	if _, err := res.ReadFrom(resp.Body); err != nil {
+		return fmt.Errorf("received ok response from server but cannot decode response body. %v", err)
+	}
+	msg := fmt.Sprintf("Announced latest advertisement: %s\n", res.AdvId)
+
+	_, err = cctx.App.Writer.Write([]byte(msg))
 	return err
 }
 
@@ -73,6 +81,12 @@ func announceHttpCommand(cctx *cli.Context) error {
 		return errFromHttpResp(resp)
 	}
 
-	_, err = cctx.App.Writer.Write([]byte("Announced latest advertisement via HTTP\n"))
+	var res adminserver.AnnounceRes
+	if _, err := res.ReadFrom(resp.Body); err != nil {
+		return fmt.Errorf("received ok response from server but cannot decode response body. %v", err)
+	}
+	msg := fmt.Sprintf("Announced latest advertisement via HTTP: %s\n", res.AdvId)
+
+	_, err = cctx.App.Writer.Write([]byte(msg))
 	return err
 }

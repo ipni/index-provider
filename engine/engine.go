@@ -211,44 +211,47 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	return c, nil
 }
 
-// PublishLatest re-publishes the latest existing advertisement to pubsub.
-func (e *Engine) PublishLatest(ctx context.Context) error {
+func (e *Engine) latestAdToPublish(ctx context.Context) (cid.Cid, error) {
 	// Skip announcing the latest advertisement CID if there is no publisher.
 	if e.publisher == nil {
 		log.Infow("Skipped announcing the latest: remote announcements are disabled.")
-		return nil
+		return cid.Undef, nil
 	}
 
 	adCid, err := e.getLatestAdCid(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get latest advertisement cid: %w", err)
+		return cid.Undef, fmt.Errorf("failed to get latest advertisement cid: %w", err)
 	}
 
 	if adCid == cid.Undef {
 		log.Info("Skipped announcing the latest: no previously published advertisements.")
-		return nil
+		return cid.Undef, nil
 	}
-	log.Infow("Republishing latest advertisement", "cid", adCid)
 
-	return e.publisher.UpdateRoot(ctx, adCid)
+	return adCid, nil
+}
+
+// PublishLatest re-publishes the latest existing advertisement to pubsub.
+func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
+	adCid, err := e.latestAdToPublish(ctx)
+	if err != nil {
+		return cid.Undef, err
+	}
+	log.Infow("Publishing latest advertisement", "cid", adCid)
+
+	err = e.publisher.UpdateRoot(ctx, adCid)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	return adCid, nil
 }
 
 // PublishLatestHTTP publishes the latest existing advertisement to a specific indexer.
-func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) error {
-	// Skip announcing the latest advertisement CID if there is no publisher.
-	if e.publisher == nil {
-		log.Infow("Skipped announcing the latest: remote announcements are disabled.")
-		return nil
-	}
-
-	adCid, err := e.getLatestAdCid(ctx)
+func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) (cid.Cid, error) {
+	adCid, err := e.latestAdToPublish(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get latest advertisement cid: %w", err)
-	}
-
-	if adCid == cid.Undef {
-		log.Info("Skipped announcing the latest: no previously published advertisements.")
-		return nil
+		return cid.Undef, err
 	}
 
 	ai := &peer.AddrInfo{
@@ -258,13 +261,13 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) erro
 	switch e.pubKind {
 	case NoPublisher:
 		log.Info("Remote announcements disabled")
-		return nil
+		return cid.Undef, nil
 	case DataTransferPublisher:
 		ai.Addrs = e.h.Addrs()
 	case HttpPublisher:
 		maddr, err := hostToMultiaddr(e.pubHttpListenAddr)
 		if err != nil {
-			return err
+			return cid.Undef, err
 		}
 		proto, _ := multiaddr.NewMultiaddr("/http")
 		ai.Addrs = append(ai.Addrs, multiaddr.Join(maddr, proto))
@@ -272,14 +275,14 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) erro
 
 	cl, err := httpclient.New(indexerHost)
 	if err != nil {
-		return err
+		return cid.Undef, err
 	}
 
 	if err = cl.Announce(ctx, ai, adCid); err != nil {
-		return err
+		return cid.Undef, err
 	}
 
-	return nil
+	return adCid, nil
 }
 
 // RegisterMultihashLister registers a provider.MultihashLister that is used to look up the
