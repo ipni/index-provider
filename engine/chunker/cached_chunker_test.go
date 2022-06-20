@@ -28,7 +28,7 @@ func TestCachedEntriesChunker_OverlappingLinkCounter(t *testing.T) {
 	defer cancel()
 	capacity := 10
 	chunkSize := 10
-	subject, err := chunker.NewCachedEntriesChunker(context.Background(), datastore.NewMapDatastore(), chunkSize, capacity)
+	subject, err := chunker.NewCachedEntriesChunker(context.Background(), datastore.NewMapDatastore(), chunkSize, capacity, false)
 	require.NoError(t, err)
 	defer subject.Close()
 
@@ -72,7 +72,7 @@ func TestCachedEntriesChunker_CapAndLen(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	wantCap := 42
-	subject, err := chunker.NewCachedEntriesChunker(context.Background(), datastore.NewMapDatastore(), 10, wantCap)
+	subject, err := chunker.NewCachedEntriesChunker(context.Background(), datastore.NewMapDatastore(), 10, wantCap, false)
 	require.NoError(t, err)
 	defer subject.Close()
 	require.Equal(t, wantCap, subject.Cap())
@@ -105,7 +105,7 @@ func TestNewCachedEntriesChunker_FailsWhenContextIsCancelled(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	ds := datastore.NewMapDatastore()
 	// Prepare subject by caching something so that restore has data to recover
-	subject, err := chunker.NewCachedEntriesChunker(ctx, ds, 10, 1)
+	subject, err := chunker.NewCachedEntriesChunker(ctx, ds, 10, 1, false)
 	require.NoError(t, err)
 	_, err = subject.Chunk(ctx, getRandomMhIterator(t, rand.New(rand.NewSource(1413)), 45))
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestNewCachedEntriesChunker_FailsWhenContextIsCancelled(t *testing.T) {
 
 	cancel()
 	// Assert context is checked for error
-	_, err = chunker.NewCachedEntriesChunker(ctx, ds, 10, 1)
+	_, err = chunker.NewCachedEntriesChunker(ctx, ds, 10, 1, false)
 	require.ErrorIs(t, err, context.Canceled)
 }
 
@@ -123,7 +123,7 @@ func TestCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T) {
 	defer cancel()
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 1)
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 1, false)
 	require.NoError(t, err)
 	defer subject.Close()
 
@@ -155,7 +155,7 @@ func TestCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T) {
 	chunkSize := 10
 	capacity := 5
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	subject, err := chunker.NewCachedEntriesChunker(ctx, store, chunkSize, capacity)
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, chunkSize, capacity, false)
 	require.NoError(t, err)
 	defer subject.Close()
 
@@ -195,7 +195,7 @@ func TestCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T) {
 	require.NoError(t, subject.Close())
 
 	// Re-create cache from the same datastore
-	subject, err = chunker.NewCachedEntriesChunker(ctx, store, chunkSize, capacity)
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, chunkSize, capacity, false)
 	require.NoError(t, err)
 
 	// Assert previously cached chain is still cached after subject is recreated from the same
@@ -211,7 +211,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	defer cancel()
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 1)
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 1, false)
 	require.NoError(t, err)
 	defer subject.Close()
 
@@ -262,11 +262,11 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 
 func TestCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	ctx, cancel := context.WithTimeout(context.Background(), 100000*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2)
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2, false)
 	require.NoError(t, err)
 	defer subject.Close()
 
@@ -301,7 +301,7 @@ func TestCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T) {
 	require.NoError(t, err)
 
 	// Assert that chunker can be re-instantiated when cached entries are corrupt.
-	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1)
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1, false)
 	require.NoError(t, err)
 
 	// Assert that data is cleared.
@@ -326,6 +326,83 @@ func TestCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T) {
 	raw2After, err := subject.GetRawCachedChunk(ctx, chunkLink2After)
 	require.NoError(t, err)
 	require.Equal(t, raw2, raw2After)
+}
+
+func TestCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2, false)
+	require.NoError(t, err)
+	defer subject.Close()
+
+	// Chunk some data
+	wantCids1 := testutil.RandomCids(t, rng, 10)
+	require.NoError(t, err)
+	chunkLink1, err := subject.Chunk(ctx, getMhIterator(t, wantCids1))
+	require.NoError(t, err)
+	raw1, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	gotEntryChunk1 := requireDecodeAsEntryChunk(t, chunkLink1, raw1)
+	requireChunkEntriesMatch(t, gotEntryChunk1, wantCids1)
+	require.Nil(t, gotEntryChunk1.Next)
+	require.Equal(t, 1, subject.Len())
+
+	// Close off the test subject
+	require.NoError(t, subject.Close())
+
+	// Corrupt the cached data.
+	key2 := chunker.DSKey(chunkLink1)
+	err = store.Put(ctx, key2, []byte("fish"))
+	require.NoError(t, err)
+
+	// Instantiate a new test subject with purge true
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1, true)
+	require.NoError(t, err)
+
+	// Assert that data is cleared.
+	raw1Again, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	require.Nil(t, raw1Again)
+	require.Equal(t, 0, subject.Len())
+}
+
+func TestCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2, false)
+	require.NoError(t, err)
+	defer subject.Close()
+
+	// Chunk some data
+	wantCids1 := testutil.RandomCids(t, rng, 10)
+	require.NoError(t, err)
+	chunkLink1, err := subject.Chunk(ctx, getMhIterator(t, wantCids1))
+	require.NoError(t, err)
+	raw1, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	gotEntryChunk1 := requireDecodeAsEntryChunk(t, chunkLink1, raw1)
+	requireChunkEntriesMatch(t, gotEntryChunk1, wantCids1)
+	require.Nil(t, gotEntryChunk1.Next)
+	require.Equal(t, 1, subject.Len())
+
+	// Close off the test subject
+	require.NoError(t, subject.Close())
+
+	// Instantiate a new test subject with purge true
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1, true)
+	require.NoError(t, err)
+
+	// Assert that data is cleared.
+	raw1Again, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	require.Nil(t, raw1Again)
+	require.Equal(t, 0, subject.Len())
 }
 
 func requireChunkIsCached(t *testing.T, e *chunker.CachedEntriesChunker, l ...ipld.Link) {

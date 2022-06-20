@@ -100,8 +100,12 @@ type CachedEntriesChunker struct {
 //
 // The context is only used cancel a call to this function while it is accessing the data store.
 //
+// The purge flag specifies whether any existing cache should be cleared on startup. If set, any
+// existing cached chunks will be deleted from the datastore. Otherwise, the previously cached
+// entries are restored.
+//
 // See CachedEntriesChunker.Chunk, CachedEntriesChunker.GetRawCachedChunk
-func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, chunkSize, capacity int) (*CachedEntriesChunker, error) {
+func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, chunkSize, capacity int, purge bool) (*CachedEntriesChunker, error) {
 	ls := &CachedEntriesChunker{
 		ds:        ds,
 		lsys:      cidlink.DefaultLinkSystem(),
@@ -113,13 +117,23 @@ func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, chunkSi
 	ls.lsys.StorageWriteOpener = ls.storageWriteOpener
 	ls.cache.OnEvicted = ls.onEvicted
 
+	// If cache is to be cleared don't bother restoring it.
+	if purge {
+		if err := ls.Clear(ctx); err != nil {
+			log.Errorw("Failed to clear cache", "err", err)
+			return nil, err
+		}
+		log.Info("Cleared cache successfully on start up.")
+		return ls, nil
+	}
+
 	if err := ls.restoreCache(ctx); err != nil {
 		log.Warnw("Failed to restore cache; falling back on clearing all cached chunks", "err", err)
 		if err := ls.Clear(ctx); err != nil {
 			log.Errorw("Failed to clear cache", "err", err)
 			return nil, err
 		}
-		log.Info("Cleared all cached chunks")
+		log.Info("Cleared all cached chunks successfully since restore failed.")
 	}
 
 	return ls, nil
