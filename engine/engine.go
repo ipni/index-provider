@@ -92,21 +92,13 @@ func New(o ...Option) (*Engine, error) {
 //
 // See: Engine.Shutdown, chunker.NewCachedEntriesChunker, dtsync.NewPublisherFromExisting.
 func (e *Engine) Start(ctx context.Context) error {
+	var err error
 	// Create datastore entriesChunker
 	entriesCacheDs := dsn.Wrap(e.ds, datastore.NewKey(linksCachePath))
-	cachedChunker, err := chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.entChunkSize, e.entCacheCap)
+	e.entriesChunker, err = chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.entChunkSize, e.entCacheCap, e.purgeCache)
 	if err != nil {
 		return err
 	}
-
-	if e.purgeCache {
-		err := cachedChunker.Clear(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	e.entriesChunker = cachedChunker
 
 	e.publisher, err = e.newPublisher()
 	if err != nil {
