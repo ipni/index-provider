@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func RandomCids(t *testing.T, rng *rand.Rand, n int) []cid.Cid {
+func RandomCids(t testing.TB, rng *rand.Rand, n int) []cid.Cid {
 	prefix := schema.Linkproto.Prefix
 
 	cids := make([]cid.Cid, n)

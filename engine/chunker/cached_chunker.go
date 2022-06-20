@@ -128,7 +128,7 @@ func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, chunkSi
 	}
 
 	if err := ls.restoreCache(ctx); err != nil {
-		log.Warnw("Failed to restore cache; falling back on clearing all cached chunks", "err", err)
+		log.Warnw("Failed to restore cache due to either corruption or format change. Falling back on clearing all cached chunks", "err", err)
 		if err := ls.Clear(ctx); err != nil {
 			log.Errorw("Failed to clear cache", "err", err)
 			return nil, err
@@ -227,6 +227,7 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 
 	mhs := make([]multihash.Multihash, 0, ls.chunkSize)
 	var chunkLinks []ipld.Link
+	var chunkLinksEnc []byte
 	var next ipld.Link
 	var mhCount, chunkCount int
 	for {
@@ -249,6 +250,7 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 				return nil, err
 			}
 			chunkLinks = append(chunkLinks, next)
+			chunkLinksEnc = append(chunkLinksEnc, next.(cidlink.Link).Cid.Bytes()...)
 			chunkCount++
 			// NewLinkedListOfMhs makes it own copy, so safe to reuse mhs
 			mhs = mhs[:0]
@@ -264,6 +266,7 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 			return nil, err
 		}
 		chunkLinks = append(chunkLinks, next)
+		chunkLinksEnc = append(chunkLinksEnc, next.(cidlink.Link).Cid.Bytes()...)
 		chunkCount++
 	}
 
@@ -271,7 +274,7 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 	if err != nil {
 		return nil, err
 	}
-	err = ls.ds.Put(ctx, ls.dsRootPrefixedKey(next), nil)
+	err = ls.ds.Put(ctx, ls.dsRootPrefixedKey(next), chunkLinksEnc)
 	if err != nil {
 		return nil, err
 	}
@@ -361,8 +364,7 @@ func (ls *CachedEntriesChunker) Close() error {
 func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 	// Query the root keys of entries chains.
 	q := dsq.Query{
-		Prefix:   rootKeyPrefix.String(),
-		KeysOnly: true,
+		Prefix: rootKeyPrefix.String(),
 	}
 
 	results, err := ls.ds.Query(ctx, q)
@@ -381,15 +383,33 @@ func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 			return fmt.Errorf("cannot read cache key: %w", r.Error)
 		}
 
-		// Extract the root link from its datastore key
-		rawKey := datastore.RawKey(r.Key)
-		l, err := ls.linkFromDsCachePrefixedKey(rawKey)
-		if err != nil {
-			return err
+		// The old cache format stored only root CID and traversed the DAG to collect its links
+		// during restore. To improve speed in restoring the cache, the new format stores the list
+		// of all links in the datastore. If no value is found for the root CID then we are most
+		// likely dealing with old cache format.
+		// Check this case and return an error. The error would mean the cache gets cleared anyway
+		// and will be rebuilt with the new format.
+		if len(r.Value) == 0 {
+			return errors.New("no value found for root key; old cache format")
 		}
 
 		// List all of root's successive links by traversing the chain
-		links, err := ls.listEntriesChainLinks(ctx, l)
+		var links []ipld.Link
+		vr := bytes.NewReader(r.Value)
+		for {
+			_, c, err := cid.CidFromReader(vr)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			links = append(links, cidlink.Link{Cid: c})
+		}
+
+		// Extract the root link from its datastore key
+		rawKey := datastore.RawKey(r.Key)
+		l, err := ls.linkFromDsCachePrefixedKey(rawKey)
 		if err != nil {
 			return err
 		}
@@ -450,7 +470,7 @@ func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 	return nil
 }
 
-// performOnCache is a utility to perform operatons in CachedEntriesChunker.cache to safely set
+// performOnCache is a utility to perform operations in CachedEntriesChunker.cache to safely set
 // the context to be used during eviction and return errors that may occur as a result of
 // eviction if performing the given action indeed causes it.
 func (ls *CachedEntriesChunker) performOnCache(ctx context.Context, action func(*lru.Cache)) error {
@@ -462,34 +482,6 @@ func (ls *CachedEntriesChunker) performOnCache(ctx context.Context, action func(
 	action(ls.cache)
 	err := ls.onEvictedErr
 	return err
-}
-
-// listEntriesChainLinks lists the links to the entries chain with given root.
-// The returned list will always include the root itself.
-//
-// Note that if traversal of the chain partially fails any links listed so far will be returned
-// along with the error.
-func (ls *CachedEntriesChunker) listEntriesChainLinks(ctx context.Context, root ipld.Link) ([]ipld.Link, error) {
-	var links []ipld.Link
-	lCtx := ipld.LinkContext{Ctx: ctx}
-	next := root
-	for {
-		n, err := ls.lsys.Load(lCtx, next, schema.EntryChunkPrototype)
-		if err != nil {
-			return links, err
-		}
-		chunk, err := schema.UnwrapEntryChunk(n)
-		if err != nil {
-			return links, err
-		}
-		links = append(links, next)
-
-		if chunk.Next == nil {
-			break
-		}
-		next = *chunk.Next
-	}
-	return links, nil
 }
 
 // Cap returns the maximum number of chained entries chunks this cache stores.
