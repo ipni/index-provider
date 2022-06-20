@@ -296,7 +296,7 @@ func TestCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T) {
 
 	// Corrupt the second cached data.
 	require.NoError(t, subject.Close())
-	key2 := chunker.DSKey(chunkLink2)
+	key2 := chunker.RootPrefixedDSKey(chunkLink2)
 	err = store.Put(ctx, key2, []byte("fish"))
 	require.NoError(t, err)
 
@@ -328,47 +328,6 @@ func TestCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T) {
 	require.Equal(t, raw2, raw2After)
 }
 
-func TestCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2, false)
-	require.NoError(t, err)
-	defer subject.Close()
-
-	// Chunk some data
-	wantCids1 := testutil.RandomCids(t, rng, 10)
-	require.NoError(t, err)
-	chunkLink1, err := subject.Chunk(ctx, getMhIterator(t, wantCids1))
-	require.NoError(t, err)
-	raw1, err := subject.GetRawCachedChunk(ctx, chunkLink1)
-	require.NoError(t, err)
-	gotEntryChunk1 := requireDecodeAsEntryChunk(t, chunkLink1, raw1)
-	requireChunkEntriesMatch(t, gotEntryChunk1, wantCids1)
-	require.Nil(t, gotEntryChunk1.Next)
-	require.Equal(t, 1, subject.Len())
-
-	// Close off the test subject
-	require.NoError(t, subject.Close())
-
-	// Corrupt the cached data.
-	key2 := chunker.DSKey(chunkLink1)
-	err = store.Put(ctx, key2, []byte("fish"))
-	require.NoError(t, err)
-
-	// Instantiate a new test subject with purge true
-	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1, true)
-	require.NoError(t, err)
-
-	// Assert that data is cleared.
-	raw1Again, err := subject.GetRawCachedChunk(ctx, chunkLink1)
-	require.NoError(t, err)
-	require.Nil(t, raw1Again)
-	require.Equal(t, 0, subject.Len())
-}
-
 func TestCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -394,6 +353,11 @@ func TestCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.
 	// Close off the test subject
 	require.NoError(t, subject.Close())
 
+	// Corrupt the cached data.
+	key2 := chunker.RootPrefixedDSKey(chunkLink1)
+	err = store.Put(ctx, key2, []byte("fish"))
+	require.NoError(t, err)
+
 	// Instantiate a new test subject with purge true
 	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1, true)
 	require.NoError(t, err)
@@ -402,6 +366,71 @@ func TestCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.
 	raw1Again, err := subject.GetRawCachedChunk(ctx, chunkLink1)
 	require.NoError(t, err)
 	require.Nil(t, raw1Again)
+	require.Equal(t, 0, subject.Len())
+}
+
+func TestCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, 10, 2, false)
+	require.NoError(t, err)
+	defer subject.Close()
+
+	// Chunk some data
+	wantCids1 := testutil.RandomCids(t, rng, 10)
+	require.NoError(t, err)
+	chunkLink1, err := subject.Chunk(ctx, getMhIterator(t, wantCids1))
+	require.NoError(t, err)
+	raw1, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	gotEntryChunk1 := requireDecodeAsEntryChunk(t, chunkLink1, raw1)
+	requireChunkEntriesMatch(t, gotEntryChunk1, wantCids1)
+	require.Nil(t, gotEntryChunk1.Next)
+	require.Equal(t, 1, subject.Len())
+
+	// Close off the test subject
+	require.NoError(t, subject.Close())
+
+	// Instantiate a new test subject with purge true
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, 10, 1, true)
+	require.NoError(t, err)
+
+	// Assert that data is cleared.
+	raw1Again, err := subject.GetRawCachedChunk(ctx, chunkLink1)
+	require.NoError(t, err)
+	require.Nil(t, raw1Again)
+	require.Equal(t, 0, subject.Len())
+}
+
+func TestCachedEntriesChunker_OldFormatIsHandledGracefully(t *testing.T) {
+	rng := rand.New(rand.NewSource(1413))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	chunkSize := 7
+	capacity := 13
+	store := dssync.MutexWrap(datastore.NewMapDatastore())
+	subject, err := chunker.NewCachedEntriesChunker(ctx, store, chunkSize, capacity, false)
+	require.NoError(t, err)
+	defer subject.Close()
+
+	// Chunk and cache a multihash iterator.
+	root, err := subject.Chunk(ctx, getRandomMhIterator(t, rng, 50))
+	require.NoError(t, err)
+
+	// Close off the test subject
+	require.NoError(t, subject.Close())
+
+	// Clear the value associated to root key to mimic the old format.
+	rootKey := chunker.RootPrefixedDSKey(root)
+	err = store.Put(ctx, rootKey, nil)
+	require.NoError(t, err)
+
+	subject, err = chunker.NewCachedEntriesChunker(ctx, store, chunkSize, capacity, false)
+	require.NoError(t, err)
 	require.Equal(t, 0, subject.Len())
 }
 
@@ -459,12 +488,12 @@ func requireDecodeAsEntryChunk(t *testing.T, l ipld.Link, value []byte) *schema.
 	return chunk
 }
 
-func getRandomMhIterator(t *testing.T, rng *rand.Rand, mhCount int) provider.MultihashIterator {
+func getRandomMhIterator(t testing.TB, rng *rand.Rand, mhCount int) provider.MultihashIterator {
 	cids := testutil.RandomCids(t, rng, mhCount)
 	return getMhIterator(t, cids)
 }
 
-func getMhIterator(t *testing.T, cids []cid.Cid) provider.MultihashIterator {
+func getMhIterator(t testing.TB, cids []cid.Cid) provider.MultihashIterator {
 	idx := index.NewMultihashSorted()
 	var records []index.Record
 	for i, c := range cids {
