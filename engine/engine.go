@@ -39,7 +39,7 @@ var (
 	dsLatestAdvKey = datastore.NewKey(latestAdvKey)
 )
 
-// Engine is an implementation of the core reference provider interface
+// Engine is an implementation of the core reference provider interface.
 type Engine struct {
 	*options
 	lsys ipld.LinkSystem
@@ -54,25 +54,30 @@ type Engine struct {
 
 var _ provider.Interface = (*Engine)(nil)
 
-// New creates a new index provider Engine as the default implementation of provider.Interface.
-// It provides the ability to advertise the availability of a list of multihashes associated to
-// a context ID as a chain of linked advertisements as defined by the indexer node protocol implemented by "storetheindex".
-// Engine internally uses "go-legs", a protocol for propagating and synchronizing changes an IPLD DAG, to publish advertisements.
-// See:
+// New creates a new index provider Engine as the default implementation of
+// provider.Interface. It provides the ability to advertise the availability of
+// a list of multihashes associated to a context ID as a chain of linked
+// advertisements as defined by the indexer node protocol implemented by
+// "storetheindex".
+//
+// Engine internally uses "go-legs", a protocol for propagating and
+// synchronizing changes an IPLD DAG, to publish advertisements. See:
+//
 //  - https://github.com/filecoin-project/storetheindex
 //  - https://github.com/filecoin-project/go-legs
 //
-// Published advertisements are signed using the given private key.
-// The retAddrs corresponds to the endpoints at which the data block associated to the advertised
-// multihashes can be retrieved.
-// Note that if no retAddrs is specified the listen addresses of the given libp2p host are used.
+// Published advertisements are signed using the given private key. The
+// retAddrs corresponds to the endpoints at which the data block associated to
+// the advertised multihashes can be retrieved. If no retAddrs are specified,
+// then use the listen addresses of the given libp2p host.
 //
-// The engine also provides the ability to generate advertisements via Engine.NotifyPut and
-// Engine.NotifyRemove as long as a provider.MultihashLister is registered.
-// See: provider.MultihashLister, Engine.RegisterMultihashLister.
+// The engine also provides the ability to generate advertisements via
+// Engine.NotifyPut and Engine.NotifyRemove as long as a
+// provider.MultihashLister is registered. See: provider.MultihashLister,
+// Engine.RegisterMultihashLister.
 //
-// The engine must be started via Engine.Start before use and discarded via Engine.Shutdown when no longer needed.
-// See: Engine.Start, Engine.Shutdown.
+// The engine must be started via Engine.Start before use and discarded via
+// Engine.Shutdown when no longer needed.
 func New(o ...Option) (*Engine, error) {
 	opts, err := newOptions(o...)
 	if err != nil {
@@ -88,15 +93,15 @@ func New(o ...Option) (*Engine, error) {
 	return e, nil
 }
 
-// Start starts the engine by instantiating the internal storage and joins the configured gossipsub
-// topic used for publishing advertisements.
+// Start starts the engine by instantiating the internal storage and joining
+// the configured gossipsub topic used for publishing advertisements.
 //
-// The context is used to instantiate the internal LRU cache storage.
-//
-// See: Engine.Shutdown, chunker.NewCachedEntriesChunker, dtsync.NewPublisherFromExisting.
+// The context is used to instantiate the internal LRU cache storage. See:
+// Engine.Shutdown, chunker.NewCachedEntriesChunker,
+// dtsync.NewPublisherFromExisting
 func (e *Engine) Start(ctx context.Context) error {
 	var err error
-	// Create datastore entriesChunker
+	// Create datastore entriesChunker.
 	entriesCacheDs := dsn.Wrap(e.ds, datastore.NewKey(linksCachePath))
 	e.entriesChunker, err = chunker.NewCachedEntriesChunker(ctx, entriesCacheDs, e.entChunkSize, e.entCacheCap, e.purgeCache)
 	if err != nil {
@@ -149,10 +154,11 @@ func (e *Engine) newPublisher() (legs.Publisher, error) {
 	}
 }
 
-// PublishLocal stores the advertisement in the local link system and marks it locally as the latest
-// advertisement.
+// PublishLocal stores the advertisement in the local link system and marks it
+// locally as the latest advertisement.
 //
-// The context is used for storing internal mapping information onto the datastore.
+// The context is used for storing internal mapping information onto the
+// datastore.
 //
 // See: Engine.Publish.
 func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
@@ -182,9 +188,9 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	return c, nil
 }
 
-// Publish stores the given advertisement locally via Engine.PublishLocal first, then publishes
-// a message onto the gossipsub to signal the change in the latest advertisement by the provider to
-// indexer nodes.
+// Publish stores the given advertisement locally via Engine.PublishLocal
+// first, then publishes a message onto the gossipsub to signal the change in
+// the latest advertisement by the provider to indexer nodes.
 //
 // The publication mechanism uses legs.Publisher internally.
 // See: https://github.com/filecoin-project/go-legs
@@ -244,7 +250,8 @@ func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
 	return adCid, nil
 }
 
-// PublishLatestHTTP publishes the latest existing advertisement to a specific indexer.
+// PublishLatestHTTP publishes the latest existing advertisement to a specific
+// indexer.
 func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) (cid.Cid, error) {
 	adCid, err := e.latestAdToPublish(ctx)
 	if err != nil {
@@ -282,12 +289,13 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) (cid
 	return adCid, nil
 }
 
-// RegisterMultihashLister registers a provider.MultihashLister that is used to look up the
-// list of multihashes associated to a context ID. At least one such registration
-// must be registered before calls to Engine.NotifyPut and Engine.NotifyRemove.
+// RegisterMultihashLister registers a provider.MultihashLister that is used to
+// look up the list of multihashes associated to a context ID. At least one
+// such registration must be registered before calls to Engine.NotifyPut and
+// Engine.NotifyRemove.
 //
-// Note that successive calls to this function will replace the previous registration.
-// Only a single registration is supported.
+// Note that successive calls to this function will replace the previous
+// registration. Only a single registration is supported.
 //
 // See: provider.Interface
 func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
@@ -299,30 +307,32 @@ func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
 
 // NotifyPut publishes an advertisement that signals the list of multihashes
 // associated to the given contextID is available by this provider with the
-// given metadata. A provider.MultihashLister is required, and is used to look up the
-// list of multihashes associated to a context ID.
+// given metadata. A provider.MultihashLister is required, and is used to look
+// up the list of multihashes associated to a context ID.
 //
-// Note that prior to calling this function a provider.MultihashLister must be registered.
+// Note that prior to calling this function a provider.MultihashLister must be
+// registered.
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
-	// The multihash lister must have been registered for the linkSystem to know how to
-	// go from contextID to list of CIDs.
+	// The multihash lister must have been registered for the linkSystem to
+	// know how to go from contextID to list of CIDs.
 	return e.publishAdvForIndex(ctx, contextID, md, false)
 }
 
-// NotifyRemove publishes an advertisement that signals the list of multihashes associated to the given
-// contextID is no longer available by this provider.
+// NotifyRemove publishes an advertisement that signals the list of multihashes
+// associated to the given contextID is no longer available by this provider.
 //
-// Note that prior to calling this function a provider.MultihashLister must be registered.
+// Note that prior to calling this function a provider.MultihashLister must be
+// registered.
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
 	return e.publishAdvForIndex(ctx, contextID, metadata.Metadata{}, true)
 }
 
-// Shutdown shuts down the engine and discards all resources opened by the engine.
-// The engine is no longer usable after the call to this function.
+// Shutdown shuts down the engine and discards all resources opened by the
+// engine. The engine is no longer usable after the call to this function.
 func (e *Engine) Shutdown() error {
 	var errs error
 	if e.publisher != nil {
@@ -336,8 +346,8 @@ func (e *Engine) Shutdown() error {
 	return errs
 }
 
-// GetAdv gets the advertisement associated to the given cid c.
-// The context is not used.
+// GetAdv gets the advertisement associated to the given cid c. The context is
+// not used.
 func (e *Engine) GetAdv(_ context.Context, adCid cid.Cid) (*schema.Advertisement, error) {
 	log := log.With("cid", adCid)
 	log.Infow("Getting advertisement by CID")
@@ -350,8 +360,8 @@ func (e *Engine) GetAdv(_ context.Context, adCid cid.Cid) (*schema.Advertisement
 	return schema.UnwrapAdvertisement(n)
 }
 
-// GetLatestAdv gets the latest advertisement by the provider.  If there are
-// not previously published advertisements, then cid.Undef is returned as the
+// GetLatestAdv gets the latest advertisement by the provider. If there are no
+// previously published advertisements, then cid.Undef is returned as the
 // advertisement CID.
 func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, *schema.Advertisement, error) {
 	log.Info("Getting latest advertisement")
@@ -383,20 +393,21 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		}
 	}
 
-	// If we are not removing, we need to generate the link for the list
-	// of CIDs from the contextID using the multihash lister, and store the relationship
+	// If not removing, then generate the link for the list of
+	// CIDs from the contextID using the multihash lister, and store the
+	// relationship.
 	if !isRm {
 		log.Info("Creating advertisement")
 
 		// If no previously-published ad for this context ID.
 		if c == cid.Undef {
 			log.Info("Generating entries linked list for advertisement")
-			// If no lister registered return error
+			// If no lister registered return error.
 			if e.mhLister == nil {
 				return cid.Undef, provider.ErrNoMultihashLister
 			}
 
-			// Call the lister
+			// Call the lister.
 			mhIter, err := e.mhLister(ctx, contextID)
 			if err != nil {
 				return cid.Undef, err
@@ -409,8 +420,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 			}
 			cidsLnk = lnk.(cidlink.Link)
 
-			// Store the relationship between contextID and CID of the advertised
-			// list of Cids.
+			// Store the relationship between contextID and CID of the
+			// advertised list of Cids.
 			err = e.putKeyCidMap(ctx, contextID, cidsLnk.Cid)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("failed to write context id to entries cid mapping: %s", err)
@@ -426,7 +437,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 			}
 
 			if md.Equal(prevMetadata) {
-				// Metadata is the same; no change, no need for new advertisement.
+				// Metadata is the same; no change, no need for new
+				// advertisement.
 				return cid.Undef, provider.ErrAlreadyAdvertised
 			}
 
@@ -445,8 +457,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 			return cid.Undef, provider.ErrContextIDNotFound
 		}
 
-		// And if we are removing it means we probably do not have the list of
-		// CIDs anymore, so we can remove the entry from the datastore.
+		// If removing by context ID, it means the list of CIDs is not needed
+		// anymore, so we can remove the entry from the datastore.
 		err = e.deleteKeyCidMap(ctx, contextID)
 		if err != nil {
 			return cid.Undef, fmt.Errorf("failed to delete context id to entries cid mapping: %s", err)
@@ -465,7 +477,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		cidsLnk = schema.NoEntries
 
 		// The advertisement still requires a valid metadata even though
-		// metadata is not used for removal.  Create a valid empty metadata.
+		// metadata is not used for removal. Create a valid empty metadata.
 		md = metadata.New(metadata.Bitswap{})
 	}
 
@@ -483,7 +495,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		IsRm:      isRm,
 	}
 
-	// Get the previous advertisement that was generated
+	// Get the previous advertisement that was generated.
 	prevAdvID, err := e.getLatestAdCid(ctx)
 	if err != nil {
 		return cid.Undef, fmt.Errorf("could not get latest advertisement: %s", err)
@@ -505,14 +517,14 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 }
 
 func (e *Engine) putKeyCidMap(ctx context.Context, contextID []byte, c cid.Cid) error {
-	// We need to store the map Key-Cid to know what CidLink to put
-	// in advertisement when we notify a removal.
+	// Store the map Key-Cid to know what CidLink to put in advertisement when
+	// notifying about a removal.
 	err := e.ds.Put(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
 	if err != nil {
 		return err
 	}
-	// And the other way around when graphsync ios making a request,
-	// so the lister in the linksystem knows to what contextID we are referring.
+	// And the other way around when graphsync is making a request, so the
+	// lister in the linksystem knows to what contextID the CID referrs to.
 	return e.ds.Put(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
 }
 
