@@ -53,3 +53,10 @@ type (
 		Paths []string `json:"paths"`
 	}
 )
+
+type (
+	AnnounceRes struct {
+		// The CID of the advertisement announced as latest.
+		AdvId cid.Cid `json:"adv_id"`
+	}
+)

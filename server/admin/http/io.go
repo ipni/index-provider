@@ -79,6 +79,14 @@ func (er *ConnectRes) ReadFrom(r io.Reader) (int64, error) {
 	return unmarshalAsJson(r, er)
 }
 
+func (er *AnnounceRes) WriteTo(w io.Writer) (int64, error) {
+	return marshalToJson(w, er)
+}
+
+func (er *AnnounceRes) ReadFrom(r io.Reader) (int64, error) {
+	return unmarshalAsJson(r, er)
+}
+
 func respond(w http.ResponseWriter, statusCode int, body io.WriterTo) {
 	w.WriteHeader(statusCode)
 	// Attempt to serialize body as JSON

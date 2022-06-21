@@ -42,6 +42,7 @@ func run() int {
 		Version: version,
 		Commands: []*cli.Command{
 			AnnounceCmd,
+			AnnounceHttpCmd,
 			ConnectCmd,
 			DaemonCmd,
 			FindCmd,
