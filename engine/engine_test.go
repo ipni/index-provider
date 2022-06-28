@@ -32,10 +32,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var testLimiter = func(publisher peer.ID) *rate.Limiter {
-	return rate.NewLimiter(100, 10)
-}
-
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -220,7 +216,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	ls.SetReadStorage(store)
 	ls.SetWriteStorage(store)
 
-	sync, err := dtsync.NewSync(subHost, ds, ls, nil, testLimiter)
+	sync, err := dtsync.NewSync(subHost, ds, ls, nil)
 	require.NoError(t, err)
 	syncer := sync.NewSyncer(subject.Host().ID(), topic, rate.NewLimiter(100, 10))
 	gotHead, err := syncer.GetHead(ctx)

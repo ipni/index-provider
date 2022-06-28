@@ -12,7 +12,12 @@ func (ls *CachedEntriesChunker) CountOverlap(ctx context.Context, link ipld.Link
 	return ls.countOverlap(ctx, link)
 }
 
-// DSKey is exposed for testing purposes only.
-func DSKey(l ipld.Link) datastore.Key {
-	return dsKey(l)
+// LinkSystem is exposed for testing purposes only.
+func (ls *CachedEntriesChunker) LinkSystem() ipld.LinkSystem {
+	return ls.lsys
+}
+
+// RootPrefixedDSKey is exposed for testing purposes only.
+func RootPrefixedDSKey(l ipld.Link) datastore.Key {
+	return rootKeyPrefix.Child(dsKey(l))
 }

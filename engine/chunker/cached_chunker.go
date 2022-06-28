@@ -10,16 +10,15 @@ import (
 	"sync"
 
 	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/golang/groupcache/lru"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/multiformats/go-multihash"
 )
 
 var (
@@ -30,69 +29,84 @@ var (
 	loverlapKeyPrefix = datastore.NewKey("overlap")
 )
 
-// CachedEntriesChunker is an EntriesChunker that caches the generated chunks using an LRU cache.
-// The chunks within a chain are guaranteed to either be fully cached or not at all.
-// If the chains overlap, the smaller overlapping portion is not evicted unless all the chains that
-// reference to it are evicted.
-//
-// The number of chains cached will be at most equal to the given capacity. The capacity is
-// immutable. Chains are evicted as needed if the capacity is reached.
-//
-// This cache restores previously cached values from the datastore upon instantiation. If the
-// capacity is smaller than the number of chains persisted, the surplus chains will be evicted in no
-// particular order.
-//
-// See: NewCachedEntriesChunker.
-type CachedEntriesChunker struct {
-	// ds is the backing storage for the cached etry chunks and the caching metadata.
-	ds datastore.Batching
-	// lsys is used to store the IPLD representation of cached entry chunks.
-	lsys ipld.LinkSystem
-	// chunkSize is the maximum number of mulithashes to include within a schema.EntryChunk.
-	chunkSize int
-	// cache is the LRU cache used to determine the chains to keep and the chains to evict from the
-	// backing datastore in order of least recently used.
+type (
+	// CachedEntriesChunker is an EntriesChunker that caches the generated chunks using an LRU cache.
+	// The chunks can be formatted as any DAG with two current implementations: HamtChunker and
+	// ChainChunker.
 	//
-	// The cache uses link to root of a chain as key and a slice of links that make up the chain as
-	// value. The rationale behind setting the list of chain links as value is to avoid having to
-	// traverse the chain to learn what to delete should the chain be evicted. This makes eviction
-	// faster in exchange for slightly larger memory footprint. Only cache keys are persisted in the
-	// datastore. During restore, the chain is indeed traversed to populate cache values. See
-	// CachedEntriesChunker.restoreCache.
+	// The DAGs are guaranteed to either be fully cached or not at all. If DAGs overlap, the smaller
+	// overlapping portion is not evicted unless all the DAGs that link to it are evicted.
 	//
-	// Note that all operations on cache must be performed via CachedEntriesChunker.performOnCache
-	// to insure context is set in case of an eviction and any errors during eviction are returned
-	// gracefully.
-	cache *lru.Cache
-	// onEvictedErr is used to signal any errors that occur during cache eviction by operations
-	// performed via CachedEntriesChunker.performOnCache.
-	onEvictedErr error
-	// onEvictedCtx is used to set the context to be used during cache eviction by operations
-	// performed via CachedEntriesChunker.performOnCache.
-	onEvictedCtx context.Context
-	// lock syncronizes the chunking, clearing the cache and reading the number of cached chains.
-	lock sync.Mutex
-}
+	// The number of DAGs cached will be at most equal to the given capacity. The capacity is
+	// immutable. DAGs are evicted as needed if the capacity is reached.
+	//
+	// See: NewCachedEntriesChunker.
+	CachedEntriesChunker struct {
+		// ds is the backing storage for the cached entry chunks and the caching metadata.
+		ds datastore.Batching
+		// lsys is used to store the IPLD representation of cached entry chunks.
+		lsys ipld.LinkSystem
+		// cache is the LRU cache used to determine the chains to keep and the chains to evict from the
+		// backing datastore in order of least recently used.
+		//
+		// The cache uses link to root of a chain as key and a slice of links that make up the chain as
+		// value. The rationale behind setting the list of chain links as value is to avoid having to
+		// traverse the chain to learn what to delete should the chain be evicted. This makes eviction
+		// faster in exchange for slightly larger memory footprint. Only cache keys are persisted in the
+		// datastore. During restore, the chain is indeed traversed to populate cache values. See
+		// CachedEntriesChunker.restoreCache.
+		//
+		// Note that all operations on cache must be performed via CachedEntriesChunker.performOnCache
+		// to insure context is set in case of an eviction and any errors during eviction are returned
+		// gracefully.
+		cache *lru.Cache
+		// onEvictedErr is used to signal any errors that occur during cache eviction by operations
+		// performed via CachedEntriesChunker.performOnCache.
+		onEvictedErr error
+		// onEvictedCtx is used to set the context to be used during cache eviction by operations
+		// performed via CachedEntriesChunker.performOnCache.
+		onEvictedCtx context.Context
+		// lock synchronizes the chunking, clearing the cache and reading the number of cached chains.
+		// Any function that performs Store on the linksystem should also grab this lock. See inline
+		// comments in Chunk.
+		lock sync.Mutex
+		// chunker is the underlying chunker that generates a DAG from a provider.MultihashIterator.
+		chunker EntriesChunker
+	}
+
+	// NewChunkerFunc instantiates the core EntriesChunker to use for generating advertisement
+	// entries DAG.
+	NewChunkerFunc func(ls *ipld.LinkSystem) (EntriesChunker, error)
+)
 
 // NewCachedEntriesChunker instantiates a new CachedEntriesChunker backed by a given datastore.
 //
-// The chunks are generated with the given maximum chunkSize and are stored in an LRU cache. Once
-// stored, the individual chunks that make up the entries chain are retrievable in their raw binary
+// The DAGs are generated with the given newChunker and are stored in an LRU cache. Once
+// stored, the individual DAGs that make up the entries chain are retrievable in their raw binary
 //  form via CachedEntriesChunker.GetRawCachedChunk.
 //
+// The shape of the DAGs is dictated by the underlying chunking logic that is instantiated once via
+// newChunker function. See: NewHamtChunkerFunc, NewChainChunkerFunc.
+//
 // The growth of LRU cache is limited by the given capacity. The capacity specifies the number of
-// complete chains that are cached, not the chunks within each chain. The actual storage consumed by
-// the cache is a factor of: 1) maximum chunk size, 2) multihash length and 3) capacity. For
-// example, a fully populated cache with chunk size of 16384, for multihashes of length 128-bit and
-// capacity of 1024 will consume 256MiB of space, i.e. (16384 * 1024 * 128b).
+// complete DAGs that are cached, not the DAGs within each chain. The actual storage consumed by
+// the cache is a factor of: 1) the DAG shape determined by the underlying chunker, 2) multihash
+// length and 3) capacity. For example, a fully populated cache with chunk size of 16384, for
+// multihashes of length 128-bit and capacity of 1024 will consume 256MiB of space, i.e.
+// (16384 * 1024 * 128b).
 //
-// This struct guarantees that for any given chain of entries, either the entire chain is cached, or
-// it is not cached at all. When chains overlap, the overlapping portion of the chain is not evicted
-// until the larger chain is evicted.
+// This implementation guarantees that for any given chain of entries, either the entire chain is
+// cached, or it is not cached at all. When chains overlap, the overlapping portion of the chain is
+// not evicted until the larger chain is evicted.
 //
-// Upon instantiation, the chunker will restore its state from the datastore, and prunes the
-// datastore as needed. For example, if the given capacity is smaller than the number of chains
-// present in the datastore it will evict chains to respect the given capacity.
+// Unless purge is set to true, upon instantiation, the chunker will restore its state from the
+// datastore, and prunes the datastore as needed. For example, if the given capacity is smaller than
+// the number of chains present in the datastore it will evict chains to respect the given capacity
+// in no particular order.
+//
+//The purge flag specifies whether any existing cache should be cleared on startup. If set, any
+// existing cached chunks will be deleted from the datastore. Otherwise, the previously cached
+// entries are restored.
 //
 // Note that a caching metadata with negligible size is persistent in addition to the chunks. The
 // caching metadata is checked during restore to determine the root of cached chains, and the number
@@ -100,26 +114,41 @@ type CachedEntriesChunker struct {
 //
 // The context is only used cancel a call to this function while it is accessing the data store.
 //
-// See CachedEntriesChunker.Chunk, CachedEntriesChunker.GetRawCachedChunk
-func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, chunkSize, capacity int) (*CachedEntriesChunker, error) {
+// See: CachedEntriesChunker.Chunk, CachedEntriesChunker.GetRawCachedChunk.
+func NewCachedEntriesChunker(ctx context.Context, ds datastore.Batching, capacity int, newChunker NewChunkerFunc, purge bool) (*CachedEntriesChunker, error) {
 	ls := &CachedEntriesChunker{
-		ds:        ds,
-		lsys:      cidlink.DefaultLinkSystem(),
-		cache:     lru.New(capacity),
-		chunkSize: chunkSize,
+		ds:    ds,
+		lsys:  cidlink.DefaultLinkSystem(),
+		cache: lru.New(capacity),
 	}
 
 	ls.lsys.StorageReadOpener = ls.storageReadOpener
 	ls.lsys.StorageWriteOpener = ls.storageWriteOpener
 	ls.cache.OnEvicted = ls.onEvicted
 
-	if err := ls.restoreCache(ctx); err != nil {
-		log.Warnw("Failed to restore cache; falling back on clearing all cached chunks", "err", err)
+	chunker, err := newChunker(&ls.lsys)
+	if err != nil {
+		return nil, err
+	}
+	ls.chunker = chunker
+
+	// If cache is to be cleared don't bother restoring it.
+	if purge {
 		if err := ls.Clear(ctx); err != nil {
 			log.Errorw("Failed to clear cache", "err", err)
 			return nil, err
 		}
-		log.Info("Cleared all cached chunks")
+		log.Info("Cleared cache successfully on start up.")
+		return ls, nil
+	}
+
+	if err := ls.restoreCache(ctx); err != nil {
+		log.Warnw("Failed to restore cache due to either corruption or format change. Falling back on clearing all cached chunks", "err", err)
+		if err := ls.Clear(ctx); err != nil {
+			log.Errorw("Failed to clear cache", "err", err)
+			return nil, err
+		}
+		log.Info("Cleared all cached chunks successfully since restore failed.")
 	}
 
 	return ls, nil
@@ -205,82 +234,57 @@ func dsKey(l ipld.Link) datastore.Key {
 	return datastore.NewKey(l.(cidlink.Link).Cid.String())
 }
 
-// Chunk chunks the multihashes supplied by the given mhi into a chain of schema.EntryChunk instances
-// and stores them.
+// Chunk chunks the multihashes supplied by the given mhi into a DAG and returns the link to root.
 func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.MultihashIterator) (ipld.Link, error) {
 	ls.lock.Lock()
-	defer ls.lock.Unlock()
+	defer func() {
+		ls.lsys.StorageWriteOpener = ls.storageWriteOpener
+		ls.lock.Unlock()
+	}()
 
-	mhs := make([]multihash.Multihash, 0, ls.chunkSize)
-	var chunkLinks []ipld.Link
-	var next ipld.Link
-	var mhCount, chunkCount int
-	for {
-		mh, err := mhi.Next()
-		if err == io.EOF {
-			break
-		}
+	var links []ipld.Link
+	var linksEnc []byte
+	// Intercept the links that are being stored.
+	// It is safe to swap the StorageWriteOpener, because:
+	//  - Chunk is the only place we expect to write to the linksystem, and
+	//  - calls to Chunk are syncronized using a lock.
+	// It is also an efficient way to collecting all the links without having to traverse the dag
+	// from the root link, or make the EntriesChunker interface more complex.
+	ls.lsys.StorageWriteOpener = func(ctx linking.LinkContext) (io.Writer, linking.BlockWriteCommitter, error) {
+		opener, committer, err := ls.storageWriteOpener(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		mhs = append(mhs, mh)
-		mhCount++
-		if len(mhs) >= ls.chunkSize {
-			cNode, err := newEntriesChunkNode(mhs, next)
-			if err != nil {
-				return nil, err
-			}
-			next, err = ls.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, cNode)
-			if err != nil {
-				return nil, err
-			}
-			chunkLinks = append(chunkLinks, next)
-			chunkCount++
-			// NewLinkedListOfMhs makes it own copy, so safe to reuse mhs
-			mhs = mhs[:0]
-		}
-	}
-	if len(mhs) != 0 {
-		cNode, err := newEntriesChunkNode(mhs, next)
-		if err != nil {
-			return nil, err
-		}
-		next, err = ls.lsys.Store(ipld.LinkContext{Ctx: ctx}, schema.Linkproto, cNode)
-		if err != nil {
-			return nil, err
-		}
-		chunkLinks = append(chunkLinks, next)
-		chunkCount++
+		return opener, func(link datamodel.Link) error {
+			links = append(links, link)
+			linksEnc = append(linksEnc, link.(cidlink.Link).Cid.Bytes()...)
+			return committer(link)
+		}, nil
 	}
 
-	err := ls.performOnCache(ctx, func(cache *lru.Cache) { cache.Add(next, chunkLinks) })
+	// Store the multihashes in mhi as a DAG and get the root link.
+	root, err := ls.chunker.Chunk(ctx, mhi)
 	if err != nil {
 		return nil, err
 	}
-	err = ls.ds.Put(ctx, ls.dsRootPrefixedKey(next), nil)
+
+	// Store internal mappings for caching purposes.
+	err = ls.performOnCache(ctx, func(cache *lru.Cache) { cache.Add(root, links) })
 	if err != nil {
 		return nil, err
 	}
-	log.Infow("Generated linked chunks of multihashes", "totalMhCount", mhCount, "chunkCount", chunkCount)
-	return next, ls.sync(ctx)
-}
-
-func newEntriesChunkNode(mhs []multihash.Multihash, next ipld.Link) (ipld.Node, error) {
-	chunk := schema.EntryChunk{
-		Entries: mhs,
+	err = ls.ds.Put(ctx, ls.dsRootPrefixedKey(root), linksEnc)
+	if err != nil {
+		return nil, err
 	}
-	if next != nil {
-		chunk.Next = &next
-	}
-	return chunk.ToNode()
+	return root, ls.sync(ctx)
 }
 
 func (ls *CachedEntriesChunker) sync(ctx context.Context) error {
 	return ls.ds.Sync(ctx, datastore.NewKey("/"))
 }
 
-// GetRawCachedChunk gets the raw cached entry chunk for the given link, or nil if no such caching
-// exists.
+// GetRawCachedChunk gets the raw cached entry chunk for the given link, or nil if no such caching exists.
 func (ls *CachedEntriesChunker) GetRawCachedChunk(ctx context.Context, l ipld.Link) ([]byte, error) {
 	raw, err := ls.ds.Get(ctx, dsKey(l))
 	if err == datastore.ErrNotFound {
@@ -347,8 +351,7 @@ func (ls *CachedEntriesChunker) Close() error {
 func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 	// Query the root keys of entries chains.
 	q := dsq.Query{
-		Prefix:   rootKeyPrefix.String(),
-		KeysOnly: true,
+		Prefix: rootKeyPrefix.String(),
 	}
 
 	results, err := ls.ds.Query(ctx, q)
@@ -367,15 +370,33 @@ func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 			return fmt.Errorf("cannot read cache key: %w", r.Error)
 		}
 
-		// Extract the root link from its datastore key
-		rawKey := datastore.RawKey(r.Key)
-		l, err := ls.linkFromDsCachePrefixedKey(rawKey)
-		if err != nil {
-			return err
+		// The old cache format stored only root CID and traversed the DAG to collect its links
+		// during restore. To improve speed in restoring the cache, the new format stores the list
+		// of all links in the datastore. If no value is found for the root CID then we are most
+		// likely dealing with old cache format.
+		// Check this case and return an error. The error would mean the cache gets cleared anyway
+		// and will be rebuilt with the new format.
+		if len(r.Value) == 0 {
+			return errors.New("no value found for root key; old cache format")
 		}
 
 		// List all of root's successive links by traversing the chain
-		links, err := ls.listEntriesChainLinks(ctx, l)
+		var links []ipld.Link
+		vr := bytes.NewReader(r.Value)
+		for {
+			_, c, err := cid.CidFromReader(vr)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			links = append(links, cidlink.Link{Cid: c})
+		}
+
+		// Extract the root link from its datastore key
+		rawKey := datastore.RawKey(r.Key)
+		l, err := ls.linkFromDsCachePrefixedKey(rawKey)
 		if err != nil {
 			return err
 		}
@@ -436,7 +457,7 @@ func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 	return nil
 }
 
-// performOnCache is a utility to perform operatons in CachedEntriesChunker.cache to safely set
+// performOnCache is a utility to perform operations in CachedEntriesChunker.cache to safely set
 // the context to be used during eviction and return errors that may occur as a result of
 // eviction if performing the given action indeed causes it.
 func (ls *CachedEntriesChunker) performOnCache(ctx context.Context, action func(*lru.Cache)) error {
@@ -448,34 +469,6 @@ func (ls *CachedEntriesChunker) performOnCache(ctx context.Context, action func(
 	action(ls.cache)
 	err := ls.onEvictedErr
 	return err
-}
-
-// listEntriesChainLinks lists the links to the entries chain with given root.
-// The returned list will always include the root itself.
-//
-// Note that if traversal of the chain partially fails any links listed so far will be returned
-// along with the error.
-func (ls *CachedEntriesChunker) listEntriesChainLinks(ctx context.Context, root ipld.Link) ([]ipld.Link, error) {
-	var links []ipld.Link
-	lCtx := ipld.LinkContext{Ctx: ctx}
-	next := root
-	for {
-		n, err := ls.lsys.Load(lCtx, next, schema.EntryChunkPrototype)
-		if err != nil {
-			return links, err
-		}
-		chunk, err := schema.UnwrapEntryChunk(n)
-		if err != nil {
-			return links, err
-		}
-		links = append(links, next)
-
-		if chunk.Next == nil {
-			break
-		}
-		next = *chunk.Next
-	}
-	return links, nil
 }
 
 // Cap returns the maximum number of chained entries chunks this cache stores.

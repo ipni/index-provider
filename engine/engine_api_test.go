@@ -33,7 +33,7 @@ func (e *Engine) LinkSystem() *ipld.LinkSystem {
 func Test_EmptyConfigSetsDefaults(t *testing.T) {
 	engine, err := New()
 	require.NoError(t, err)
-	require.True(t, engine.entChunkSize > 0)
+	require.NotNil(t, engine.chunker)
 	require.True(t, engine.entCacheCap > 0)
 	require.True(t, engine.pubTopicName != "")
 }
