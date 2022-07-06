@@ -377,7 +377,7 @@ func getOrGenerateCarIndex() (index.IterableIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	idxReader := cr.IndexReader()
+	idxReader, err := cr.IndexReader()
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,11 @@ func getOrGenerateCarIndex() (index.IterableIndex, error) {
 
 func generateIterableIndex(cr *car.Reader) (index.IterableIndex, error) {
 	idx := index.NewMultihashSorted()
-	if err := car.LoadIndex(idx, cr.DataReader()); err != nil {
+	dr, err := cr.DataReader()
+	if err != nil {
+		return nil, err
+	}
+	if err := car.LoadIndex(idx, dr); err != nil {
 		return nil, err
 	}
 	return idx, nil
