@@ -173,7 +173,10 @@ func (cs *CarSupplier) lookupIterableIndex(ctx context.Context, contextID []byte
 	if err != nil {
 		return nil, err
 	}
-	idxReader := cr.IndexReader()
+	idxReader, err := cr.IndexReader()
+	if err != nil {
+		return nil, err
+	}
 	if idxReader == nil {
 		// Missing index; generate it.
 		log.Debugw("CAR has no index; generating.")
@@ -203,7 +206,11 @@ func (cs *CarSupplier) lookupIterableIndex(ctx context.Context, contextID []byte
 
 func (cs *CarSupplier) generateIterableIndex(cr *car.Reader) (index.IterableIndex, error) {
 	idx := index.NewMultihashSorted()
-	if err := car.LoadIndex(idx, cr.DataReader(), cs.opts...); err != nil {
+	dr, err := cr.DataReader()
+	if err != nil {
+		return nil, err
+	}
+	if err := car.LoadIndex(idx, dr, cs.opts...); err != nil {
 		return nil, err
 	}
 	return idx, nil
