@@ -294,9 +294,9 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	}
 
 	errChan := make(chan error)
-	for _, announceURL := range announceURLs {
+	for _, u := range announceURLs {
 		// Send HTTP announce to indexers concurrently.
-		go func() {
+		go func(announceURL *url.URL) {
 			log.Infow("Announcing advertisement over HTTP", "url", announceURL)
 			cl, err := httpclient.New(announceURL.String())
 			if err != nil {
@@ -309,7 +309,7 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 				return
 			}
 			errChan <- nil
-		}()
+		}(u)
 	}
 
 	var errs error
