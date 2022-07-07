@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"sync"
 
 	"github.com/filecoin-project/go-legs"
@@ -162,7 +163,6 @@ func (e *Engine) newPublisher() (legs.Publisher, error) {
 //
 // See: Engine.Publish.
 func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
-
 	if err := adv.Validate(); err != nil {
 		return cid.Undef, err
 	}
@@ -180,7 +180,7 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	log := log.With("adCid", c)
 	log.Info("Stored ad in local link system")
 
-	if err := e.putLatestAdv(ctx, c.Bytes()); err != nil {
+	if err = e.putLatestAdv(ctx, c.Bytes()); err != nil {
 		log.Errorw("Failed to update reference to the latest advertisement", "err", err)
 		return cid.Undef, fmt.Errorf("failed to update reference to latest advertisement: %w", err)
 	}
@@ -204,13 +204,20 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	// Only announce the advertisement CID if publisher is configured.
 	if e.publisher != nil {
 		log := log.With("adCid", c)
-		log.Info("Publishing advertisement in pubsub channel")
+		log.Info("Announcing advertisement in pubsub channel")
 		err = e.publisher.UpdateRoot(ctx, c)
 		if err != nil {
 			log.Errorw("Failed to announce advertisement on pubsub channel ", "err", err)
 			return cid.Undef, err
 		}
+
+		err = e.httpAnnounce(ctx, c, e.announceURLs)
+		if err != nil {
+			log.Errorw("Failed to announce advertisement via http", "err", err)
+			return cid.Undef, err
+		}
 	}
+
 	return c, nil
 }
 
@@ -250,14 +257,23 @@ func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
 	return adCid, nil
 }
 
-// PublishLatestHTTP publishes the latest existing advertisement to a specific
-// indexer.
-func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) (cid.Cid, error) {
+// PublishLatestHTTP publishes the latest existing advertisement to the
+// specific indexers.
+func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL) (cid.Cid, error) {
 	adCid, err := e.latestAdToPublish(ctx)
 	if err != nil {
 		return cid.Undef, err
 	}
 
+	err = e.httpAnnounce(ctx, adCid, announceURLs)
+	if err != nil {
+		return cid.Undef, err
+	}
+
+	return adCid, nil
+}
+
+func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs []*url.URL) error {
 	ai := &peer.AddrInfo{
 		ID: e.h.ID(),
 	}
@@ -265,28 +281,45 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, indexerHost string) (cid
 	switch e.pubKind {
 	case NoPublisher:
 		log.Info("Remote announcements disabled")
-		return cid.Undef, nil
+		return nil
 	case DataTransferPublisher:
 		ai.Addrs = e.h.Addrs()
 	case HttpPublisher:
 		maddr, err := hostToMultiaddr(e.pubHttpListenAddr)
 		if err != nil {
-			return cid.Undef, err
+			return err
 		}
 		proto, _ := multiaddr.NewMultiaddr("/http")
 		ai.Addrs = append(ai.Addrs, multiaddr.Join(maddr, proto))
 	}
 
-	cl, err := httpclient.New(indexerHost)
-	if err != nil {
-		return cid.Undef, err
+	errChan := make(chan error)
+	for _, announceURL := range announceURLs {
+		// Send HTTP announce to indexers concurrently.
+		go func() {
+			log.Infow("Announcing advertisement over HTTP", "url", announceURL)
+			cl, err := httpclient.New(announceURL.String())
+			if err != nil {
+				errChan <- fmt.Errorf("failed to create http client for indexer %s: %w", announceURL, err)
+				return
+			}
+			err = cl.Announce(ctx, ai, adCid)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to send http announce to indexer %s: %w", announceURL, err)
+				return
+			}
+			errChan <- nil
+		}()
 	}
 
-	if err = cl.Announce(ctx, ai, adCid); err != nil {
-		return cid.Undef, err
+	var errs error
+	for i := 0; i < len(announceURLs); i++ {
+		err := <-errChan
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
-
-	return adCid, nil
+	return errs
 }
 
 // RegisterMultihashLister registers a provider.MultihashLister that is used to

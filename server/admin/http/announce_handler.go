@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 func (s *Server) announceHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +39,13 @@ func (s *Server) announceHttpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adCid, err := s.e.PublishLatestHTTP(r.Context(), string(indexer))
+	indexerURL, err := url.Parse(string(indexer))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	adCid, err := s.e.PublishLatestHTTP(r.Context(), indexerURL)
 	if err != nil {
 		log.Errorw("Could not publish latest advertisement via http", "err", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

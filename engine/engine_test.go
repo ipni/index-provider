@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	"sort"
 	"testing"
 	"time"
@@ -127,7 +129,58 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	pubT, err := pubG.Join(topic)
 	require.NoError(t, err)
 
+	announceErrChan := make(chan error, 1)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer close(announceErrChan)
+		defer r.Body.Close()
+		// Decode CID and originator addresses from message.
+		an := dtsync.Message{}
+		if err := an.UnmarshalCBOR(r.Body); err != nil {
+			announceErrChan <- err
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if len(an.Addrs) == 0 {
+			err = errors.New("must specify location to fetch on direct announcments")
+			announceErrChan <- err
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		addrs, err := an.GetAddrs()
+		if err != nil {
+			announceErrChan <- err
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		ais, err := peer.AddrInfosFromP2pAddrs(addrs...)
+		if err != nil {
+			announceErrChan <- err
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		if len(ais) > 1 {
+			err = errors.New("peer id must be the same for all addresses")
+			announceErrChan <- err
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		addrInfo := ais[0]
+		if addrInfo.ID != pubHost.ID() {
+			err = errors.New("wrong publisher ID")
+			announceErrChan <- err
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
 	subject, err := engine.New(
+		engine.WithDirectAnnounce(ts.URL),
 		engine.WithHost(pubHost),
 		engine.WithPublisherKind(engine.DataTransferPublisher),
 		engine.WithTopic(pubT),
@@ -184,6 +237,12 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	gotPublishedAdCid, err := subject.Publish(ctx, wantAd)
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPublishedAdCid)
+
+	// Explicitly check for an error from test server receiving the announce
+	// request. This way an error is detected whether or not a failure to send
+	// an HTTP announce message causes engine.Publish() to fail.
+	err = <-announceErrChan
+	require.NoError(t, err)
 
 	gotLatestAdCid, gotLatestAd, err := subject.GetLatestAdv(ctx)
 	require.NoError(t, err)

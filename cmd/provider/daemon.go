@@ -125,6 +125,7 @@ func daemonCommand(cctx *cli.Context) error {
 	eng, err := engine.New(
 		engine.WithDatastore(ds),
 		engine.WithDataTransfer(dt),
+		engine.WithDirectAnnounce(cfg.DirectAnnounce.URLs...),
 		engine.WithHost(h),
 		engine.WithEntriesCacheCapacity(cfg.Ingest.LinkCacheSize),
 		engine.WithChainedEntries(cfg.Ingest.LinkedChunkSize),
