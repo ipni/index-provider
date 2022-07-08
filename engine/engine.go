@@ -282,6 +282,8 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 		ID: e.h.ID(),
 	}
 
+	// The publisher kind determines what addresses to put into the announce
+	// message.
 	switch e.pubKind {
 	case NoPublisher:
 		log.Info("Remote announcements disabled")
