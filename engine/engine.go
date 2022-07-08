@@ -274,6 +274,10 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL
 }
 
 func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs []*url.URL) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	ai := &peer.AddrInfo{
 		ID: e.h.ID(),
 	}
@@ -295,7 +299,8 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 
 	errChan := make(chan error)
 	for _, u := range announceURLs {
-		// Send HTTP announce to indexers concurrently.
+		// Send HTTP announce to indexers concurrently. If context is canceled,
+		// then Announce requests will be canceled.
 		go func(announceURL *url.URL) {
 			log.Infow("Announcing advertisement over HTTP", "url", announceURL)
 			cl, err := httpclient.New(announceURL.String())
