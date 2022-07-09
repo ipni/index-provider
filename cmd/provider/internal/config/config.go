@@ -17,6 +17,7 @@ type Config struct {
 	ProviderServer ProviderServer
 	AdminServer    AdminServer
 	Bootstrap      Bootstrap
+	DirectAnnounce DirectAnnounce
 }
 
 const (
@@ -99,6 +100,7 @@ func Load(filePath string) (*Config, error) {
 		Ingest:         NewIngest(),
 		AdminServer:    NewAdminServer(),
 		ProviderServer: NewProviderServer(),
+		DirectAnnounce: NewDirectAnnounce(),
 	}
 
 	if err = json.NewDecoder(f).Decode(&cfg); err != nil {

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"net/url"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/index-provider/engine/chunker"
@@ -43,6 +44,11 @@ type (
 	options struct {
 		ds datastore.Batching
 		h  host.Host
+
+		// announceURLs is the list of indexer URLs to send direct HTTP
+		// announce messages to.
+		announceURLs []*url.URL
+
 		// key is always initialized from the host peerstore.
 		// Setting an explicit identity must not be exposed unless it is tightly coupled with the
 		// host identity. Otherwise, the signature of advertisement will not match the libp2p host
@@ -315,6 +321,20 @@ func WithExtraGossipData(extraData []byte) Option {
 			// Make copy for safety.
 			o.pubExtraGossipData = make([]byte, len(extraData))
 			copy(o.pubExtraGossipData, extraData)
+		}
+		return nil
+	}
+}
+
+// WithDirectAnnounce sets indexer URLs to send direct HTTP announcements to.
+func WithDirectAnnounce(announceURLs ...string) Option {
+	return func(o *options) error {
+		for _, urlStr := range announceURLs {
+			u, err := url.Parse(urlStr)
+			if err != nil {
+				return err
+			}
+			o.announceURLs = append(o.announceURLs, u)
 		}
 		return nil
 	}
