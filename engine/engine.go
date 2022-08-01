@@ -546,7 +546,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 	if prevAdvID != cid.Undef {
 		log.Info("Latest advertisement CID was undefined - no previous advertisement")
 		prev := ipld.Link(cidlink.Link{Cid: prevAdvID})
-		adv.PreviousID = &prev
+		adv.PreviousID = prev
 	}
 
 	// Sign the advertisement.

@@ -188,7 +188,7 @@ func listEntriesChainFromCache(t *testing.T, e *chunker.CachedEntriesChunker, ro
 		if chunk.Next == nil {
 			break
 		}
-		next = *chunk.Next
+		next = chunk.Next
 	}
 	return links
 }

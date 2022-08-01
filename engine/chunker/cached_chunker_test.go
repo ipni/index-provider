@@ -291,7 +291,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	c2 := requireDecodeAsEntryChunk(t, c2Lnk, c2Raw)
 	requireChunkEntriesMatch(t, c2.Entries, extraMhs)
 	require.NotNil(t, c2.Next)
-	c2NextLnk := *c2.Next
+	c2NextLnk := c2.Next
 	require.Equal(t, c1Lnk, c2NextLnk)
 
 	c2NextRaw, err := subject.GetRawCachedChunk(ctx, c2NextLnk)
@@ -512,7 +512,7 @@ func listEntriesChain(t *testing.T, e *chunker.CachedEntriesChunker, root ipld.L
 		if chunk.Next == nil {
 			break
 		}
-		next = *chunk.Next
+		next = chunk.Next
 		require.NoError(t, err)
 	}
 	return links
@@ -533,7 +533,7 @@ func requireDecodeAllMultihashes(t *testing.T, l ipld.Link, ls ipld.LinkSystem) 
 		require.NoError(t, err)
 		mhs := chunk.Entries
 		if chunk.Next != nil {
-			mhs = append(mhs, requireDecodeAllMultihashes(t, *chunk.Next, ls)...)
+			mhs = append(mhs, requireDecodeAllMultihashes(t, chunk.Next, ls)...)
 		}
 		return mhs
 	}

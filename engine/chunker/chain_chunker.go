@@ -95,7 +95,7 @@ func newEntriesChunkNode(mhs []multihash.Multihash, next ipld.Link) (ipld.Node, 
 		Entries: mhs,
 	}
 	if next != nil {
-		chunk.Next = &next
+		chunk.Next = next
 	}
 	return chunk.ToNode()
 }
