@@ -84,8 +84,7 @@ func (s *ProviderClientStore) getNextChunkLink(ctx context.Context, target cid.C
 	if chunk.Next == nil {
 		return cid.Undef, nil
 	}
-	next := *chunk.Next
-	return next.(cidlink.Link).Cid, nil
+	return chunk.Next.(cidlink.Link).Cid, nil
 }
 
 func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Cid) (cid.Cid, []multihash.Multihash, error) {
@@ -102,8 +101,7 @@ func (s *ProviderClientStore) getEntriesChunk(ctx context.Context, target cid.Ci
 	if chunk.Next == nil {
 		next = cid.Undef
 	} else {
-		lnk := *chunk.Next
-		next = lnk.(cidlink.Link).Cid
+		next = chunk.Next.(cidlink.Link).Cid
 	}
 
 	return next, chunk.Entries, nil
@@ -139,7 +137,7 @@ func (s *ProviderClientStore) getAdvertisement(ctx context.Context, id cid.Cid) 
 
 	var prevCid cid.Cid
 	if ad.PreviousID != nil {
-		prevCid = (*ad.PreviousID).(cidlink.Link).Cid
+		prevCid = ad.PreviousID.(cidlink.Link).Cid
 	}
 
 	entriesCid := ad.Entries.(cidlink.Link).Cid
