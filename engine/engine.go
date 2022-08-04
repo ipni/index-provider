@@ -354,10 +354,10 @@ func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
 // registered.
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
-func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
+func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, providerID string, addresses []string, md metadata.Metadata) (cid.Cid, error) {
 	// The multihash lister must have been registered for the linkSystem to
 	// know how to go from contextID to list of CIDs.
-	return e.publishAdvForIndex(ctx, contextID, md, false)
+	return e.publishAdvForIndex(ctx, contextID, providerID, addresses, md, false)
 }
 
 // NotifyRemove publishes an advertisement that signals the list of multihashes
@@ -420,7 +420,7 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, *schema.Advertiseme
 	return latestAdCid, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md metadata.Metadata, isRm bool) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, providerID string, addresses []string, md metadata.Metadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
@@ -526,9 +526,17 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		return cid.Undef, err
 	}
 
+	if providerID == "" {
+		providerID = e.options.provider.ID.String()
+	}
+
+	if len(addresses) == 0 {
+		addresses = e.retrievalAddrsAsString()
+	}
+
 	adv := schema.Advertisement{
-		Provider:  e.options.provider.ID.String(),
-		Addresses: e.retrievalAddrsAsString(),
+		Provider:  providerID,
+		Addresses: addresses,
 		Entries:   cidsLnk,
 		ContextID: contextID,
 		Metadata:  mdBytes,
