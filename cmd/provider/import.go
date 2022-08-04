@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/metadata"
@@ -42,8 +43,9 @@ func beforeImportCar(cctx *cli.Context) error {
 		}
 		importCarKey = decoded
 	} else {
+		_, carName := path.Split(carPathFlagValue)
 		h := sha256.New()
-		h.Write([]byte(carPathFlagValue))
+		h.Write([]byte(carName))
 		importCarKey = h.Sum(nil)
 	}
 	if cctx.IsSet(metadataFlag.Name) {
