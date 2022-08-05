@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"path/filepath"
 
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/metadata"
@@ -77,8 +78,13 @@ func doImportCar(cctx *cli.Context) error {
 		return err
 	}
 
+	absCarPath, err := filepath.Abs(carPathFlagValue)
+	if err != nil {
+		return err
+	}
+
 	req := adminserver.ImportCarReq{
-		Path:     carPathFlagValue,
+		Path:     absCarPath,
 		Key:      importCarKey,
 		Metadata: mdBytes,
 	}
