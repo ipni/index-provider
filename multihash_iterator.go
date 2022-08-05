@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -94,9 +95,61 @@ func (i *ipldMapMhIter) Next() (multihash.Multihash, error) {
 	return []byte(ks), nil
 }
 
+// HamtMultihashIterator constructs a MultihashIterator backed by the given root HAMT.
+// The links from root are dynamically loaded as needed using the given link system.
 func HamtMultihashIterator(root *hamt.HashMapRoot, ls ipld.LinkSystem) MultihashIterator {
 	n := hamt.Node{
 		HashMapRoot: *root,
 	}.WithLinking(ls, schema.Linkproto)
 	return &ipldMapMhIter{n.MapIterator()}
+}
+
+var _ MultihashIterator = (*linksysEntryChunkMhIter)(nil)
+
+type linksysEntryChunkMhIter struct {
+	ls     ipld.LinkSystem
+	ec     *schema.EntryChunk
+	offset int
+}
+
+func (l *linksysEntryChunkMhIter) Next() (multihash.Multihash, error) {
+	// Sanity check that entry chunk is set.
+	if l.ec == nil {
+		return nil, io.EOF
+	}
+	if l.offset >= len(l.ec.Entries) {
+		if l.ec.Next == nil {
+			return nil, io.EOF
+		}
+		lctx := ipld.LinkContext{Ctx: context.TODO()}
+		n, err := l.ls.Load(lctx, l.ec.Next, schema.EntryChunkPrototype)
+		if err != nil {
+			return nil, err
+		}
+		if l.ec, err = schema.UnwrapEntryChunk(n); err != nil {
+			return nil, err
+		}
+		l.offset = 0
+	}
+	next := l.ec.Entries[l.offset]
+	l.offset++
+	return next, nil
+}
+
+// EntryChunkMultihashIterator constructs a MultihashIterator that iterates over the global list of
+// chained multihashes starting from the given link. It dynamically loads the next EntryChunk from
+// the given ipld.LinkSystem as needed.
+func EntryChunkMultihashIterator(l ipld.Link, ls ipld.LinkSystem) (MultihashIterator, error) {
+	n, err := ls.Load(ipld.LinkContext{Ctx: context.TODO()}, l, schema.EntryChunkPrototype)
+	if err != nil {
+		return nil, err
+	}
+	ec, err := schema.UnwrapEntryChunk(n)
+	if err != nil {
+		return nil, err
+	}
+	return &linksysEntryChunkMhIter{
+		ls: ls,
+		ec: ec,
+	}, nil
 }
