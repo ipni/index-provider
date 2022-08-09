@@ -69,6 +69,16 @@ func (o *options) remapEntriesEnabled() bool {
 	return o.chunkerFunc != nil
 }
 
+// WithDatastore specifies the datastore used by the mirror to persist mirrored advertisements,
+// their entries and other internal data.
+// Defaults to an ephemeral in-memory datastore.
+func WithDatastore(ds datastore.Batching) Option {
+	return func(o *options) error {
+		o.ds = ds
+		return nil
+	}
+}
+
 // WithHost specifies the libp2p host the mirror should be exposed on.
 // If unspecified a host with default options and random identity is used.
 func WithHost(h host.Host) Option {
