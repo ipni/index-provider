@@ -53,6 +53,7 @@ func run() int {
 			RegisterCmd,
 			RemoveCmd,
 			VerifyIngestCmd,
+			Mirror.Command,
 		},
 	}
 

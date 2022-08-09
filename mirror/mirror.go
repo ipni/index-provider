@@ -126,7 +126,7 @@ func (m *Mirror) Start() error {
 				return
 			}
 			log := log.With("time", t)
-
+			log.Info("checking for new advertisements")
 			mc, err := m.getLatestOriginalAdCid(ctx)
 
 			if err != nil {

@@ -216,7 +216,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	requireTrueEventually(t, func() bool {
 		pubPeers := pubG.ListPeers(topic)
 		return len(pubPeers) == 1 && pubPeers[0] == subHost.ID()
-	}, time.Second, 5*time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
+	}, time.Second, 8*time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
