@@ -43,8 +43,12 @@ func beforeImportCar(cctx *cli.Context) error {
 		}
 		importCarKey = decoded
 	} else {
+		absCarPath, err := filepath.Abs(carPathFlagValue)
+		if err != nil {
+			return err
+		}
 		h := sha256.New()
-		h.Write([]byte(carPathFlagValue))
+		h.Write([]byte(absCarPath))
 		importCarKey = h.Sum(nil)
 	}
 	if cctx.IsSet(metadataFlag.Name) {
