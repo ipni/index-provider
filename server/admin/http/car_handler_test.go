@@ -22,6 +22,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,6 +54,7 @@ func Test_importCarHandler(t *testing.T) {
 	mockEng := mock_provider.NewMockInterface(mc)
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
+
 	cs := supplier.NewCarSupplier(mockEng, ds)
 
 	subject := carHandler{cs}
@@ -65,7 +67,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	mockEng.
 		EXPECT().
-		NotifyPut(gomock.Any(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
+		NotifyPut(gomock.Any(), gomock.Nil(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
 		Return(wantCid, nil)
 
 	handler.ServeHTTP(rr, req)
@@ -114,7 +116,7 @@ func Test_importCarHandlerFail(t *testing.T) {
 
 	mockEng.
 		EXPECT().
-		NotifyPut(gomock.Any(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
+		NotifyPut(gomock.Any(), gomock.Nil(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
 		Return(cid.Undef, errors.New("fish"))
 
 	handler.ServeHTTP(rr, req)
@@ -158,7 +160,7 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 
 	mockEng.
 		EXPECT().
-		NotifyPut(gomock.Any(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
+		NotifyPut(gomock.Any(), gomock.Nil(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
 		Return(cid.Undef, provider.ErrAlreadyAdvertised)
 
 	handler.ServeHTTP(rr, req)
@@ -186,11 +188,11 @@ func Test_removeCarHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleRemove)
 	wantCid := testutil.RandomCids(t, rng, 1)[0]
-	requireMockPut(t, mockEng, wantKey, cs, rng)
+	requireMockPut(t, mockEng, nil, wantKey, cs, rng)
 
 	mockEng.
 		EXPECT().
-		NotifyRemove(gomock.Any(), gomock.Eq(wantKey)).
+		NotifyRemove(gomock.Any(), gomock.Eq(peer.ID("")), gomock.Eq(wantKey)).
 		Return(wantCid, nil)
 
 	handler.ServeHTTP(rr, req)
@@ -221,11 +223,11 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleRemove)
-	requireMockPut(t, mockEng, wantKey, cs, rng)
+	requireMockPut(t, mockEng, nil, wantKey, cs, rng)
 
 	mockEng.
 		EXPECT().
-		NotifyRemove(gomock.Any(), gomock.Eq(wantKey)).
+		NotifyRemove(gomock.Any(), gomock.Eq(peer.ID("")), gomock.Eq(wantKey)).
 		Return(cid.Undef, errors.New("fish"))
 
 	handler.ServeHTTP(rr, req)
@@ -306,14 +308,15 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 	return req
 }
 
-func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, key []byte, cs *supplier.CarSupplier, rng *rand.Rand) {
+func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, provider *peer.AddrInfo, key []byte, cs *supplier.CarSupplier, rng *rand.Rand) {
 	wantTp, err := cardatatransfer.TransportFromContextID(key)
 	require.NoError(t, err)
 	wantCid := testutil.RandomCids(t, rng, 1)[0]
 	wantMetadata := metadata.New(wantTp)
+
 	mockEng.
 		EXPECT().
-		NotifyPut(gomock.Any(), gomock.Eq(key), wantMetadata).
+		NotifyPut(gomock.Any(), gomock.Eq(provider), gomock.Eq(key), wantMetadata).
 		Return(wantCid, nil)
 	_, err = cs.Put(context.Background(), key, "/fish/in/da/sea", wantMetadata)
 	require.NoError(t, err)
@@ -360,7 +363,7 @@ func Test_ListCarHandler(t *testing.T) {
 
 	mockEng.
 		EXPECT().
-		NotifyPut(gomock.Any(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
+		NotifyPut(gomock.Any(), gomock.Nil(), gomock.Eq(wantKey), gomock.Eq(wantMetadata)).
 		Return(wantCid, nil)
 
 	gotCid, err := cs.Put(context.Background(), wantKey, wantPath, wantMetadata)

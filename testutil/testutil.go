@@ -2,7 +2,12 @@ package testutil
 
 import (
 	"context"
+	crand "crypto/rand"
+	"io"
+	"io/ioutil"
 	"math/rand"
+	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -20,10 +25,22 @@ import (
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
+
+func NewID(t *testing.T) peer.ID {
+	_, pub, err := crypto.GenerateEd25519Key(crand.Reader)
+	require.NoError(t, err)
+
+	id, err := peer.IDFromPublicKey(pub)
+	require.NoError(t, err)
+
+	return id
+}
 
 func RandomCids(t testing.TB, rng *rand.Rand, n int) []cid.Cid {
 	prefix := schema.Linkproto.Prefix
@@ -105,4 +122,39 @@ func SetupDataTransferOnHost(t *testing.T, h host.Host, store datastore.Batching
 		require.FailNow(t, "data transfer did not initialize")
 	}
 	return dt
+}
+
+// CopyDir copies a whole directory recursively
+func CopyDir(t *testing.T, src string, dst string) {
+	srcinfo, err := os.Stat(src)
+	require.NoError(t, err)
+	err = os.MkdirAll(dst, srcinfo.Mode())
+	require.NoError(t, err)
+	fds, err := ioutil.ReadDir(src)
+	require.NoError(t, err)
+
+	for _, fd := range fds {
+		srcfp := path.Join(src, fd.Name())
+		dstfp := path.Join(dst, fd.Name())
+
+		if fd.IsDir() {
+			CopyDir(t, srcfp, dstfp)
+		} else {
+			CopyFile(t, srcfp, dstfp)
+		}
+	}
+}
+
+// CopyFile copies a single file from src to dst
+func CopyFile(t *testing.T, src, dst string) {
+	srcfd, err := os.Open(src)
+	require.NoError(t, err)
+	defer srcfd.Close()
+
+	dstfd, err := os.Create(dst)
+	require.NoError(t, err)
+	defer dstfd.Close()
+
+	_, err = io.Copy(dstfd, srcfd)
+	require.NoError(t, err)
 }

@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/filecoin-project/index-provider/engine/chunker"
+	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +30,21 @@ func (e *Engine) Key() crypto.PrivKey {
 // LinkSystem returns the engine's linksystem, exposed for testing purposes only.
 func (e *Engine) LinkSystem() *ipld.LinkSystem {
 	return &e.lsys
+}
+
+// ProviderID returns the engine's default provider ID, exposed for testing purposes only.
+func (e *Engine) ProviderID() peer.ID {
+	return e.provider.ID
+}
+
+// ProviderAddrs returns the engine's default provider addresses, exposed for testing purposes only.
+func (e *Engine) ProviderAddrs() []string {
+	return e.retrievalAddrsAsString()
+}
+
+// Datastore returns the engine's datastore, exposed for testing purposes only.
+func (e *Engine) Datastore() datastore.Datastore {
+	return e.ds
 }
 
 func Test_EmptyConfigSetsDefaults(t *testing.T) {

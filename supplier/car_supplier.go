@@ -6,7 +6,7 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/filecoin-project/index-provider"
+	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -16,6 +16,7 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-car/v2/index"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multicodec"
 )
 
@@ -26,7 +27,6 @@ const (
 
 // ErrNotFound signals that CidIteratorSupplier has no iterator corresponding to the given key.
 var ErrNotFound = errors.New("no CID iterator found for given key")
-
 var log = logging.Logger("provider/carsupplier")
 
 // CarSupplier supplies multihashes to an implementation of Provider.Interface via
@@ -71,7 +71,7 @@ func (cs *CarSupplier) Put(ctx context.Context, contextID []byte, path string, m
 		return cid.Undef, err
 	}
 
-	return cs.eng.NotifyPut(ctx, contextID, metadata)
+	return cs.eng.NotifyPut(ctx, nil, contextID, metadata)
 }
 
 func toCarIdKey(contextID []byte) datastore.Key {
@@ -99,7 +99,7 @@ func (cs *CarSupplier) Remove(ctx context.Context, contextID []byte) (cid.Cid, e
 		return cid.Undef, err
 	}
 
-	return cs.eng.NotifyRemove(ctx, contextID)
+	return cs.eng.NotifyRemove(ctx, "", contextID)
 }
 
 // List lists the CAR paths that are supplied by this supplier.
@@ -127,7 +127,7 @@ func (cs *CarSupplier) List(ctx context.Context) ([]string, error) {
 
 // ListMultihashes supplies an iterator over CIDs of the CAR file that corresponds to
 // the given key.  An error is returned if no CAR file is found for the key.
-func (cs *CarSupplier) ListMultihashes(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+func (cs *CarSupplier) ListMultihashes(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 	idx, err := cs.lookupIterableIndex(ctx, contextID)
 	if err != nil {
 		return nil, err

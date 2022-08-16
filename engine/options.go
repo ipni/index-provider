@@ -55,6 +55,9 @@ type (
 		// ID.
 		key crypto.PrivKey
 
+		// It's important to not to change this parameter when running against existing datastores. The reason for that is to maintain backward compatibility.
+		// Older records from previous library versions aren't indexed by provider ID as there could have been only one provider in the previous versions.
+		// Provider host and retrieval addresses can be overidden from the NotifyPut and Notify Remove method, otherwise the default configured provider will be assumed.
 		provider peer.AddrInfo
 
 		pubKind            PublisherKind
@@ -176,8 +179,8 @@ func WithChainedEntries(chunkSize int) Option {
 // algorithm.
 // The bit-width and bucket size must be at least 3 and 1 respectively.
 // For more information on HAMT data structure, see:
-//  - https://ipld.io/specs/advanced-data-layouts/hamt/spec
-//  - https://github.com/ipld/go-ipld-adl-hamt
+//   - https://ipld.io/specs/advanced-data-layouts/hamt/spec
+//   - https://github.com/ipld/go-ipld-adl-hamt
 //
 // For caching configuration: WithEntriesCacheCapacity, chunker.CachedEntriesChunker
 func WithHamtEntries(hashAlg multicodec.Code, bitWidth, bucketSize int) Option {

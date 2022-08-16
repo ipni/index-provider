@@ -9,6 +9,7 @@ import (
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -45,7 +46,7 @@ func Example_advertiseHelloWorld() {
 	fmt.Println("✓ Instantiated provider engine")
 	defer engine.Shutdown()
 
-	engine.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	engine.RegisterMultihashLister(func(ctx context.Context, provider peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 		if string(contextID) == sayHelloCtxID {
 			return &singleMhIterator{mh: mh}, nil
 		}
@@ -64,7 +65,7 @@ func Example_advertiseHelloWorld() {
 
 	// Note that this example publishes an ad with bitswap metadata as an example.
 	// But it does not instantiate a bitswap server to serve retrievals.
-	adCid, err := engine.NotifyPut(context.Background(), []byte(sayHelloCtxID), md)
+	adCid, err := engine.NotifyPut(context.Background(), nil, []byte(sayHelloCtxID), md)
 	if err != nil {
 		panic(err)
 	}
