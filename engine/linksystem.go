@@ -12,6 +12,7 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 var errNoEntries = errors.New("no entries; see schema.NoEntries")
@@ -83,7 +84,8 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// If the link is not found, it means that the root link of the list has
 			// not been generated and we need to get the relationship between the cid
 			// received and the contextID so the lister knows how to
-			// regenerate the list of CIDs.
+			// regenerate the list of CIDs. It's enough to fetch *any* provider's mapping
+			// as same entries from different providers would result into the same chunks
 			key, err := e.getCidKeyMap(ctx, c)
 			if err != nil {
 				log.Errorf("Error fetching relationship between CID and contextID: %s", err)
@@ -95,7 +97,11 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// deletes all indexes for the contextID in the removal
 			// advertisement.  Only if the removal had no contextID would the
 			// indexer ask for entry chunks to remove.
-			mhIter, err := e.mhLister(ctx, key)
+			provider, err := peer.IDFromBytes(key.Provider)
+			if err != nil {
+				return nil, err
+			}
+			mhIter, err := e.mhLister(ctx, provider, key.ContextID)
 			if err != nil {
 				return nil, err
 			}

@@ -91,18 +91,18 @@ func (te *testEnv) startSource(t *testing.T, ctx context.Context, opts ...engine
 
 func (te *testEnv) putAdOnSource(t *testing.T, ctx context.Context, ctxID []byte, mhs []multihash.Multihash, md metadata.Metadata) cid.Cid {
 	te.sourceMhs[string(ctxID)] = mhs
-	adCid, err := te.source.NotifyPut(ctx, ctxID, md)
+	adCid, err := te.source.NotifyPut(ctx, nil, ctxID, md)
 	require.NoError(t, err)
 	return adCid
 }
 
 func (te *testEnv) removeAdOnSource(t *testing.T, ctx context.Context, ctxID []byte) cid.Cid {
-	adCid, err := te.source.NotifyRemove(ctx, ctxID)
+	adCid, err := te.source.NotifyRemove(ctx, "", ctxID)
 	require.NoError(t, err)
 	return adCid
 }
 
-func (te *testEnv) listMultihashes(_ context.Context, contextID []byte) (provider.MultihashIterator, error) {
+func (te *testEnv) listMultihashes(_ context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 	mhs, ok := te.sourceMhs[string(contextID)]
 	if !ok {
 		return nil, fmt.Errorf("no multihashes found for context ID: %s", string(contextID))

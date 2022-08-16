@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"sync"
@@ -27,11 +28,12 @@ import (
 )
 
 const (
-	keyToCidMapPrefix      = "map/keyCid/"
-	cidToKeyMapPrefix      = "map/cidKey/"
-	keyToMetadataMapPrefix = "map/keyMD/"
-	latestAdvKey           = "sync/adv/"
-	linksCachePath         = "/cache/links"
+	keyToCidMapPrefix            = "map/keyCid/"
+	cidToKeyMapPrefix            = "map/cidKey/"
+	cidToProviderAndKeyMapPrefix = "map/cidProvAndKey/"
+	keyToMetadataMapPrefix       = "map/keyMD/"
+	latestAdvKey                 = "sync/adv/"
+	linksCachePath               = "/cache/links"
 )
 
 var (
@@ -64,8 +66,8 @@ var _ provider.Interface = (*Engine)(nil)
 // Engine internally uses "go-legs", a protocol for propagating and
 // synchronizing changes an IPLD DAG, to publish advertisements. See:
 //
-//  - https://github.com/filecoin-project/storetheindex
-//  - https://github.com/filecoin-project/go-legs
+//   - https://github.com/filecoin-project/storetheindex
+//   - https://github.com/filecoin-project/go-legs
 //
 // Published advertisements are signed using the given private key. The
 // retAddrs corresponds to the endpoints at which the data block associated to
@@ -354,10 +356,16 @@ func (e *Engine) RegisterMultihashLister(mhl provider.MultihashLister) {
 // registered.
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
-func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
+func (e *Engine) NotifyPut(ctx context.Context, provider *peer.AddrInfo, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
 	// The multihash lister must have been registered for the linkSystem to
 	// know how to go from contextID to list of CIDs.
-	return e.publishAdvForIndex(ctx, contextID, md, false)
+	pID := e.options.provider.ID
+	addrs := e.options.provider.Addrs
+	if provider != nil {
+		pID = provider.ID
+		addrs = provider.Addrs
+	}
+	return e.publishAdvForIndex(ctx, pID, addrs, contextID, md, false)
 }
 
 // NotifyRemove publishes an advertisement that signals the list of multihashes
@@ -367,8 +375,12 @@ func (e *Engine) NotifyPut(ctx context.Context, contextID []byte, md metadata.Me
 // registered.
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
-func (e *Engine) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
-	return e.publishAdvForIndex(ctx, contextID, metadata.Metadata{}, true)
+func (e *Engine) NotifyRemove(ctx context.Context, provider peer.ID, contextID []byte) (cid.Cid, error) {
+	// TODO: add support for "delete all" for provider
+	if provider == "" {
+		provider = e.options.provider.ID
+	}
+	return e.publishAdvForIndex(ctx, provider, nil, contextID, metadata.Metadata{}, true)
 }
 
 // Shutdown shuts down the engine and discards all resources opened by the
@@ -420,16 +432,16 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, *schema.Advertiseme
 	return latestAdCid, ad, nil
 }
 
-func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md metadata.Metadata, isRm bool) (cid.Cid, error) {
+func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []multiaddr.Multiaddr, contextID []byte, md metadata.Metadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
 
-	log := log.With("contextID", base64.StdEncoding.EncodeToString(contextID))
+	log := log.With("providerID", p).With("contextID", base64.StdEncoding.EncodeToString(contextID))
 
-	c, err := e.getKeyCidMap(ctx, contextID)
+	c, err := e.getKeyCidMap(ctx, p, contextID)
 	if err != nil {
 		if err != datastore.ErrNotFound {
-			return cid.Undef, fmt.Errorf("cound not not get entries cid by context id: %s", err)
+			return cid.Undef, fmt.Errorf("cound not not get entries cid by provider + context id: %s", err)
 		}
 	}
 
@@ -448,7 +460,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 			}
 
 			// Call the lister.
-			mhIter, err := e.mhLister(ctx, contextID)
+			mhIter, err := e.mhLister(ctx, p, contextID)
 			if err != nil {
 				return cid.Undef, err
 			}
@@ -460,20 +472,20 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 			}
 			cidsLnk = lnk.(cidlink.Link)
 
-			// Store the relationship between contextID and CID of the
+			// Store the relationship between providerID, contextID and CID of the
 			// advertised list of Cids.
-			err = e.putKeyCidMap(ctx, contextID, cidsLnk.Cid)
+			err = e.putKeyCidMap(ctx, p, contextID, cidsLnk.Cid)
 			if err != nil {
-				return cid.Undef, fmt.Errorf("failed to write context id to entries cid mapping: %s", err)
+				return cid.Undef, fmt.Errorf("failed to write provider + context id to entries cid mapping: %s", err)
 			}
 		} else {
-			// Lookup metadata for this contextID.
-			prevMetadata, err := e.getKeyMetadataMap(ctx, contextID)
+			// Lookup metadata for this providerID and contextID.
+			prevMetadata, err := e.getKeyMetadataMap(ctx, p, contextID)
 			if err != nil {
 				if err != datastore.ErrNotFound {
-					return cid.Undef, fmt.Errorf("could not get metadata for context id: %s", err)
+					return cid.Undef, fmt.Errorf("could not get metadata for provider + context id: %s", err)
 				}
-				log.Warn("No metadata for existing context ID, generating new advertisement")
+				log.Warn("No metadata for existing provider + context ID, generating new advertisement")
 			}
 
 			if md.Equal(prevMetadata) {
@@ -487,8 +499,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 			cidsLnk = cidlink.Link{Cid: c}
 		}
 
-		if err = e.putKeyMetadataMap(ctx, contextID, &md); err != nil {
-			return cid.Undef, fmt.Errorf("failed to write context id to metadata mapping: %s", err)
+		if err = e.putKeyMetadataMap(ctx, p, contextID, &md); err != nil {
+			return cid.Undef, fmt.Errorf("failed to write provider + context id to metadata mapping: %s", err)
 		}
 	} else {
 		log.Info("Creating removal advertisement")
@@ -499,17 +511,17 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 
 		// If removing by context ID, it means the list of CIDs is not needed
 		// anymore, so we can remove the entry from the datastore.
-		err = e.deleteKeyCidMap(ctx, contextID)
+		err = e.deleteKeyCidMap(ctx, p, contextID)
 		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to delete context id to entries cid mapping: %s", err)
+			return cid.Undef, fmt.Errorf("failed to delete provider + context id to entries cid mapping: %s", err)
 		}
 		err = e.deleteCidKeyMap(ctx, c)
 		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to delete entries cid to context id mapping: %s", err)
+			return cid.Undef, fmt.Errorf("failed to delete entries cid to provider + context id mapping: %s", err)
 		}
-		err = e.deleteKeyMetadataMap(ctx, contextID)
+		err = e.deleteKeyMetadataMap(ctx, p, contextID)
 		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to delete context id to metadata mapping: %s", err)
+			return cid.Undef, fmt.Errorf("failed to delete provider + context id to metadata mapping: %s", err)
 		}
 
 		// Create an advertisement to delete content by contextID by specifying
@@ -526,9 +538,14 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 		return cid.Undef, err
 	}
 
+	var stringAddrs []string
+	for _, addr := range addrs {
+		stringAddrs = append(stringAddrs, addr.String())
+	}
+
 	adv := schema.Advertisement{
-		Provider:  e.options.provider.ID.String(),
-		Addresses: e.retrievalAddrsAsString(),
+		Provider:  p.String(),
+		Addresses: stringAddrs,
 		Entries:   cidsLnk,
 		ContextID: contextID,
 		Metadata:  mdBytes,
@@ -556,20 +573,57 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, contextID []byte, md me
 	return e.Publish(ctx, adv)
 }
 
-func (e *Engine) putKeyCidMap(ctx context.Context, contextID []byte, c cid.Cid) error {
+func (e *Engine) keyToCidKey(provider peer.ID, contextID []byte) datastore.Key {
+	switch provider {
+	case e.provider.ID:
+		return datastore.NewKey(keyToCidMapPrefix + string(contextID))
+	default:
+		return datastore.NewKey(keyToCidMapPrefix + string(contextID) + "/" + provider.String())
+	}
+}
+
+func (e *Engine) cidToKeyKey(c cid.Cid) datastore.Key {
+	return datastore.NewKey(cidToKeyMapPrefix + c.String())
+}
+
+func (e *Engine) cidToProviderAndKeyKey(c cid.Cid) datastore.Key {
+	return datastore.NewKey(cidToProviderAndKeyMapPrefix + c.String())
+}
+
+func (e *Engine) keyToMetadataKey(provider peer.ID, contextID []byte) datastore.Key {
+	switch provider {
+	case e.provider.ID:
+		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID))
+	default:
+		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID) + "/" + provider.String())
+	}
+}
+
+func (e *Engine) putKeyCidMap(ctx context.Context, provider peer.ID, contextID []byte, c cid.Cid) error {
 	// Store the map Key-Cid to know what CidLink to put in advertisement when
 	// notifying about a removal.
-	err := e.ds.Put(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)), c.Bytes())
+
+	err := e.ds.Put(ctx, e.keyToCidKey(provider, contextID), c.Bytes())
 	if err != nil {
 		return err
 	}
 	// And the other way around when graphsync is making a request, so the
 	// lister in the linksystem knows to what contextID the CID referrs to.
-	return e.ds.Put(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()), contextID)
+	// it's enough for us to store just a single mapping of cid to provider and context to generate chunks
+
+	pB, err := provider.Marshal()
+	if err != nil {
+		return err
+	}
+	m, err := json.Marshal(&providerAndContext{Provider: pB, ContextID: contextID})
+	if err != nil {
+		return err
+	}
+	return e.ds.Put(ctx, e.cidToProviderAndKeyKey(c), m)
 }
 
-func (e *Engine) getKeyCidMap(ctx context.Context, contextID []byte) (cid.Cid, error) {
-	b, err := e.ds.Get(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)))
+func (e *Engine) getKeyCidMap(ctx context.Context, provider peer.ID, contextID []byte) (cid.Cid, error) {
+	b, err := e.ds.Get(ctx, e.keyToCidKey(provider, contextID))
 	if err != nil {
 		return cid.Undef, err
 	}
@@ -577,28 +631,56 @@ func (e *Engine) getKeyCidMap(ctx context.Context, contextID []byte) (cid.Cid, e
 	return d, err
 }
 
-func (e *Engine) deleteKeyCidMap(ctx context.Context, contextID []byte) error {
-	return e.ds.Delete(ctx, datastore.NewKey(keyToCidMapPrefix+string(contextID)))
+func (e *Engine) deleteKeyCidMap(ctx context.Context, provider peer.ID, contextID []byte) error {
+	return e.ds.Delete(ctx, e.keyToCidKey(provider, contextID))
 }
 
 func (e *Engine) deleteCidKeyMap(ctx context.Context, c cid.Cid) error {
-	return e.ds.Delete(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()))
+	err := e.ds.Delete(ctx, e.cidToProviderAndKeyKey(c))
+	if err != nil {
+		return err
+	}
+	return e.ds.Delete(ctx, e.cidToKeyKey(c))
 }
 
-func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) ([]byte, error) {
-	return e.ds.Get(ctx, datastore.NewKey(cidToKeyMapPrefix+c.String()))
+type providerAndContext struct {
+	Provider  []byte `json:"p"`
+	ContextID []byte `json:"c"`
 }
 
-func (e *Engine) putKeyMetadataMap(ctx context.Context, contextID []byte, metadata *metadata.Metadata) error {
+func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndContext, error) {
+	// first see whether the mapping exists in the legacy index
+	val, err := e.ds.Get(ctx, e.cidToKeyKey(c))
+	if err == nil {
+		return &providerAndContext{ContextID: val}, nil
+	}
+	if err != datastore.ErrNotFound {
+		return nil, err
+	}
+	// trying to fetch this mapping from the new index
+	val, err = e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
+	if err != nil {
+		return nil, err
+	}
+
+	var pAndC providerAndContext
+	err = json.Unmarshal(val, &pAndC)
+	if err != nil {
+		return nil, err
+	}
+	return &pAndC, nil
+}
+
+func (e *Engine) putKeyMetadataMap(ctx context.Context, provider peer.ID, contextID []byte, metadata *metadata.Metadata) error {
 	data, err := metadata.MarshalBinary()
 	if err != nil {
 		return err
 	}
-	return e.ds.Put(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)), data)
+	return e.ds.Put(ctx, e.keyToMetadataKey(provider, contextID), data)
 }
 
-func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (metadata.Metadata, error) {
-	data, err := e.ds.Get(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)))
+func (e *Engine) getKeyMetadataMap(ctx context.Context, provider peer.ID, contextID []byte) (metadata.Metadata, error) {
+	data, err := e.ds.Get(ctx, e.keyToMetadataKey(provider, contextID))
 	if err != nil {
 		return metadata.Metadata{}, err
 	}
@@ -609,8 +691,8 @@ func (e *Engine) getKeyMetadataMap(ctx context.Context, contextID []byte) (metad
 	return md, nil
 }
 
-func (e *Engine) deleteKeyMetadataMap(ctx context.Context, contextID []byte) error {
-	return e.ds.Delete(ctx, datastore.NewKey(keyToMetadataMapPrefix+string(contextID)))
+func (e *Engine) deleteKeyMetadataMap(ctx context.Context, provider peer.ID, contextID []byte) error {
+	return e.ds.Delete(ctx, e.keyToMetadataKey(provider, contextID))
 }
 
 func (e *Engine) putLatestAdv(ctx context.Context, advID []byte) error {

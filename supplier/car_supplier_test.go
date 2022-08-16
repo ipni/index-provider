@@ -16,12 +16,14 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPutCarReturnsExpectedIterator(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
+
 	tests := []struct {
 		name    string
 		carPath string
@@ -91,13 +93,14 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			wantCid := generateCidV1(t, rng)
 			mockEng.
 				EXPECT().
-				NotifyPut(ctx, gomock.Any(), md).
+				NotifyPut(ctx, gomock.Any(), gomock.Any(), md).
 				Return(wantCid, nil)
 
 			hash := sha256.New()
 			_, err := hash.Write([]byte(tt.carPath))
 			require.NoError(t, err)
 			gotContextID := hash.Sum(nil)
+
 			gotCid, err := subject.Put(ctx, gotContextID, tt.carPath, md)
 			require.NoError(t, err)
 			require.Equal(t, wantCid, gotCid)
@@ -107,7 +110,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			require.Len(t, paths, 1)
 			require.Equal(t, filepath.Clean(tt.carPath), filepath.Clean(paths[0]))
 
-			gotIterator, err := subject.ListMultihashes(ctx, gotContextID)
+			gotIterator, err := subject.ListMultihashes(ctx, "", gotContextID)
 			require.NoError(t, err)
 
 			gotMultihashes := 0
@@ -153,7 +156,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	wantCid := generateCidV1(t, rng)
 	mockEng.
 		EXPECT().
-		NotifyPut(ctx, gomock.Any(), md).
+		NotifyPut(ctx, gomock.Any(), gomock.Any(), md).
 		Return(wantCid, nil)
 
 	hash := sha256.New()
@@ -172,7 +175,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	wantCid = generateCidV1(t, rng)
 	mockEng.
 		EXPECT().
-		NotifyRemove(ctx, gotContextID).
+		NotifyRemove(ctx, peer.ID(""), gotContextID).
 		Return(wantCid, nil)
 
 	removedId, err := subject.Remove(ctx, gotContextID)

@@ -2,7 +2,7 @@
 // It integrates with the indexer node protocol, "storetheinex" in order to advertise the
 // availability of a list of multihashes as an IPLD DAG.
 // For the complete advertisement IPLD schema, see:
-//  - https://github.com/filecoin-project/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
+//   - https://github.com/filecoin-project/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
 //
 // A reference implementation of provider.Interface can be found in engine.Engine.
 package provider
@@ -13,6 +13,7 @@ import (
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -40,33 +41,38 @@ type Interface interface {
 	RegisterMultihashLister(MultihashLister)
 
 	// NotifyPut signals the provider that the list of multihashes looked up by
-	// the given contextID is available.  The given contextID is then used to
-	// look up the list of multihashes via MultihashLister.  An advertisement is then
-	// generated, appended to the chain of advertisements and published onto
-	// the gossip pubsub channel.
+	// the given provider and contextIDs is available. The given
+	// provider and contextIDs are then used to look up the list of multihashes via MultihashLister.
+	// An advertisement is then generated, appended to the chain of advertisements and published onto
+	// the gossip pubsub channel. Advertisements for different provider IDs are placed onto the same chain.
+	// Use an empty provider string for the default configured provider.
 	//
 	// A MultihashLister must be registered prior to using this function.
 	// ErrNoMultihashLister is returned if no such lister is registered.
 	//
 	// The metadata is data that provides hints about how to retrieve data and
-	// is protocol dependant.  The metadata must at least specify a protocol
+	// is protocol dependant. The metadata must at least specify a protocol
 	// ID, but its data is optional.
 	//
-	// If both the contextID and metadata are the same as a previous call to
+	// If provider, contextID and metadata are the same as a previous call to
 	// NotifyPut, then ErrAlreadyAdvertised is returned.
 	//
-	// This function returns the ID of the advertisement published.
-	NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error)
-
-	// NotifyRemove signals to the provider that the multihashes that
-	// corresponded to the given contextID are no longer available.  An advertisement
-	// is then generated, appended to the chain of advertisements and published
-	// onto the gossip pubsub channel.
-	// The given contextID must have previously been put via NotifyPut.
-	// If not found ErrContextIDNotFound is returned.
+	// If provider is nil then the default configured provider will be assumed.
 	//
 	// This function returns the ID of the advertisement published.
-	NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error)
+	NotifyPut(ctx context.Context, provider *peer.AddrInfo, contextID []byte, md metadata.Metadata) (cid.Cid, error)
+
+	// NotifyRemove signals to the provider that the multihashes that
+	// corresponded to the given provider and contextID are no longer available.  An advertisement
+	// is then generated, appended to the chain of advertisements and published
+	// onto the gossip pubsub channel.
+	// The given provider and contextID tuple must have previously been put via NotifyPut.
+	// If not found ErrContextIDNotFound is returned.
+	//
+	// If providerID is empty then the default configured provider will be assumed.
+	//
+	// This function returns the ID of the advertisement published.
+	NotifyRemove(ctx context.Context, providerID peer.ID, contextID []byte) (cid.Cid, error)
 
 	// GetAdv gets the advertisement that corresponds to the given cid.
 	GetAdv(context.Context, cid.Cid) (*schema.Advertisement, error)
@@ -92,9 +98,10 @@ type MultihashIterator interface {
 	Next() (multihash.Multihash, error)
 }
 
-// MultihashLister lists the multihashes that correspond to a given contextID.
+// MultihashLister lists the multihashes that correspond to a given provider and contextID.
 // The lister must be deterministic: it must produce the same list of multihashes in the same
-// order for the same context ID.
+// order for the same (provider, contextID) tuple.
 //
+// empty provider means falling back to the default.
 // See: Interface.NotifyPut, Interface.NotifyRemove, MultihashIterator.
-type MultihashLister func(ctx context.Context, contextID []byte) (MultihashIterator, error)
+type MultihashLister func(ctx context.Context, provider peer.ID, contextID []byte) (MultihashIterator, error)

@@ -13,6 +13,7 @@ import (
 	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	multihash "github.com/multiformats/go-multihash"
 )
 
@@ -71,33 +72,33 @@ func (mr *MockInterfaceMockRecorder) GetLatestAdv(arg0 interface{}) *gomock.Call
 }
 
 // NotifyPut mocks base method.
-func (m *MockInterface) NotifyPut(ctx context.Context, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
+func (m *MockInterface) NotifyPut(ctx context.Context, provider *peer.AddrInfo, contextID []byte, md metadata.Metadata) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyPut", ctx, contextID, md)
+	ret := m.ctrl.Call(m, "NotifyPut", ctx, provider, contextID, md)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NotifyPut indicates an expected call of NotifyPut.
-func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, contextID, md interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyPut(ctx, provider, contextID, md interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), ctx, contextID, md)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyPut", reflect.TypeOf((*MockInterface)(nil).NotifyPut), ctx, provider, contextID, md)
 }
 
 // NotifyRemove mocks base method.
-func (m *MockInterface) NotifyRemove(ctx context.Context, contextID []byte) (cid.Cid, error) {
+func (m *MockInterface) NotifyRemove(ctx context.Context, providerID peer.ID, contextID []byte) (cid.Cid, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyRemove", ctx, contextID)
+	ret := m.ctrl.Call(m, "NotifyRemove", ctx, providerID, contextID)
 	ret0, _ := ret[0].(cid.Cid)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NotifyRemove indicates an expected call of NotifyRemove.
-func (mr *MockInterfaceMockRecorder) NotifyRemove(ctx, contextID interface{}) *gomock.Call {
+func (mr *MockInterfaceMockRecorder) NotifyRemove(ctx, providerID, contextID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyRemove", reflect.TypeOf((*MockInterface)(nil).NotifyRemove), ctx, contextID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyRemove", reflect.TypeOf((*MockInterface)(nil).NotifyRemove), ctx, providerID, contextID)
 }
 
 // Publish mocks base method.

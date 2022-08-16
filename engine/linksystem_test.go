@@ -19,6 +19,7 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/multicodec"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,7 +54,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 
 	// Register lister with removal handle
 	var removed bool
-	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	subject.RegisterMultihashLister(func(ctx context.Context, provider peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 		strCtxID := string(contextID)
 		if strCtxID == string(ctxID) && !removed {
 			return getMhIterator(t, mhs), nil
@@ -62,7 +63,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	})
 
 	// Publish content added advertisement.
-	adAddCid, err := subject.NotifyPut(ctx, ctxID, testMetadata)
+	adAddCid, err := subject.NotifyPut(ctx, nil, ctxID, testMetadata)
 	require.NoError(t, err)
 	adAdd, err := subject.GetAdv(ctx, adAddCid)
 	require.NoError(t, err)
@@ -79,7 +80,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	removed = true
 
 	// Publish content removed advertisement
-	adRemoveCid, err := subject.NotifyRemove(ctx, ctxID)
+	adRemoveCid, err := subject.NotifyRemove(ctx, "", ctxID)
 	require.NoError(t, err)
 	adRemove, err := subject.GetAdv(ctx, adRemoveCid)
 	require.NoError(t, err)
@@ -109,6 +110,8 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
+	otherProviderId := testutil.NewID(t)
+
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
 	wantAd1EntriesChainLen := ad1MhCount / chunkSize
@@ -121,18 +124,18 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	ad2Mhs := testutil.RandomCids(t, rng, ad2MhCount)
 	require.NoError(t, err)
 
-	subject.RegisterMultihashLister(func(ctx context.Context, contextID []byte) (provider.MultihashIterator, error) {
+	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 		strCtxID := string(contextID)
-		if strCtxID == string(ad1CtxID) {
+		if strCtxID == string(ad1CtxID) && p == subject.ProviderID() {
 			return getMhIterator(t, ad1Mhs), nil
 		}
-		if strCtxID == string(ad2CtxID) {
+		if strCtxID == string(ad2CtxID) && p == otherProviderId {
 			return getMhIterator(t, ad2Mhs), nil
 		}
 		return nil, errors.New("not found")
 	})
 
-	ad1Cid, err := subject.NotifyPut(ctx, ad1CtxID, testMetadata)
+	ad1Cid, err := subject.NotifyPut(ctx, nil, ad1CtxID, testMetadata)
 	require.NoError(t, err)
 	ad1, err := subject.GetAdv(ctx, ad1Cid)
 	require.NoError(t, err)
@@ -141,7 +144,9 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	requireChunkIsCached(t, subject.Chunker(), ad1EntriesChain...)
 	a1Chunks := requireLoadEntryChunkFromEngine(t, subject, ad1EntriesChain...)
 
-	ad2Cid, err := subject.NotifyPut(ctx, ad2CtxID, testMetadata)
+	// deliberately generating an add with a different provider to verify that both default and postfixed entries
+	// are correctly loaded from the datastore
+	ad2Cid, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: otherProviderId}, ad2CtxID, testMetadata)
 	require.NoError(t, err)
 	ad2, err := subject.GetAdv(ctx, ad2Cid)
 	require.NoError(t, err)
