@@ -349,6 +349,20 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, gotLatestAfterRmAdCid, gotRemoveAdCid)
 	require.NotEqual(t, gotLatestAfterRmAdCid, gotLatestAdCid)
+
+	// Remove All
+	gotRemoveAllAdCid, err := subject.NotifyRemove(ctx, "", nil)
+	require.NoError(t, err)
+	require.NotEqual(t, gotRemoveAdCid, gotRemoveAllAdCid)
+
+	gotLatestAfterRmAllAdCid, _, err := subject.GetLatestAdv(ctx)
+	require.NoError(t, err)
+	require.Equal(t, gotRemoveAllAdCid, gotLatestAfterRmAllAdCid)
+	require.NotEqual(t, gotLatestAfterRmAdCid, gotLatestAfterRmAllAdCid)
+
+	gotLatestAfterRmAllAd, err := subject.GetAdv(ctx, gotLatestAfterRmAllAdCid)
+	require.NoError(t, err)
+	verifyAd(t, ctx, subject, createAd(t, []byte{}, subject.ProviderID().String(), nil, "bafkreehdwdcefgh4dqkjv67uzcmw7oje", true, gotRemoveAdCid.String()), gotLatestAfterRmAllAd)
 }
 
 func TestEngine_NotifyRemoveWithDefaultProvider(t *testing.T) {

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -20,6 +21,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dsn "github.com/ipfs/go-datastore/namespace"
+	"github.com/ipfs/go-datastore/query"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -435,14 +437,20 @@ func (e *Engine) GetLatestAdv(ctx context.Context) (cid.Cid, *schema.Advertiseme
 func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []multiaddr.Multiaddr, contextID []byte, md metadata.Metadata, isRm bool) (cid.Cid, error) {
 	var err error
 	var cidsLnk cidlink.Link
+	var c cid.Cid = cid.Undef
 
-	log := log.With("providerID", p).With("contextID", base64.StdEncoding.EncodeToString(contextID))
+	log := log.With("providerID", p)
 
-	c, err := e.getKeyCidMap(ctx, p, contextID)
-	if err != nil {
-		if err != datastore.ErrNotFound {
-			return cid.Undef, fmt.Errorf("cound not not get entries cid by provider + context id: %s", err)
+	if contextID != nil {
+		log = log.With("contextID", base64.StdEncoding.EncodeToString(contextID))
+		c, err = e.getKeyCidMap(ctx, p, contextID)
+		if err != nil {
+			if err != datastore.ErrNotFound {
+				return cid.Undef, fmt.Errorf("cound not not get entries cid by provider + context id: %s", err)
+			}
 		}
+	} else if !isRm {
+		return cid.Undef, fmt.Errorf("only remove messages can have empty context id")
 	}
 
 	// If not removing, then generate the link for the list of
@@ -505,23 +513,30 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 	} else {
 		log.Info("Creating removal advertisement")
 
-		if c == cid.Undef {
-			return cid.Undef, provider.ErrContextIDNotFound
-		}
+		if contextID != nil {
+			if c == cid.Undef {
+				return cid.Undef, provider.ErrContextIDNotFound
+			}
 
-		// If removing by context ID, it means the list of CIDs is not needed
-		// anymore, so we can remove the entry from the datastore.
-		err = e.deleteKeyCidMap(ctx, p, contextID)
-		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to delete provider + context id to entries cid mapping: %s", err)
-		}
-		err = e.deleteCidKeyMap(ctx, c)
-		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to delete entries cid to provider + context id mapping: %s", err)
-		}
-		err = e.deleteKeyMetadataMap(ctx, p, contextID)
-		if err != nil {
-			return cid.Undef, fmt.Errorf("failed to delete provider + context id to metadata mapping: %s", err)
+			// If removing by context ID, it means the list of CIDs is not needed
+			// anymore, so we can remove the entry from the datastore.
+			err = e.deleteKeyCidMap(ctx, p, contextID)
+			if err != nil {
+				return cid.Undef, fmt.Errorf("failed to delete provider + context id to entries cid mapping: %s", err)
+			}
+			err = e.deleteCidKeyMap(ctx, c)
+			if err != nil {
+				return cid.Undef, fmt.Errorf("failed to delete entries cid to provider + context id mapping: %s", err)
+			}
+			err = e.deleteKeyMetadataMap(ctx, p, contextID)
+			if err != nil {
+				return cid.Undef, fmt.Errorf("failed to delete provider + context id to metadata mapping: %s", err)
+			}
+		} else {
+			err = e.deleteAllForProvider(ctx, p)
+			if err != nil {
+				return cid.Undef, fmt.Errorf("failed to clean up data for provider %s: %s", p, err)
+			}
 		}
 
 		// Create an advertisement to delete content by contextID by specifying
@@ -615,7 +630,26 @@ func (e *Engine) putKeyCidMap(ctx context.Context, provider peer.ID, contextID [
 	if err != nil {
 		return err
 	}
-	m, err := json.Marshal(&providerAndContext{Provider: pB, ContextID: contextID})
+
+	pAndCBytes, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
+	if err != nil && err != datastore.ErrNotFound {
+		return err
+	}
+
+	// appending new provider to the index
+	var pAndC *providerAndContext
+
+	if err == datastore.ErrNotFound {
+		pAndC = &providerAndContext{ContextID: contextID}
+	} else {
+		err = json.Unmarshal(pAndCBytes, pAndC)
+		if err != nil {
+			return err
+		}
+	}
+
+	pAndC.Providers = append(pAndC.Providers, pB)
+	m, err := json.Marshal(pAndC)
 	if err != nil {
 		return err
 	}
@@ -643,16 +677,113 @@ func (e *Engine) deleteCidKeyMap(ctx context.Context, c cid.Cid) error {
 	return e.ds.Delete(ctx, e.cidToKeyKey(c))
 }
 
+func (e *Engine) deleteAllForProvider(ctx context.Context, provider peer.ID) error {
+	prefix := keyToCidMapPrefix
+	if provider != e.provider.ID {
+		prefix += provider.String()
+	}
+	prefixLen := len(prefix)
+	pB, err := provider.Marshal()
+	if err != nil {
+		return err
+	}
+	err = e.deleteAllKeysForQuery(ctx, &query.Query{
+		Prefix:   prefix,
+		KeysOnly: true,
+	}, func(r query.Result) error {
+		key := string(r.Value)
+		// parsing the CID from the key
+		cs := key[prefixLen+1:]
+		_, c, err := cid.CidFromBytes([]byte(cs))
+		if err != nil {
+			return err
+		}
+		// if we are dealing with default proider - just clean up the legay index,
+		// otherwise clean up the new index too
+		if provider == e.provider.ID {
+			err = e.ds.Delete(ctx, e.cidToKeyKey(c))
+			if err != nil {
+				return err
+			}
+		} else {
+			// getting the mapping
+			b, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
+			if err != nil {
+				return err
+			}
+			var pAndC providerAndContext
+			err = json.Unmarshal(b, &pAndC)
+			if err != nil {
+				return err
+			}
+
+			schema.Advertisement
+			var ind int
+			// removing provider from the mapping and putting it back
+			for i, val := range pAndC.Providers {
+				if bytes.Compare(val, pB) == 0 {
+					pAndC.Providers[i] = pAndC.Providers[len(pAndC.Providers)-1]
+					pAndC.Providers = pAndC.Providers[:len(pAndC.Providers)-1]
+					break
+				}
+			}
+			b, err = json.Marshal(pAndC)
+			if err != nil {
+				return err
+			}
+			return e.ds.Put(e.cidToProviderAndKeyKey(c), b)
+		}
+
+		return e.ds.Delete(ctx, datastore.NewKey(key))
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// deleting key to metadata mappings
+	return e.deleteAllKeysForQuery(ctx, &query.Query{
+		Prefix:   keyToMetadataMapPrefix + provider.String(),
+		KeysOnly: true,
+	}, func(r query.Result) error {
+		return e.ds.Delete(ctx, datastore.NewKey(string(r.Value)))
+	})
+}
+
+func (e *Engine) deleteAllKeysForQuery(ctx context.Context, q *query.Query, f func(query.Result) error) error {
+	results, err := e.ds.Query(ctx, *q)
+	if err != nil {
+		return err
+	}
+	defer results.Close()
+
+	for r := range results.Next() {
+		if r.Error != nil {
+			return r.Error
+		}
+
+		err = f(r)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type providerAndContext struct {
-	Provider  []byte `json:"p"`
-	ContextID []byte `json:"c"`
+	Providers [][]byte `json:"p"`
+	ContextID []byte   `json:"c"`
 }
 
 func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndContext, error) {
 	// first see whether the mapping exists in the legacy index
 	val, err := e.ds.Get(ctx, e.cidToKeyKey(c))
 	if err == nil {
-		return &providerAndContext{ContextID: val}, nil
+		pB, err := e.provider.ID.Marshal()
+		if err != nil {
+			return nil, err
+		}
+		return &providerAndContext{ContextID: val, Providers: [][]byte{pB}}, nil
 	}
 	if err != datastore.ErrNotFound {
 		return nil, err
