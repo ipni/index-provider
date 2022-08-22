@@ -71,6 +71,10 @@ type Interface interface {
 	//
 	// If providerID is empty then the default configured provider will be assumed.
 	//
+	// If contextID is nil then a "Remove All" message will be created that will remove all previously advertised
+	// content at both index-provider and indexer sides. This message type should be used with caution as
+	// executing it would require full index scan.
+	//
 	// This function returns the ID of the advertisement published.
 	NotifyRemove(ctx context.Context, providerID peer.ID, contextID []byte) (cid.Cid, error)
 

@@ -524,7 +524,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 			if err != nil {
 				return cid.Undef, fmt.Errorf("failed to delete provider + context id to entries cid mapping: %s", err)
 			}
-			err = e.deleteCidKeyMap(ctx, c)
+			err = e.deleteCidKeyMap(ctx, c, p)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("failed to delete entries cid to provider + context id mapping: %s", err)
 			}
@@ -593,7 +593,7 @@ func (e *Engine) keyToCidKey(provider peer.ID, contextID []byte) datastore.Key {
 	case e.provider.ID:
 		return datastore.NewKey(keyToCidMapPrefix + string(contextID))
 	default:
-		return datastore.NewKey(keyToCidMapPrefix + string(contextID) + "/" + provider.String())
+		return datastore.NewKey(keyToCidMapPrefix + provider.String() + "/" + string(contextID))
 	}
 }
 
@@ -610,7 +610,7 @@ func (e *Engine) keyToMetadataKey(provider peer.ID, contextID []byte) datastore.
 	case e.provider.ID:
 		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID))
 	default:
-		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID) + "/" + provider.String())
+		return datastore.NewKey(keyToMetadataMapPrefix + provider.String() + "/" + string(contextID))
 	}
 }
 
@@ -631,25 +631,23 @@ func (e *Engine) putKeyCidMap(ctx context.Context, provider peer.ID, contextID [
 		return err
 	}
 
-	pAndCBytes, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
+	existingPAndCBytes, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
 	if err != nil && err != datastore.ErrNotFound {
 		return err
 	}
 
-	// appending new provider to the index
-	var pAndC *providerAndContext
-
-	if err == datastore.ErrNotFound {
-		pAndC = &providerAndContext{ContextID: contextID}
-	} else {
-		err = json.Unmarshal(pAndCBytes, pAndC)
+	var existingPAndC *ProviderAndContext
+	if err != datastore.ErrNotFound {
+		existingPAndC = &ProviderAndContext{}
+		err = json.Unmarshal(existingPAndCBytes, existingPAndC)
 		if err != nil {
 			return err
 		}
 	}
 
-	pAndC.Providers = append(pAndC.Providers, pB)
-	m, err := json.Marshal(pAndC)
+	newPAndC := ProviderAndContext{Provider: pB, ContextID: contextID, Next: existingPAndC}
+
+	m, err := json.Marshal(newPAndC)
 	if err != nil {
 		return err
 	}
@@ -669,72 +667,103 @@ func (e *Engine) deleteKeyCidMap(ctx context.Context, provider peer.ID, contextI
 	return e.ds.Delete(ctx, e.keyToCidKey(provider, contextID))
 }
 
-func (e *Engine) deleteCidKeyMap(ctx context.Context, c cid.Cid) error {
-	err := e.ds.Delete(ctx, e.cidToProviderAndKeyKey(c))
+func (e *Engine) deleteCidKeyMap(ctx context.Context, c cid.Cid, providerID peer.ID) error {
+	pB, err := providerID.Marshal()
+	if err != nil {
+		return err
+	}
+	err = e.removeProviderFromLinkedList(ctx, c, pB)
 	if err != nil {
 		return err
 	}
 	return e.ds.Delete(ctx, e.cidToKeyKey(c))
 }
 
+func (e *Engine) removeProviderFromLinkedList(ctx context.Context, c cid.Cid, providerIDBytes []byte) error {
+	pAndCBytes, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
+
+	if err != nil && err != datastore.ErrNotFound {
+		return err
+	}
+	if err != datastore.ErrNotFound {
+		first := &ProviderAndContext{}
+		err = json.Unmarshal(pAndCBytes, first)
+		if err != nil {
+			return err
+		}
+
+		var prev *ProviderAndContext
+		curr := first
+
+		for {
+			if bytes.Equal(curr.Provider, providerIDBytes) {
+				if prev != nil {
+					prev.Next = curr.Next
+				}
+				if first == curr {
+					first = curr.Next
+				}
+			}
+			prev = curr
+			curr = curr.Next
+
+			if curr == nil {
+				break
+			}
+		}
+
+		if first == nil {
+			err = e.ds.Delete(ctx, e.cidToProviderAndKeyKey(c))
+			if err != nil {
+				return err
+			}
+		} else {
+			pAndCBytes, err = json.Marshal(first)
+			if err != nil {
+				return err
+			}
+			err = e.ds.Put(ctx, e.cidToProviderAndKeyKey(c), pAndCBytes)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (e *Engine) deleteAllForProvider(ctx context.Context, provider peer.ID) error {
+	// cleaning up index for provider works as follows
+	// - scanning the datastore for all keys starting with either map/keyCid/ or map/keyCid/providerId for non default provider ids
+	// - for each key removing the following records 1. ledacy cid->contextID 2. cid->(contextID, providers) 3. key->cid
+
 	prefix := keyToCidMapPrefix
 	if provider != e.provider.ID {
 		prefix += provider.String()
 	}
-	prefixLen := len(prefix)
 	pB, err := provider.Marshal()
 	if err != nil {
 		return err
 	}
 	err = e.deleteAllKeysForQuery(ctx, &query.Query{
-		Prefix:   prefix,
-		KeysOnly: true,
+		Prefix: prefix,
 	}, func(r query.Result) error {
-		key := string(r.Value)
-		// parsing the CID from the key
-		cs := key[prefixLen+1:]
-		_, c, err := cid.CidFromBytes([]byte(cs))
+		_, c, err := cid.CidFromBytes(r.Value)
 		if err != nil {
 			return err
 		}
-		// if we are dealing with default proider - just clean up the legay index,
-		// otherwise clean up the new index too
-		if provider == e.provider.ID {
-			err = e.ds.Delete(ctx, e.cidToKeyKey(c))
-			if err != nil {
-				return err
-			}
-		} else {
-			// getting the mapping
-			b, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
-			if err != nil {
-				return err
-			}
-			var pAndC providerAndContext
-			err = json.Unmarshal(b, &pAndC)
-			if err != nil {
-				return err
-			}
-
-			schema.Advertisement
-			var ind int
-			// removing provider from the mapping and putting it back
-			for i, val := range pAndC.Providers {
-				if bytes.Compare(val, pB) == 0 {
-					pAndC.Providers[i] = pAndC.Providers[len(pAndC.Providers)-1]
-					pAndC.Providers = pAndC.Providers[:len(pAndC.Providers)-1]
-					break
-				}
-			}
-			b, err = json.Marshal(pAndC)
-			if err != nil {
-				return err
-			}
-			return e.ds.Put(e.cidToProviderAndKeyKey(c), b)
+		// cleaning up the legacy index of cid -> contextID
+		err = e.ds.Delete(ctx, e.cidToKeyKey(c))
+		if err != nil {
+			return err
 		}
 
-		return e.ds.Delete(ctx, datastore.NewKey(key))
+		// removing all provider related records from the indexed linked lists
+		err = e.removeProviderFromLinkedList(ctx, c, pB)
+		if err != nil {
+			return err
+		}
+
+		return e.ds.Delete(ctx, datastore.NewKey(r.Key))
 	})
 
 	if err != nil {
@@ -746,7 +775,7 @@ func (e *Engine) deleteAllForProvider(ctx context.Context, provider peer.ID) err
 		Prefix:   keyToMetadataMapPrefix + provider.String(),
 		KeysOnly: true,
 	}, func(r query.Result) error {
-		return e.ds.Delete(ctx, datastore.NewKey(string(r.Value)))
+		return e.ds.Delete(ctx, datastore.NewKey(string(r.Key)))
 	})
 }
 
@@ -770,22 +799,22 @@ func (e *Engine) deleteAllKeysForQuery(ctx context.Context, q *query.Query, f fu
 	return nil
 }
 
-type providerAndContext struct {
-	Providers [][]byte `json:"p"`
-	ContextID []byte   `json:"c"`
+type ProviderAndContext struct {
+	Provider  []byte              `json:"p"`
+	ContextID []byte              `json:"c"`
+	Next      *ProviderAndContext `json:"n"`
 }
 
-func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndContext, error) {
-	// first see whether the mapping exists in the legacy index
+func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*ProviderAndContext, error) {
+	// first see whether the mapping exists in the old index
 	val, err := e.ds.Get(ctx, e.cidToKeyKey(c))
 	if err == nil {
 		pB, err := e.provider.ID.Marshal()
 		if err != nil {
 			return nil, err
 		}
-		return &providerAndContext{ContextID: val, Providers: [][]byte{pB}}, nil
-	}
-	if err != datastore.ErrNotFound {
+		return &ProviderAndContext{ContextID: val, Provider: pB}, nil
+	} else if err != datastore.ErrNotFound {
 		return nil, err
 	}
 	// trying to fetch this mapping from the new index
@@ -794,7 +823,7 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndConte
 		return nil, err
 	}
 
-	var pAndC providerAndContext
+	var pAndC ProviderAndContext
 	err = json.Unmarshal(val, &pAndC)
 	if err != nil {
 		return nil, err

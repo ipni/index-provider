@@ -98,7 +98,7 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// advertisement.  Only if the removal had no contextID would the
 			// indexer ask for entry chunks to remove.
 			// We don't care what exact provider to ask the chunks for, so taking the dirst one is good enough.
-			provider, err := peer.IDFromBytes(key.Providers[0])
+			provider, err := peer.IDFromBytes(key.Provider)
 			if err != nil {
 				return nil, err
 			}
