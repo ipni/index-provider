@@ -378,7 +378,6 @@ func (e *Engine) NotifyPut(ctx context.Context, provider *peer.AddrInfo, context
 //
 // See: Engine.RegisterMultihashLister, Engine.Publish.
 func (e *Engine) NotifyRemove(ctx context.Context, provider peer.ID, contextID []byte) (cid.Cid, error) {
-	// TODO: add support for "delete all" for provider
 	if provider == "" {
 		provider = e.options.provider.ID
 	}
