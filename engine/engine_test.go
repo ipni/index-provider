@@ -369,9 +369,9 @@ func TestEngine_NotifyPutThenNotifyRemoveAndRemoveAll(t *testing.T) {
 }
 
 func TestEngine_IndexConsistencyTest(t *testing.T) {
-	// This test verifies the index consistency after adding and removing advertised content.
-	// The main goal is to make sure that with added complexity, the index is cleaned up and remains consistent
-	// after put / remove / removeAll operations.
+	// This test verifies the index consistency after processign add, remove and remove all ads.
+	// The main goal is to make sure that with the current complexity, the index is cleaned up and remains consistent.
+
 	ctx := contextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 

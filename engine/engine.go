@@ -443,10 +443,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 	if contextID != nil {
 		log = log.With("contextID", base64.StdEncoding.EncodeToString(contextID))
 		c, err = e.getKeyCidMap(ctx, p, contextID)
-		if err != nil {
-			if err != datastore.ErrNotFound {
-				return cid.Undef, fmt.Errorf("cound not not get entries cid by provider + context id: %s", err)
-			}
+		if err != nil && err != datastore.ErrNotFound {
+			return cid.Undef, fmt.Errorf("cound not not get entries cid by provider + context id: %s", err)
 		}
 	} else if !isRm {
 		return cid.Undef, fmt.Errorf("only remove messages can have empty context id")
@@ -532,7 +530,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 				return cid.Undef, fmt.Errorf("failed to delete provider + context id to metadata mapping: %s", err)
 			}
 		} else {
-			err = e.deleteAllForProvider(ctx, p)
+			err = e.deleteAllMapsForProvider(ctx, p)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("failed to clean up data for provider %s: %s", p, err)
 			}
@@ -671,14 +669,14 @@ func (e *Engine) deleteCidKeyMap(ctx context.Context, c cid.Cid, providerID peer
 	if err != nil {
 		return err
 	}
-	err = e.removeProviderFromLinkedList(ctx, c, pB)
+	err = e.removeProviderFromCidProviderAndKeyMap(ctx, c, pB)
 	if err != nil {
 		return err
 	}
 	return e.ds.Delete(ctx, e.cidToKeyKey(c))
 }
 
-func (e *Engine) removeProviderFromLinkedList(ctx context.Context, c cid.Cid, providerIDBytes []byte) error {
+func (e *Engine) removeProviderFromCidProviderAndKeyMap(ctx context.Context, c cid.Cid, providerIDBytes []byte) error {
 	pAndCBytes, err := e.ds.Get(ctx, e.cidToProviderAndKeyKey(c))
 
 	if err != nil && err != datastore.ErrNotFound {
@@ -730,21 +728,24 @@ func (e *Engine) removeProviderFromLinkedList(ctx context.Context, c cid.Cid, pr
 	return nil
 }
 
-func (e *Engine) deleteAllForProvider(ctx context.Context, provider peer.ID) error {
+func (e *Engine) deleteAllMapsForProvider(ctx context.Context, provider peer.ID) error {
 	// cleaning up index for provider works as follows
-	// - scanning the datastore for all keys starting with either map/keyCid/ or map/keyCid/providerId for non default provider ids
-	// - for each key removing the following records 1. ledacy cid->contextID 2. cid->(contextID, providers) 3. key->cid
+	// - scanning the datastore for all keys starting with either map/keyCid/ or map/keyCid/providerId for non default providers
+	// - for each key removing cidKey, cidProviderAndKey, keyCid records
+	// - performing another index scan on keyMetadataIndex and cleaning up related records form there
 
-	prefix := keyToCidMapPrefix
+	keyToCidPrefix := keyToCidMapPrefix
+	metadataPrefix := keyToMetadataMapPrefix
 	if provider != e.provider.ID {
-		prefix += provider.String()
+		keyToCidPrefix += provider.String()
+		metadataPrefix += provider.String()
 	}
 	pB, err := provider.Marshal()
 	if err != nil {
 		return err
 	}
 	err = e.deleteAllKeysForQuery(ctx, &query.Query{
-		Prefix: prefix,
+		Prefix: keyToCidPrefix,
 	}, func(r query.Result) error {
 		_, c, err := cid.CidFromBytes(r.Value)
 		if err != nil {
@@ -757,7 +758,7 @@ func (e *Engine) deleteAllForProvider(ctx context.Context, provider peer.ID) err
 		}
 
 		// removing all provider related records from the indexed linked lists
-		err = e.removeProviderFromLinkedList(ctx, c, pB)
+		err = e.removeProviderFromCidProviderAndKeyMap(ctx, c, pB)
 		if err != nil {
 			return err
 		}
@@ -771,7 +772,7 @@ func (e *Engine) deleteAllForProvider(ctx context.Context, provider peer.ID) err
 
 	// deleting key to metadata mappings
 	return e.deleteAllKeysForQuery(ctx, &query.Query{
-		Prefix:   keyToMetadataMapPrefix + provider.String(),
+		Prefix:   metadataPrefix,
 		KeysOnly: true,
 	}, func(r query.Result) error {
 		return e.ds.Delete(ctx, datastore.NewKey(string(r.Key)))
@@ -799,9 +800,10 @@ func (e *Engine) deleteAllKeysForQuery(ctx context.Context, q *query.Query, f fu
 }
 
 type ProviderAndContext struct {
-	Provider  []byte              `json:"p"`
-	ContextID []byte              `json:"c"`
-	Next      *ProviderAndContext `json:"n"`
+	Provider  []byte `json:"p"`
+	ContextID []byte `json:"c"`
+	// records are organised in a linked list, so that add and get are executed in O(1), delete in O(N)
+	Next *ProviderAndContext `json:"n"`
 }
 
 func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*ProviderAndContext, error) {
