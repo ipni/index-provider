@@ -550,7 +550,7 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	// there should be no records left in the cidProvAndKey index for the "fish" fontext id
 	_, c, err = cid.CidFromBytes(cidBytes)
 	require.NoError(t, err)
-	pAndCBytes, err = ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
+	_, err = ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
 	require.Error(t, err, datastore.ErrNotFound)
 }
 
