@@ -4,9 +4,9 @@ go 1.17
 
 require (
 	github.com/filecoin-project/go-data-transfer v1.15.2
-	github.com/filecoin-project/go-legs v0.4.7
+	github.com/filecoin-project/go-legs v0.4.11-0.20220824232314-0d1b67a0f698
 	github.com/filecoin-project/go-state-types v0.1.0
-	github.com/filecoin-project/storetheindex v0.4.18
+	github.com/filecoin-project/storetheindex v0.4.20
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.0
@@ -14,7 +14,7 @@ require (
 	github.com/ipfs/go-cid v0.2.0
 	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-ds-leveldb v0.5.0
-	github.com/ipfs/go-graphsync v0.13.1
+	github.com/ipfs/go-graphsync v0.13.2
 	github.com/ipfs/go-ipfs-blockstore v1.2.0
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipfs/kubo v0.14.0
