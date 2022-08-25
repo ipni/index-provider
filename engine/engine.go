@@ -440,7 +440,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 
 	log := log.With("providerID", p)
 
-	if contextID != nil {
+	if len(contextID) != 0 {
 		log = log.With("contextID", base64.StdEncoding.EncodeToString(contextID))
 		c, err = e.getKeyCidMap(ctx, p, contextID)
 		if err != nil && err != datastore.ErrNotFound {
