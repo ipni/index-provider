@@ -4,7 +4,6 @@ import (
 	"context"
 	crand "crypto/rand"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -130,7 +129,7 @@ func CopyDir(t *testing.T, src string, dst string) {
 	require.NoError(t, err)
 	err = os.MkdirAll(dst, srcinfo.Mode())
 	require.NoError(t, err)
-	fds, err := ioutil.ReadDir(src)
+	fds, err := io.ReadDir(src)
 	require.NoError(t, err)
 
 	for _, fd := range fds {
