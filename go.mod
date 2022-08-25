@@ -1,6 +1,6 @@
 module github.com/filecoin-project/index-provider
 
-go 1.17
+go 1.18
 
 require (
 	github.com/filecoin-project/go-data-transfer v1.15.2
