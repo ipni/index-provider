@@ -3,7 +3,6 @@ package adminserver
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -97,7 +96,7 @@ func respond(w http.ResponseWriter, statusCode int, body io.WriterTo) {
 }
 
 func unmarshalAsJson(r io.Reader, dst interface{}) (int64, error) {
-	body, err := ioutil.ReadAll(r)
+	body, err := io.ReadAll(r)
 	if err != nil {
 		return 0, err
 	}

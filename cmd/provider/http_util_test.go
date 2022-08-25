@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +21,7 @@ func Test_doHttpPostReq_PostsExpectedRequest(t *testing.T) {
 	}
 	handler := http.HandlerFunc(func(_ http.ResponseWriter, httpReq *http.Request) {
 		require.Equal(t, "application/json", httpReq.Header["Content-Type"][0])
-		reqBody, err := ioutil.ReadAll(httpReq.Body)
+		reqBody, err := io.ReadAll(httpReq.Body)
 		require.NoError(t, err)
 		require.Equal(t, wantBody, string(reqBody))
 	})

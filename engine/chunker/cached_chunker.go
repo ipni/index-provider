@@ -83,7 +83,8 @@ type (
 //
 // The DAGs are generated with the given newChunker and are stored in an LRU cache. Once
 // stored, the individual DAGs that make up the entries chain are retrievable in their raw binary
-//  form via CachedEntriesChunker.GetRawCachedChunk.
+//
+//	form via CachedEntriesChunker.GetRawCachedChunk.
 //
 // The shape of the DAGs is dictated by the underlying chunking logic that is instantiated once via
 // newChunker function. See: NewHamtChunkerFunc, NewChainChunkerFunc.
@@ -104,7 +105,7 @@ type (
 // the number of chains present in the datastore it will evict chains to respect the given capacity
 // in no particular order.
 //
-//The purge flag specifies whether any existing cache should be cleared on startup. If set, any
+// The purge flag specifies whether any existing cache should be cleared on startup. If set, any
 // existing cached chunks will be deleted from the datastore. Otherwise, the previously cached
 // entries are restored.
 //
