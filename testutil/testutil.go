@@ -129,7 +129,7 @@ func CopyDir(t *testing.T, src string, dst string) {
 	require.NoError(t, err)
 	err = os.MkdirAll(dst, srcinfo.Mode())
 	require.NoError(t, err)
-	fds, err := io.ReadDir(src)
+	fds, err := os.ReadDir(src)
 	require.NoError(t, err)
 
 	for _, fd := range fds {
