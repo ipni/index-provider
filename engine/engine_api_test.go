@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/filecoin-project/index-provider/engine/chunker"
@@ -45,6 +46,13 @@ func (e *Engine) ProviderAddrs() []string {
 // Datastore returns the engine's datastore, exposed for testing purposes only.
 func (e *Engine) Datastore() datastore.Datastore {
 	return e.ds
+}
+
+func UnmarshalProviderAndContext(t *testing.T, bytes []byte) *providerAndContext {
+	p := &providerAndContext{}
+	err := json.Unmarshal(bytes, p)
+	require.NoError(t, err)
+	return p
 }
 
 func Test_EmptyConfigSetsDefaults(t *testing.T) {

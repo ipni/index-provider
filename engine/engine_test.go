@@ -3,7 +3,6 @@ package engine_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"math/rand"
 	"net/http"
@@ -135,9 +134,15 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.NoError(t, err)
 
 	announceErrChan := make(chan error, 1)
+	counter := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer close(announceErrChan)
 		defer r.Body.Close()
+		// we expect 2 ads to arrive
+		if counter > 0 {
+			defer close(announceErrChan)
+		}
+		counter++
+
 		// Decode CID and originator addresses from message.
 		an := dtsync.Message{}
 		if err := an.UnmarshalCBOR(r.Body); err != nil {
@@ -225,23 +230,35 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
+
 	md := metadata.New(metadata.Bitswap{})
 	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
 
-	wantAd := schema.Advertisement{
+	putAd := schema.Advertisement{
 		Provider:  subject.Host().ID().String(),
 		Addresses: multiAddsToString(subject.Host().Addrs()),
 		Entries:   chunkLnk,
 		ContextID: wantContextID,
 		Metadata:  mdBytes,
 	}
-	err = wantAd.Sign(subject.Key())
+
+	err = putAd.Sign(subject.Key())
 	require.NoError(t, err)
 
-	gotPublishedAdCid, err := subject.Publish(ctx, wantAd)
+	putAdCid, err := subject.Publish(ctx, putAd)
 	require.NoError(t, err)
-	require.NotEqual(t, cid.Undef, gotPublishedAdCid)
+	require.NotEqual(t, cid.Undef, putAdCid)
+
+	gotLatestAdCid, gotLatestAd, err := subject.GetLatestAdv(ctx)
+	require.NoError(t, err)
+	require.Equal(t, &putAd, gotLatestAd)
+	require.Equal(t, gotLatestAdCid, putAdCid)
+
+	// using notify remove so that it cleans up all internal indexes
+	removeAllAdCid, err := subject.NotifyRemove(ctx, "", nil)
+	require.NoError(t, err)
+	require.NotEqual(t, cid.Undef, removeAllAdCid)
 
 	// Explicitly check for an error from test server receiving the announce
 	// request. This way an error is detected whether or not a failure to send
@@ -249,30 +266,34 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	err = <-announceErrChan
 	require.NoError(t, err)
 
-	gotLatestAdCid, gotLatestAd, err := subject.GetLatestAdv(ctx)
+	gotLatestAdCid, _, err = subject.GetLatestAdv(ctx)
 	require.NoError(t, err)
-	require.Equal(t, &wantAd, gotLatestAd)
-	require.Equal(t, gotLatestAdCid, gotPublishedAdCid)
+	require.Equal(t, gotLatestAdCid, removeAllAdCid)
 
-	pubsubMsg, err := subsc.Next(ctx)
-	require.NoError(t, err)
-	require.Equal(t, pubsubMsg.GetFrom(), pubHost.ID())
-	require.Equal(t, pubsubMsg.GetTopic(), topic)
+	verifyPubSubMessage := func(c cid.Cid, extraData []byte) {
+		pubsubMsg, err := subsc.Next(ctx)
+		require.NoError(t, err)
+		require.Equal(t, pubsubMsg.GetFrom(), pubHost.ID())
+		require.Equal(t, pubsubMsg.GetTopic(), topic)
 
-	wantMessage := dtsync.Message{
-		Cid:       gotPublishedAdCid,
-		ExtraData: wantExtraGossipData,
+		wantMessage := dtsync.Message{
+			Cid:       c,
+			ExtraData: extraData,
+		}
+		wantMessage.SetAddrs(subject.Host().Addrs())
+
+		gotMessage := dtsync.Message{}
+		err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
+		require.NoError(t, err)
+		requireEqualLegsMessage(t, wantMessage, gotMessage)
 	}
-	wantMessage.SetAddrs(subject.Host().Addrs())
 
-	gotMessage := dtsync.Message{}
-	err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
-	require.NoError(t, err)
-	requireEqualLegsMessage(t, wantMessage, gotMessage)
+	verifyPubSubMessage(putAdCid, wantExtraGossipData)
+	verifyPubSubMessage(removeAllAdCid, wantExtraGossipData)
 
 	gotRootCid, err := head.QueryRootCid(ctx, subHost, topic, pubHost.ID())
 	require.NoError(t, err)
-	require.Equal(t, gotPublishedAdCid, gotRootCid)
+	require.Equal(t, gotLatestAdCid, gotRootCid)
 
 	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	ls := cidlink.DefaultLinkSystem()
@@ -288,16 +309,26 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.Equal(t, gotLatestAdCid, gotHead)
 
 	ssb := selectorbuilder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
-	adSel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreFields(
+	putAdSel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreFields(
 		func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
 			efsb.Insert("PreviousID", ssb.ExploreRecursiveEdge())
 			efsb.Insert("Next", ssb.ExploreRecursiveEdge())
 			efsb.Insert("Entries", ssb.ExploreRecursiveEdge())
 		})).Node()
-	err = syncer.Sync(ctx, gotPublishedAdCid, adSel)
 
+	// no need to traverse entries for the RM ad
+	rmAdSel := ssb.ExploreRecursive(selector.RecursionLimitNone(), ssb.ExploreFields(
+		func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
+			efsb.Insert("PreviousID", ssb.ExploreRecursiveEdge())
+		})).Node()
+
+	err = syncer.Sync(ctx, putAdCid, putAdSel)
 	require.NoError(t, err)
-	_, err = store.Get(ctx, gotPublishedAdCid.KeyString())
+	_, err = store.Get(ctx, putAdCid.KeyString())
+	require.NoError(t, err)
+	err = syncer.Sync(ctx, gotRootCid, rmAdSel)
+	require.NoError(t, err)
+	_, err = store.Get(ctx, gotRootCid.KeyString())
 	require.NoError(t, err)
 }
 
@@ -368,12 +399,55 @@ func TestEngine_NotifyPutThenNotifyRemoveAndRemoveAll(t *testing.T) {
 	verifyAd(t, ctx, subject, createAd(t, []byte{}, subject.ProviderID().String(), nil, "bafkreehdwdcefgh4dqkjv67uzcmw7oje", true, gotRemoveAdCid.String()), gotLatestAfterRmAllAd)
 }
 
-func TestEngine_IndexConsistencyTest(t *testing.T) {
-	// This test verifies the index consistency after processign add, remove and remove all ads.
-	// The main goal is to make sure that with the current complexity, the index is cleaned up and remains consistent.
+type consistencyTestData struct {
+	mhs                    []multihash.Multihash
+	mhs2                   []multihash.Multihash
+	provider1ID            peer.ID
+	provider2ID            peer.ID
+	provider3ID            peer.ID
+	commonContextID        []byte
+	provider3OnlyContextID []byte
+}
 
-	ctx := contextWithTimeout(t)
+func setUpConsistencyTest(t *testing.T, ctx context.Context, subject *engine.Engine) *consistencyTestData {
+
 	rng := rand.New(rand.NewSource(1413))
+
+	c := &consistencyTestData{
+		mhs:                    testutil.RandomMultihashes(t, rng, 42),
+		mhs2:                   testutil.RandomMultihashes(t, rng, 42),
+		provider1ID:            subject.ProviderID(),
+		provider2ID:            testutil.NewID(t),
+		provider3ID:            testutil.NewID(t),
+		commonContextID:        []byte("fish"),
+		provider3OnlyContextID: []byte("bird"),
+	}
+
+	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
+		if bytes.Equal(contextID, c.commonContextID) {
+			return provider.SliceMultihashIterator(c.mhs), nil
+		} else if bytes.Equal(contextID, c.provider3OnlyContextID) {
+			return provider.SliceMultihashIterator(c.mhs2), nil
+		}
+		return nil, errors.New("not found")
+	})
+
+	// Advertising content for the three providers. Default provider and provider 2 advertise a single piece of content with the same context IDs
+	// while provider 3 advertises two pieces of content with different context IDs
+	_, err := subject.NotifyPut(ctx, nil, c.commonContextID, metadata.New(metadata.Bitswap{}))
+	require.NoError(t, err)
+	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: c.provider2ID}, c.commonContextID, metadata.New(metadata.Bitswap{}))
+	require.NoError(t, err)
+	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: c.provider3ID}, c.commonContextID, metadata.New(metadata.Bitswap{}))
+	require.NoError(t, err)
+	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: c.provider3ID}, c.provider3OnlyContextID, metadata.New(metadata.Bitswap{}))
+	require.NoError(t, err)
+
+	return c
+}
+
+func TestEngine_IndexIsConstructedOnPut(t *testing.T) {
+	ctx := contextWithTimeout(t)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -381,49 +455,18 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	mhs := testutil.RandomMultihashes(t, rng, 42)
-	mhs2 := testutil.RandomMultihashes(t, rng, 42)
-	provider2ID := testutil.NewID(t)
-	provider3ID := testutil.NewID(t)
-	provider3Bytes, err := provider3ID.Marshal()
-	require.NoError(t, err)
-	provider2Bytes, err := provider2ID.Marshal()
-	require.NoError(t, err)
-	provider1Bytes, err := subject.ProviderID().Marshal()
-	require.NoError(t, err)
-
-	commonContextID := []byte("fish")
-	provider3OnlyContextID := []byte("bird")
-	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
-		if bytes.Equal(contextID, commonContextID) {
-			return provider.SliceMultihashIterator(mhs), nil
-		} else if bytes.Equal(contextID, provider3OnlyContextID) {
-			return provider.SliceMultihashIterator(mhs2), nil
-		}
-		return nil, errors.New("not found")
-	})
-
-	// Advertising content for the three providers. Default provider and provider 2 advertise a single piece of content with the same context IDs
-	// while provider 3 advertises two pieces of content with different context IDs
-	_, err = subject.NotifyPut(ctx, nil, commonContextID, metadata.New(metadata.Bitswap{}))
-	require.NoError(t, err)
-	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider2ID}, commonContextID, metadata.New(metadata.Bitswap{}))
-	require.NoError(t, err)
-	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider3ID}, commonContextID, metadata.New(metadata.Bitswap{}))
-	require.NoError(t, err)
-	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider3ID}, provider3OnlyContextID, metadata.New(metadata.Bitswap{}))
-	require.NoError(t, err)
+	ct := setUpConsistencyTest(t, ctx, subject)
 
 	ds := subject.Datastore()
 
 	// verifying that for each provider + contextID there is a record in keyCid index
 	cidBytes, err := ds.Get(ctx, datastore.NewKey("map/keyCid/fish"))
 	require.NoError(t, err)
-	cidBytes2, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+provider2ID.String()+"/fish"))
+	cidBytes2, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider2ID.String()+"/"+string(ct.commonContextID)))
 	require.NoError(t, err)
-	cidBytes3, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+provider3ID.String()+"/fish"))
+	cidBytes3, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider3ID.String()+"/"+string(ct.commonContextID)))
 	require.NoError(t, err)
-	cidBytes4, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+provider3ID.String()+"/bird"))
+	cidBytes4, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider3ID.String()+"/"+string(ct.provider3OnlyContextID)))
 	require.NoError(t, err)
 	require.Equal(t, cidBytes, cidBytes2)
 	require.Equal(t, cidBytes, cidBytes3)
@@ -432,11 +475,11 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	// verifying that for each provider + contextID there is a record in keyMD index
 	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/fish"))
 	require.NoError(t, err)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+provider2ID.String()+"/fish"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+ct.provider2ID.String()+"/"+string(ct.commonContextID)))
 	require.NoError(t, err)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+provider3ID.String()+"/fish"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+ct.provider3ID.String()+"/"+string(ct.commonContextID)))
 	require.NoError(t, err)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+provider3ID.String()+"/bird"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+ct.provider3ID.String()+"/"+string(ct.provider3OnlyContextID)))
 	require.NoError(t, err)
 
 	_, c, err := cid.CidFromBytes(cidBytes)
@@ -450,20 +493,18 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	pAndCBytes, err := ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
 	require.NoError(t, err)
 
-	pAndC := &engine.ProviderAndContext{}
-	err = json.Unmarshal(pAndCBytes, &pAndC)
-	require.NoError(t, err)
+	pAndC := engine.UnmarshalProviderAndContext(t, pAndCBytes)
 
-	require.Equal(t, commonContextID, pAndC.ContextID)
-	require.Equal(t, provider3Bytes, pAndC.Provider)
+	require.Equal(t, ct.commonContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider3ID.String(), pAndC.Provider)
 
 	pAndC = pAndC.Next
-	require.Equal(t, commonContextID, pAndC.ContextID)
-	require.Equal(t, provider2Bytes, pAndC.Provider)
+	require.Equal(t, ct.commonContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider2ID.String(), pAndC.Provider)
 
 	pAndC = pAndC.Next
-	require.Equal(t, commonContextID, pAndC.ContextID)
-	require.Equal(t, provider1Bytes, pAndC.Provider)
+	require.Equal(t, ct.commonContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider1ID.String(), pAndC.Provider)
 
 	require.Nil(t, pAndC.Next)
 
@@ -473,50 +514,65 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	pAndCBytes, err = ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
 	require.NoError(t, err)
 
-	pAndC = &engine.ProviderAndContext{}
-	err = json.Unmarshal(pAndCBytes, &pAndC)
-	require.NoError(t, err)
+	pAndC = engine.UnmarshalProviderAndContext(t, pAndCBytes)
 
-	require.Equal(t, provider3OnlyContextID, pAndC.ContextID)
-	require.Equal(t, provider3Bytes, pAndC.Provider)
+	require.Equal(t, ct.provider3OnlyContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider3ID.String(), pAndC.Provider)
 	require.Nil(t, pAndC.Next)
+}
+
+func TestEngine_IndexIsCleanedUpOnRemove(t *testing.T) {
+	ctx := contextWithTimeout(t)
+
+	subject, err := engine.New()
+	require.NoError(t, err)
+	err = subject.Start(ctx)
+	require.NoError(t, err)
+	defer subject.Shutdown()
+
+	ct := setUpConsistencyTest(t, ctx, subject)
+
+	ds := subject.Datastore()
+
+	cidBytes, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+string(ct.commonContextID)))
+	require.NoError(t, err)
+	cidBytes4, err := ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider3ID.String()+"/"+string(ct.provider3OnlyContextID)))
+	require.NoError(t, err)
 
 	// REMOVE ONE - removing a record for provider 2
-	_, err = subject.NotifyRemove(ctx, provider2ID, commonContextID)
+	_, err = subject.NotifyRemove(ctx, ct.provider2ID, ct.commonContextID)
 	require.NoError(t, err)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/"+provider2ID.String()+"/fish"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider2ID.String()+"/"+string(ct.commonContextID)))
 	require.Error(t, err, datastore.ErrNotFound)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+provider2ID.String()+"/fish"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+ct.provider2ID.String()+"/"+string(ct.commonContextID)))
 	require.Error(t, err, datastore.ErrNotFound)
 
 	// there should be only 2 records left in the cidProvAndKey index for the "fish" fontext id
-	_, c, err = cid.CidFromBytes(cidBytes)
+	_, c, err := cid.CidFromBytes(cidBytes)
 	require.NoError(t, err)
-	pAndCBytes, err = ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
-	require.NoError(t, err)
-
-	pAndC = &engine.ProviderAndContext{}
-	err = json.Unmarshal(pAndCBytes, &pAndC)
+	pAndCBytes, err := ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
 	require.NoError(t, err)
 
-	require.Equal(t, commonContextID, pAndC.ContextID)
-	require.Equal(t, provider3Bytes, pAndC.Provider)
+	pAndC := engine.UnmarshalProviderAndContext(t, pAndCBytes)
+
+	require.Equal(t, ct.commonContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider3ID.String(), pAndC.Provider)
 
 	pAndC = pAndC.Next
-	require.Equal(t, commonContextID, pAndC.ContextID)
-	require.Equal(t, provider1Bytes, pAndC.Provider)
+	require.Equal(t, ct.commonContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider1ID.String(), pAndC.Provider)
 	require.Nil(t, pAndC.Next)
 
 	// REMOVE ALL - removing all records for provider 3
-	_, err = subject.NotifyRemove(ctx, provider3ID, nil)
+	_, err = subject.NotifyRemove(ctx, ct.provider3ID, nil)
 	require.NoError(t, err)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/"+provider3ID.String()+"/fish"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider3ID.String()+"/"+string(ct.commonContextID)))
 	require.Error(t, err, datastore.ErrNotFound)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/"+provider3ID.String()+"/bird"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/"+ct.provider3ID.String()+"/"+string(ct.provider3OnlyContextID)))
 	require.Error(t, err, datastore.ErrNotFound)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+provider3ID.String()+"/fish"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+ct.provider3ID.String()+"/"+string(ct.commonContextID)))
 	require.Error(t, err, datastore.ErrNotFound)
-	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+provider3ID.String()+"/bird"))
+	_, err = ds.Get(ctx, datastore.NewKey("map/keyMD/"+ct.provider3ID.String()+"/"+string(ct.provider3OnlyContextID)))
 	require.Error(t, err, datastore.ErrNotFound)
 
 	// there should be only 1 record in the cidProvAndKey index left for the "fish" context
@@ -525,12 +581,10 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	pAndCBytes, err = ds.Get(ctx, datastore.NewKey("map/cidProvAndKey/"+c.String()))
 	require.NoError(t, err)
 
-	pAndC = &engine.ProviderAndContext{}
-	err = json.Unmarshal(pAndCBytes, &pAndC)
-	require.NoError(t, err)
+	pAndC = engine.UnmarshalProviderAndContext(t, pAndCBytes)
 
-	require.Equal(t, commonContextID, pAndC.ContextID)
-	require.Equal(t, provider1Bytes, pAndC.Provider)
+	require.Equal(t, ct.commonContextID, pAndC.ContextID)
+	require.Equal(t, ct.provider1ID.String(), pAndC.Provider)
 	require.Nil(t, pAndC.Next)
 
 	// there should be no records in the cidProvAndKey index left for the "bird" context
@@ -540,7 +594,7 @@ func TestEngine_IndexConsistencyTest(t *testing.T) {
 	require.Error(t, err, datastore.ErrNotFound)
 
 	// REMOVE ONE - removing a record for the default provider
-	_, err = subject.NotifyRemove(ctx, "", commonContextID)
+	_, err = subject.NotifyRemove(ctx, "", ct.commonContextID)
 	require.NoError(t, err)
 	_, err = ds.Get(ctx, datastore.NewKey("map/keyCid/fish"))
 	require.Error(t, err, datastore.ErrNotFound)

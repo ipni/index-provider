@@ -71,8 +71,7 @@ type Interface interface {
 	//
 	// If providerID is empty then the default configured provider will be assumed.
 	//
-	// If contextID is nil then a "Remove All" message will be created that will remove all previously advertised
-	// content at both index-provider and indexer sides. This message type should be used with caution as
+	// An empty or nil contextID removes all the content previously advertised by the given providerID. That should be used with caution as
 	// executing it will require full index scan.
 	//
 	// This function returns the ID of the advertisement published.
