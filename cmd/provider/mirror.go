@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/filecoin-project/index-provider/mirror"
@@ -150,7 +150,7 @@ func beforeMirror(cctx *cli.Context) error {
 	var hostOpts []libp2p.Option
 	if cctx.IsSet(Mirror.flags.identityPath.Name) {
 		pkPath := Mirror.flags.identityPath.Get(cctx)
-		pkBytes, err := ioutil.ReadFile(pkPath)
+		pkBytes, err := os.ReadFile(pkPath)
 		if err != nil {
 			return err
 		}

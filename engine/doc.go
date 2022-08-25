@@ -8,7 +8,7 @@
 // provided by the engine.
 // The list of multihashes are paginated as a collection of interlinked chunks.
 // For the complete advertisement IPLD schema, see:
-//  - https://github.com/filecoin-project/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
+//   - https://github.com/filecoin-project/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
 //
 // The engine internally uses "go-legs" to sync the IPLD DAG of advertisements.
 // See: https://github.com/filecoin-project/go-legs

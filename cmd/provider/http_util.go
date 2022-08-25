@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -35,7 +35,7 @@ func doHttpPostReq(ctx context.Context, path string, req interface{}) (resp *htt
 // This function is intended to generate consistent textual output in CLI for a response received
 // from the admin server.
 func errFromHttpResp(resp *http.Response) error {
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed  to read response: %w", err)
 	}

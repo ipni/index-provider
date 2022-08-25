@@ -83,7 +83,7 @@ func (d *EntriesIterator) Drain() ([]multihash.Multihash, error) {
 	return mhs, nil
 }
 
-//ChunkCount returns the number of current chunk in iteration.
+// ChunkCount returns the number of current chunk in iteration.
 // This function returns the final count of entries chunk when iteration reaches its end, i.e.
 // calling EntriesIterator.Next returns io.EOF error.
 func (d *EntriesIterator) ChunkCount() int {

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -74,7 +73,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rr.Code)
 
-	respBytes, err := ioutil.ReadAll(rr.Body)
+	respBytes, err := io.ReadAll(rr.Body)
 	require.NoError(t, err)
 
 	var resp ImportCarRes
@@ -123,7 +122,7 @@ func Test_importCarHandlerFail(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 
-	respBytes, err := ioutil.ReadAll(rr.Body)
+	respBytes, err := io.ReadAll(rr.Body)
 	require.NoError(t, err)
 	require.Equal(t, "failed to import CAR: fish\n", string(respBytes))
 }
@@ -167,7 +166,7 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 
 	require.Equal(t, http.StatusConflict, rr.Code)
 
-	respBytes, err := ioutil.ReadAll(rr.Body)
+	respBytes, err := io.ReadAll(rr.Body)
 	require.NoError(t, err)
 	require.Equal(t, "CAR already advertised\n", string(respBytes))
 }
@@ -197,7 +196,7 @@ func Test_removeCarHandler(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	respBytes, err := ioutil.ReadAll(rr.Body)
+	respBytes, err := io.ReadAll(rr.Body)
 	require.NoError(t, err)
 
 	require.Equal(t, http.StatusOK, rr.Code, string(respBytes))
@@ -234,7 +233,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 
-	respBytes, err := ioutil.ReadAll(rr.Body)
+	respBytes, err := io.ReadAll(rr.Body)
 	require.NoError(t, err)
 	require.Equal(t, "error removing car: fish\n", string(respBytes))
 }
@@ -349,7 +348,7 @@ func Test_ListCarHandler(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
-	respBytes, err := ioutil.ReadAll(rr.Body)
+	respBytes, err := io.ReadAll(rr.Body)
 	require.NoError(t, err)
 
 	var respBeforePut ListCarRes
@@ -373,7 +372,7 @@ func Test_ListCarHandler(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
-	respBytes, err = ioutil.ReadAll(rr.Body)
+	respBytes, err = io.ReadAll(rr.Body)
 	require.NoError(t, err)
 
 	var respAfterPut ListCarRes

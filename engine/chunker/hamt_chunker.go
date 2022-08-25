@@ -31,8 +31,8 @@ type HamtChunker struct {
 // algorithm. The bit-width and bucket size must be at least 3 and 1 respectively.
 //
 // See:
-//  - https://ipld.io/specs/advanced-data-layouts/hamt/spec
-//  - https://github.com/ipld/go-ipld-adl-hamt
+//   - https://ipld.io/specs/advanced-data-layouts/hamt/spec
+//   - https://github.com/ipld/go-ipld-adl-hamt
 func NewHamtChunker(ls *ipld.LinkSystem, hashAlg multicodec.Code, bitWidth, bucketSize int) (*HamtChunker, error) {
 	if bitWidth < 3 {
 		return nil, fmt.Errorf("bit-width must be at least 3; got: %d", bitWidth)
