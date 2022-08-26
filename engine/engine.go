@@ -578,7 +578,7 @@ func (e *Engine) keyToCidKey(provider peer.ID, contextID []byte) datastore.Key {
 	case e.provider.ID:
 		return datastore.NewKey(keyToCidMapPrefix + string(contextID))
 	default:
-		return datastore.NewKey(keyToCidMapPrefix + string(contextID) + "/" + provider.String())
+		return datastore.NewKey(keyToCidMapPrefix + provider.String() + "/" + string(contextID))
 	}
 }
 
@@ -595,7 +595,7 @@ func (e *Engine) keyToMetadataKey(provider peer.ID, contextID []byte) datastore.
 	case e.provider.ID:
 		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID))
 	default:
-		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID) + "/" + provider.String())
+		return datastore.NewKey(keyToMetadataMapPrefix + provider.String() + "/" + string(contextID))
 	}
 }
 
