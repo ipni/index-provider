@@ -26,6 +26,7 @@ func InitWithIdentity(identity Identity) (*Config, error) {
 		Ingest:         NewIngest(),
 		ProviderServer: NewProviderServer(),
 		AdminServer:    NewAdminServer(),
+		Reframe:        NewReframe(),
 	}, nil
 }
 
