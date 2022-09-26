@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/filecoin-project/index-provider/metrics"
 	"github.com/filecoin-project/index-provider/mirror"
 	leveldb "github.com/ipfs/go-ds-leveldb"
-	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -35,6 +36,7 @@ var Mirror struct {
 		topic                       *cli.StringFlag
 		skipRemapOnEntriesTypeMatch *cli.BoolFlag
 		alwaysReSignAds             *cli.BoolFlag
+		metricsListenAddr           *cli.StringFlag
 	}
 
 	source  *peer.AddrInfo
@@ -113,6 +115,11 @@ func init() {
 		Usage:       "Whether to always re-sign advertisements with the mirror's identity.",
 		DefaultText: "Ads are only re-singed if changed by the mirror.",
 	}
+	Mirror.flags.metricsListenAddr = &cli.StringFlag{
+		Name:  "metricsListenAddr",
+		Usage: "The listen address on which metrics are exposed",
+		Value: "0.0.0.0:8989",
+	}
 	Mirror.Command = &cli.Command{
 		Name:  "mirror",
 		Usage: "Mirrors the advertisement chain from an existing index provider.",
@@ -131,6 +138,7 @@ func init() {
 			Mirror.flags.topic,
 			Mirror.flags.skipRemapOnEntriesTypeMatch,
 			Mirror.flags.alwaysReSignAds,
+			Mirror.flags.metricsListenAddr,
 		},
 		Before: beforeMirror,
 		Action: doMirror,
@@ -227,10 +235,14 @@ func beforeMirror(cctx *cli.Context) error {
 }
 
 func doMirror(cctx *cli.Context) error {
-	err := logging.SetLogLevel("provider/mirror", "info")
+	msvr, err := metrics.NewServer(Mirror.flags.metricsListenAddr.Get(cctx))
 	if err != nil {
 		return err
 	}
+	if err := msvr.Start(); err != nil {
+		return err
+	}
+
 	m, err := mirror.New(cctx.Context, *Mirror.source, Mirror.options...)
 	if err != nil {
 		return err
@@ -238,6 +250,10 @@ func doMirror(cctx *cli.Context) error {
 	if err = m.Start(); err != nil {
 		return err
 	}
+
 	<-cctx.Done()
+	if err := msvr.Shutdown(context.Background()); err != nil {
+		log.Debugw("Failed to shut down metrics server", "err", err)
+	}
 	return m.Shutdown()
 }
