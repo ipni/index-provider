@@ -1,4 +1,4 @@
-FROM golang:1.17.9-buster as build
+FROM golang:1.18 as build
 WORKDIR /go/src/provider
 
 COPY go.mod go.sum ./
