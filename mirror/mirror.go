@@ -152,7 +152,7 @@ func (m *Mirror) Start() error {
 			for _, adCid := range syncedAdCids {
 				start := time.Now()
 				err := m.mirror(ctx, adCid)
-				elapsed := int64(time.Since(start))
+				elapsed := time.Since(start)
 				attr := metrics.Attributes.StatusSuccess
 				if err != nil {
 					attr = metrics.Attributes.StatusFailure
@@ -160,7 +160,7 @@ func (m *Mirror) Start() error {
 					// TODO add an option on what to do if the mirroring of an ad failed?
 					// TODO codify the errors and use the error code as an additional attribute in metrics.
 				}
-				metrics.Mirror.ProcessDuration.Record(ctx, elapsed, attr)
+				metrics.Mirror.ProcessDuration.Record(ctx, elapsed.Milliseconds(), attr)
 			}
 
 			syncedCount := len(syncedAdCids)
@@ -404,11 +404,11 @@ func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) 
 		// Disable segmentation until the actions in hook are handled appropriately
 		legs.ScopedSegmentDepthLimit(-1),
 	)
-	elapsedSync := int64(time.Since(startSync))
+	elapsedSync := time.Since(startSync)
 	attr := metrics.Attributes.StatusSuccess
 	if err != nil {
 		attr = metrics.Attributes.StatusFailure
 	}
-	metrics.Mirror.SyncDuration.Record(ctx, elapsedSync, attr)
+	metrics.Mirror.SyncDuration.Record(ctx, elapsedSync.Milliseconds(), attr)
 	return syncedAdCids, err
 }
