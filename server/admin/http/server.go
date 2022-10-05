@@ -9,7 +9,7 @@ import (
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/gorilla/mux"
 	logging "github.com/ipfs/go-log/v2"
-	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p/core/host"
 )
 
 var log = logging.Logger("adminserver")
