@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/filecoin-project/storetheindex/peerutil"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type Policy struct {

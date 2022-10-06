@@ -1,6 +1,6 @@
 # invalid usage prints USAGE
 ! provider import car
-stderr 'Required flag "input" not set'
+stderr 'Required flag "i" not set'
 stdout 'USAGE'
 
 # invalid arguments have expected error message
