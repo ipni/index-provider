@@ -598,7 +598,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	ma1, _ := multiaddr.NewMultiaddr("/ip6/::1/tcp/62698")
 	ma2, _ := multiaddr.NewMultiaddr("/ip4/192.168.1.161/tcp/62695")
 	ma3, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/62695")
-	pID, _ := peer.IDFromString("QmPxKFBM2A7VZURXZhZLCpEnhMFtZ7WSZwFLneFEiYneES")
+	pID, _ := peer.Decode("QmPxKFBM2A7VZURXZhZLCpEnhMFtZ7WSZwFLneFEiYneES")
 
 	ctx := contextWithTimeout(t)
 	subject, err := engine.New(engine.WithDatastore(ds), engine.WithProvider(peer.AddrInfo{ID: pID, Addrs: []multiaddr.Multiaddr{ma1, ma2, ma3}}))
