@@ -15,7 +15,7 @@ func TestCreateIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pk, err := id.DecodePrivateKey("")
+	pk, err := id.DecodeOrCreatePrivateKey(io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}

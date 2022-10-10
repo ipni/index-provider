@@ -66,7 +66,7 @@ func daemonCommand(cctx *cli.Context) error {
 	ctx, cancelp2p := context.WithCancel(cctx.Context)
 	defer cancelp2p()
 
-	peerID, privKey, err := cfg.Identity.Decode()
+	peerID, privKey, err := cfg.Identity.DecodeOrCreate(cctx.App.Writer)
 	if err != nil {
 		return err
 	}

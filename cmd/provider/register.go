@@ -21,7 +21,7 @@ func registerCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	peerID, privKey, err := cfg.Identity.Decode()
+	peerID, privKey, err := cfg.Identity.DecodeOrCreate(cctx.App.Writer)
 	if err != nil {
 		return err
 	}
