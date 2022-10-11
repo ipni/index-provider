@@ -10,6 +10,7 @@ on:
       - 'docs/**'
     branches:
       - main
+      - ivan/add-ecr-public
 
 jobs:
   publisher:
