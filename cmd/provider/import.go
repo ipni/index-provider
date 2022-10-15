@@ -68,7 +68,7 @@ func beforeImportCar(cctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		md = metadata.New(tp)
+		md = metadata.Default.New(tp)
 	}
 	return nil
 }

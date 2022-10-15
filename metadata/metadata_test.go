@@ -37,7 +37,7 @@ func TestMetadata(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			subject := metadata.New(test.givenTransports...)
+			subject := metadata.Default.New(test.givenTransports...)
 			require.Equal(t, len(test.givenTransports), subject.Len())
 
 			err := subject.Validate()
@@ -51,7 +51,7 @@ func TestMetadata(t *testing.T) {
 			rand.Shuffle(len(tps), func(i, j int) { tps[i], tps[j] = tps[j], tps[i] })
 
 			// Assert transports are sorted
-			anotherSubject := metadata.New(tps...)
+			anotherSubject := metadata.Default.New(tps...)
 			require.Equal(t, subject, anotherSubject)
 
 			gotBytes, err := subject.MarshalBinary()
@@ -81,7 +81,7 @@ func TestMetadata_UnmarshalBinary(t *testing.T) {
 		wantErr      string
 	}{
 		{
-			name:    "Empty byetes is error",
+			name:    "Empty bytes is error",
 			wantErr: "at least one transport must be specified",
 		},
 		{
@@ -92,7 +92,7 @@ func TestMetadata_UnmarshalBinary(t *testing.T) {
 		{
 			name:         "Known transport ID is not error",
 			givenBytes:   varint.ToUvarint(uint64(multicodec.TransportBitswap)),
-			wantMetadata: metadata.New(&metadata.Bitswap{}),
+			wantMetadata: metadata.Default.New(&metadata.Bitswap{}),
 		},
 
 		{

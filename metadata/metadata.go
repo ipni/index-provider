@@ -30,6 +30,7 @@ type (
 	// Metadata is data that provides information about how to retrieve the advertised content.
 	// Note that the content may be avaiable for retrieval over multiple protocols.
 	Metadata struct {
+		mc        *metadataContext
 		protocols []Protocol
 	}
 
@@ -44,9 +45,37 @@ type (
 	}
 )
 
+// metadataContext holds context for metadata serialization and deserialization.
+type metadataContext struct {
+	protocols map[multicodec.Code]func() Protocol
+}
+
+var Default metadataContext
+
+func init() {
+	Default = metadataContext{
+		protocols: make(map[multicodec.Code]func() Protocol),
+	}
+	Default.protocols[multicodec.TransportBitswap] = func() Protocol { return &Bitswap{} }
+	Default.protocols[multicodec.TransportGraphsyncFilecoinv1] = func() Protocol { return &GraphsyncFilecoinV1{} }
+}
+
+// WithProtocol dervies a new MetadataContext including the additional protocol mapping.
+func (mc *metadataContext) WithProtocol(id multicodec.Code, factory func() Protocol) metadataContext {
+	derived := metadataContext{
+		protocols: make(map[multicodec.Code]func() Protocol),
+	}
+	for k, v := range mc.protocols {
+		derived.protocols[k] = v
+	}
+	derived.protocols[id] = factory
+	return derived
+}
+
 // New instantiates a new Metadata with the given transports.
-func New(t ...Protocol) Metadata {
+func (mc *metadataContext) New(t ...Protocol) Metadata {
 	metadata := Metadata{
+		mc:        mc,
 		protocols: t,
 	}
 	sort.Sort(&metadata)
@@ -128,7 +157,7 @@ func (m *Metadata) UnmarshalBinary(data []byte) error {
 			return err
 		}
 		id := multicodec.Code(v)
-		t, err := newTransport(id)
+		t, err := m.mc.newTransport(id)
 		if err != nil {
 			return err
 		}
@@ -175,13 +204,10 @@ func protocolEqual(one, other Protocol) bool {
 	return bytes.Equal(oneBytes, otherBytes)
 }
 
-func newTransport(id multicodec.Code) (Protocol, error) {
-	switch id {
-	case multicodec.TransportBitswap:
-		return &Bitswap{}, nil
-	case multicodec.TransportGraphsyncFilecoinv1:
-		return &GraphsyncFilecoinV1{}, nil
-	default:
-		return nil, fmt.Errorf("unknwon transport id: %s", id.String())
+func (mc *metadataContext) newTransport(id multicodec.Code) (Protocol, error) {
+	if factory, ok := mc.protocols[id]; ok {
+		return factory(), nil
 	}
+
+	return nil, fmt.Errorf("unknown transport id: %s", id.String())
 }

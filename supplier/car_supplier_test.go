@@ -48,7 +48,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			carPath: "../testdata/sample-wrapped-v2.car",
 		},
 	}
-	md := metadata.New()
+	md := metadata.Default.New()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := gomock.NewController(t)
@@ -151,7 +151,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	subject := NewCarSupplier(mockEng, ds)
 	t.Cleanup(func() { require.NoError(t, subject.Close()) })
 
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 
 	wantCid := generateCidV1(t, rng)
 	mockEng.

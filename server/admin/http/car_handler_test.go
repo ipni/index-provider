@@ -31,7 +31,7 @@ func Test_importCarHandler(t *testing.T) {
 	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
 	require.NoError(t, err)
 
-	wantMetadata := metadata.New(wantTp)
+	wantMetadata := metadata.Default.New(wantTp)
 	require.NoError(t, err)
 
 	mdBytes, err := wantMetadata.MarshalBinary()
@@ -87,7 +87,7 @@ func Test_importCarHandlerFail(t *testing.T) {
 	wantKey := []byte("lobster")
 	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
 	require.NoError(t, err)
-	wantMetadata := metadata.New(wantTp)
+	wantMetadata := metadata.Default.New(wantTp)
 	mdBytes, err := wantMetadata.MarshalBinary()
 	require.NoError(t, err)
 	icReq := &ImportCarReq{
@@ -131,7 +131,7 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 	wantKey := []byte("lobster")
 	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
 	require.NoError(t, err)
-	wantMetadata := metadata.New(wantTp)
+	wantMetadata := metadata.Default.New(wantTp)
 	mdBytes, err := wantMetadata.MarshalBinary()
 	require.NoError(t, err)
 	icReq := &ImportCarReq{
@@ -311,7 +311,7 @@ func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, provider
 	wantTp, err := cardatatransfer.TransportFromContextID(key)
 	require.NoError(t, err)
 	wantCid := testutil.RandomCids(t, rng, 1)[0]
-	wantMetadata := metadata.New(wantTp)
+	wantMetadata := metadata.Default.New(wantTp)
 
 	mockEng.
 		EXPECT().
@@ -328,7 +328,7 @@ func Test_ListCarHandler(t *testing.T) {
 	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
 	require.NoError(t, err)
 
-	wantMetadata := metadata.New(wantTp)
+	wantMetadata := metadata.Default.New(wantTp)
 	require.NoError(t, err)
 
 	mc := gomock.NewController(t)

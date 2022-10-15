@@ -61,7 +61,7 @@ func Example_advertiseHelloWorld() {
 	fmt.Println("✓ Provider engine started.")
 
 	// Multiple transports can be included in metadata.
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 
 	// Note that this example publishes an ad with bitswap metadata as an example.
 	// But it does not instantiate a bitswap server to serve retrievals.
