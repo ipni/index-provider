@@ -36,41 +36,42 @@ func (u *Unknown) UnmarshalBinary(data []byte) error {
 
 func (u *Unknown) ReadFrom(r io.Reader) (n int64, err error) {
 	// see if it starts with a reasonable looking uvarint.
-	size, err := varint.ReadUvarint(rbr{r})
+	size, err := varint.ReadUvarint(rbr{r, [1]byte{0}})
 	if err != nil {
 		return 0, err
 	}
 
 	rl := varint.ToUvarint(size)
+	preSize := int64(len(rl))
 	if size > MaxMetadataSize {
-		return int64(len(rl)), ErrTooLong
+		return preSize, ErrTooLong
 	}
-	buf := make([]byte, size)
-	read, err := r.Read(buf)
+	buf := make([]byte, size+uint64(preSize))
+	copy(buf, rl)
+	read, err := r.Read(buf[preSize:])
 	bRead := int64(read)
 	if err != nil {
-		return int64(len(rl)) + bRead, err
+		return preSize + bRead, err
 	}
 	if size != uint64(read) {
-		return int64(len(rl)) + bRead, fmt.Errorf("expected %d readable bytes but read %d", size, read)
+		return preSize + bRead, fmt.Errorf("expected %d readable bytes but read %d", size, read)
 	}
 
-	// put the varint back in.
-	u.Payload = append(rl, buf...)
-
-	return int64(len(rl)) + bRead, nil
+	return preSize + bRead, nil
 }
 
-type rbr struct{ io.Reader }
+type rbr struct {
+	io.Reader
+	b [1]byte // avoid alloc in ReadByte
+}
 
 func (r rbr) ReadByte() (byte, error) {
-	var buf [1]byte
-	n, err := r.Read(buf[:])
+	n, err := r.Read(r.b[:])
 	if err != nil {
 		return 0, err
 	}
 	if n == 0 {
 		return 0, io.ErrNoProgress
 	}
-	return buf[0], nil
+	return r.b[0], nil
 }
