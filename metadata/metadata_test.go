@@ -98,7 +98,7 @@ func TestMetadata_UnmarshalBinary(t *testing.T) {
 		{
 			name:       "Known transport ID mixed with unknown ID is not error",
 			givenBytes: append(varint.ToUvarint(uint64(123456)), varint.ToUvarint(uint64(multicodec.TransportBitswap))...),
-			wantErr:    "unknwon transport id: Code(123456)",
+			wantErr:    "unknown transport id: Code(123456)",
 		},
 	}
 	for _, test := range tests {
