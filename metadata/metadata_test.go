@@ -57,7 +57,7 @@ func TestMetadata(t *testing.T) {
 			gotBytes, err := subject.MarshalBinary()
 			require.NoError(t, err)
 
-			var subjectFromBytes metadata.Metadata
+			subjectFromBytes := metadata.Default.New()
 			err = subjectFromBytes.UnmarshalBinary(gotBytes)
 			require.NoError(t, err)
 			require.Equal(t, subject, subjectFromBytes)
@@ -103,7 +103,7 @@ func TestMetadata_UnmarshalBinary(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var subject metadata.Metadata
+			subject := metadata.Default.New()
 			err := subject.UnmarshalBinary(test.givenBytes)
 			if test.wantErr == "" {
 				require.NoError(t, err)
