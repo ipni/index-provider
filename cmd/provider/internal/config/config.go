@@ -18,6 +18,7 @@ type Config struct {
 	AdminServer    AdminServer
 	Bootstrap      Bootstrap
 	DirectAnnounce DirectAnnounce
+	Reframe        Reframe
 }
 
 const (
@@ -101,6 +102,7 @@ func Load(filePath string) (*Config, error) {
 		AdminServer:    NewAdminServer(),
 		ProviderServer: NewProviderServer(),
 		DirectAnnounce: NewDirectAnnounce(),
+		Reframe:        NewReframe(),
 	}
 
 	if err = json.NewDecoder(f).Decode(&cfg); err != nil {
@@ -156,4 +158,5 @@ func (c *Config) PopulateDefaults() {
 	c.Datastore.PopulateDefaults()
 	c.Ingest.PopulateDefaults()
 	c.ProviderServer.PopulateDefaults()
+	c.Reframe.PopulateDefaults()
 }
