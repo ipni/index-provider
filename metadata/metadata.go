@@ -50,18 +50,25 @@ type metadataContext struct {
 	protocols map[multicodec.Code]func() Protocol
 }
 
-var Default metadataContext
+// MetadataContext holds context for metadata serialization and deserialization.
+type MetadataContext interface {
+	WithProtocol(id multicodec.Code, factory func() Protocol) MetadataContext
+	New(t ...Protocol) Metadata
+}
+
+var Default MetadataContext
 
 func init() {
-	Default = metadataContext{
+	d := metadataContext{
 		protocols: make(map[multicodec.Code]func() Protocol),
 	}
-	Default.protocols[multicodec.TransportBitswap] = func() Protocol { return &Bitswap{} }
-	Default.protocols[multicodec.TransportGraphsyncFilecoinv1] = func() Protocol { return &GraphsyncFilecoinV1{} }
+	d.protocols[multicodec.TransportBitswap] = func() Protocol { return &Bitswap{} }
+	d.protocols[multicodec.TransportGraphsyncFilecoinv1] = func() Protocol { return &GraphsyncFilecoinV1{} }
+	Default = &d
 }
 
 // WithProtocol dervies a new MetadataContext including the additional protocol mapping.
-func (mc *metadataContext) WithProtocol(id multicodec.Code, factory func() Protocol) metadataContext {
+func (mc *metadataContext) WithProtocol(id multicodec.Code, factory func() Protocol) MetadataContext {
 	derived := metadataContext{
 		protocols: make(map[multicodec.Code]func() Protocol),
 	}
@@ -69,7 +76,7 @@ func (mc *metadataContext) WithProtocol(id multicodec.Code, factory func() Proto
 		derived.protocols[k] = v
 	}
 	derived.protocols[id] = factory
-	return derived
+	return &derived
 }
 
 // New instantiates a new Metadata with the given transports.
