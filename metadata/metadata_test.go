@@ -87,7 +87,7 @@ func TestMetadata_UnmarshalBinary(t *testing.T) {
 		{
 			name:       "Unknown transport ID is error",
 			givenBytes: varint.ToUvarint(uint64(multicodec.Libp2pRelayRsvp)),
-			wantErr:    "unknwon transport id: libp2p-relay-rsvp",
+			wantErr:    "unknown transport id: libp2p-relay-rsvp",
 		},
 		{
 			name:         "Known transport ID is not error",
