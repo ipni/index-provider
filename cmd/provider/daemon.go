@@ -14,7 +14,9 @@ import (
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/engine/policy"
+
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
+	reframeserver "github.com/filecoin-project/index-provider/server/reframe/http"
 	"github.com/filecoin-project/index-provider/supplier"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
@@ -66,7 +68,7 @@ func daemonCommand(cctx *cli.Context) error {
 	ctx, cancelp2p := context.WithCancel(cctx.Context)
 	defer cancelp2p()
 
-	peerID, privKey, err := cfg.Identity.Decode()
+	peerID, privKey, err := cfg.Identity.DecodeOrCreate(cctx.App.Writer)
 	if err != nil {
 		return err
 	}
@@ -170,12 +172,13 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 	log.Infow("admin server initialized", "address", cfg.AdminServer.ListenMultiaddr)
 
-	errChan := make(chan error, 1)
+	adminErrChan := make(chan error, 1)
 	fmt.Fprintf(cctx.App.ErrWriter, "Starting admin server on %s ...", cfg.AdminServer.ListenMultiaddr)
 	go func() {
-		errChan <- adminSvr.Start()
+		adminErrChan <- adminSvr.Start()
 	}()
 
+	reframeErrChan := make(chan error, 1)
 	// If there are bootstrap peers and bootstrapping is enabled, then try to
 	// connect to the minimum set of peers.
 	if len(cfg.Bootstrap.Peers) != 0 && cfg.Bootstrap.MinimumPeers != 0 {
@@ -194,12 +197,47 @@ func daemonCommand(cctx *cli.Context) error {
 		defer bootstrapper.Close()
 	}
 
+	// setting up reframe server
+	var reframeSrv *reframeserver.Server
+	if len(cfg.Reframe.ListenMultiaddr) != 0 {
+		reframeAddr, err := cfg.Reframe.ListenNetAddr()
+		if err != nil {
+			return err
+		}
+
+		reframeSrv, err = reframeserver.New(
+			cfg.Reframe.CidTtl,
+			cfg.Reframe.ChunkSize,
+			cfg.Reframe.SnapshotSize,
+			cfg.Reframe.ProviderID,
+			cfg.Reframe.Addrs,
+			eng,
+			ds,
+			reframeserver.WithListenAddr(reframeAddr),
+			reframeserver.WithReadTimeout(cfg.Reframe.ReadTimeout),
+			reframeserver.WithWriteTimeout(cfg.Reframe.WriteTimeout),
+		)
+
+		if err != nil {
+			return err
+		}
+		log.Infow("reframe server initialized", "address", cfg.Reframe.ListenMultiaddr)
+
+		fmt.Fprintf(cctx.App.ErrWriter, "Starting reframe server on %s ...", cfg.Reframe.ListenMultiaddr)
+		go func() {
+			reframeErrChan <- reframeSrv.Start()
+		}()
+	}
+
 	var finalErr error
 	// Keep process running.
 	select {
 	case <-cctx.Done():
-	case err = <-errChan:
-		log.Errorw("Failed to start server", "err", err)
+	case err = <-adminErrChan:
+		log.Errorw("Failed to start admin server", "err", err)
+		finalErr = ErrDaemonStart
+	case err = <-reframeErrChan:
+		log.Errorw("Failed to start reframe server", "err", err)
 		finalErr = ErrDaemonStart
 	}
 
@@ -232,6 +270,12 @@ func daemonCommand(cctx *cli.Context) error {
 	if err = adminSvr.Shutdown(shutdownCtx); err != nil {
 		log.Errorw("Error shutting down admin server: %s", err)
 		finalErr = ErrDaemonStop
+	}
+	if reframeSrv != nil {
+		if err = reframeSrv.Shutdown(shutdownCtx); err != nil {
+			log.Errorw("Error shutting down reframe server.", "err", err)
+			finalErr = ErrDaemonStop
+		}
 	}
 	log.Infow("node stopped")
 	return finalErr

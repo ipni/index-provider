@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	crypto_pb "github.com/libp2p/go-libp2p-core/crypto/pb"
+	crypto_pb "github.com/libp2p/go-libp2p/core/crypto/pb"
 )
 
 func TestCreateIdentity(t *testing.T) {
@@ -15,7 +15,7 @@ func TestCreateIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pk, err := id.DecodePrivateKey("")
+	pk, err := id.DecodeOrCreatePrivateKey(io.Discard, "")
 	if err != nil {
 		t.Fatal(err)
 	}

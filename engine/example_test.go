@@ -9,7 +9,7 @@ import (
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -35,7 +35,7 @@ func Example_advertiseHelloWorld() {
 		panic(err)
 	}
 	// Only print the first three characters to keep golang example output happy.
-	fmt.Printf("✓ Instantiated new libp2p host with peer ID: %s...\n", h.ID().String()[:2])
+	fmt.Printf("✓ Instantiated new libp2p host with peer ID: %s...\n", h.ID().String()[:4])
 
 	// Construct a new provider engine with given libp2p host that announces advertisements over
 	// gossipsub and datatrasfer/graphsync.
@@ -79,7 +79,7 @@ func Example_advertiseHelloWorld() {
 	//Output:
 	//Preparing to advertise content: 'Hello World!'
 	//✓ Generated content multihash: QmWvQxTqbG2Z9HPJgG57jjwR154cKhbtJenbyYTWkjgF3e
-	//✓ Instantiated new libp2p host with peer ID: Qm...
+	//✓ Instantiated new libp2p host with peer ID: 12D3...
 	//✓ Instantiated provider engine
 	//✓ Registered lister for context ID: Say hello
 	//✓ Provider engine started.

@@ -105,6 +105,22 @@ provider import car -l http://localhost:3102 -i <path-to-car-file>
 
 Both CARv1 and CARv2 formats are supported. Index is regenerated on the fly if one is not present.
 
+#### Exposing reframe server from provider (experimental)
+
+Provider can export a reframe server. [Reframe](https://github.com/ipfs/specs/blob/main/reframe/REFRAME_PROTOCOL.md) is a protocol 
+that allows IPFS nodes to advertise their contents to indexers alongside DHT. Reframe server is off by default. 
+To enable it, add the following configuration block to the provider config file.
+
+```
+{
+  ...
+  Reframe {
+    ListenMultiaddr: "/ip4/0.0.0.0/tcp/50617 (example)"
+  }
+  ...
+}
+```
+
 ### Embedding index provider integration
 
 The [root go module](go.mod) offers a set of reusable libraries that can be used to embed index

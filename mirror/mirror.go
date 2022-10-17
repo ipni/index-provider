@@ -14,6 +14,7 @@ import (
 	"github.com/filecoin-project/go-legs"
 	"github.com/filecoin-project/go-legs/dtsync"
 	"github.com/filecoin-project/index-provider/engine/chunker"
+	"github.com/filecoin-project/index-provider/metrics"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -27,8 +28,8 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 var log = logging.Logger("provider/mirror")
@@ -135,7 +136,6 @@ func (m *Mirror) Start() error {
 			}
 			log = log.With("latestMirroredCid", mc)
 
-			var syncedAdCids []cid.Cid
 			var sel ipld.Node
 			if cid.Undef.Equals(mc) {
 				sel = selectors.adsWithRecursionLimit(m.initAdRecurLimit)
@@ -143,32 +143,24 @@ func (m *Mirror) Start() error {
 				sel = selectors.adsWithStopAt(selector.RecursionLimitNone(), cidlink.Link{Cid: mc})
 			}
 
-			_, err = m.sub.Sync(ctx, m.source.ID, cid.Undef, sel, m.source.Addrs[0],
-				legs.ScopedBlockHook(func(id peer.ID, c cid.Cid, actions legs.SegmentSyncActions) {
-					// TODO: set actions next segment link to ad previous id if it is present. For
-					//      now segmentation is disabled.
-					//       Here we could be encountering HAMT or Entry Chunk so picking the next
-					//       CID is not trivial; we probably should not use segmentation for HAMT
-					//       at all.
-
-					// Prepend to the list since the mirroring should start from the oldest ad first.
-					syncedAdCids = append([]cid.Cid{c}, syncedAdCids...)
-				}),
-				// Disable segmentation until the actions in hook are handled appropriately
-				legs.ScopedSegmentDepthLimit(-1),
-			)
-
+			syncedAdCids, err := m.syncAds(ctx, sel)
 			if err != nil {
 				log.Errorw("Failed to sync source", "err", err)
 				continue
 			}
 
 			for _, adCid := range syncedAdCids {
+				start := time.Now()
 				err := m.mirror(ctx, adCid)
+				elapsed := time.Since(start)
+				attr := metrics.Attributes.StatusSuccess
 				if err != nil {
+					attr = metrics.Attributes.StatusFailure
 					log.Errorw("Failed to mirror ad", "cid", adCid, "err", err)
 					// TODO add an option on what to do if the mirroring of an ad failed?
+					// TODO codify the errors and use the error code as an additional attribute in metrics.
 				}
+				metrics.Mirror.ProcessDuration.Record(ctx, elapsed.Milliseconds(), attr)
 			}
 
 			syncedCount := len(syncedAdCids)
@@ -393,4 +385,30 @@ func (m *Mirror) remapEntries(ctx context.Context, original ipld.Link) (ipld.Lin
 		return nil, err
 	}
 	return mirroredEntriesLink, nil
+}
+
+func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) {
+	startSync := time.Now()
+	var syncedAdCids []cid.Cid
+	_, err := m.sub.Sync(ctx, m.source.ID, cid.Undef, sel, m.source.Addrs[0],
+		legs.ScopedBlockHook(func(id peer.ID, c cid.Cid, actions legs.SegmentSyncActions) {
+			// TODO: set actions next segment link to ad previous id if it is present. For
+			//      now segmentation is disabled.
+			//       Here we could be encountering HAMT or Entry Chunk so picking the next
+			//       CID is not trivial; we probably should not use segmentation for HAMT
+			//       at all.
+
+			// Prepend to the list since the mirroring should start from the oldest ad first.
+			syncedAdCids = append([]cid.Cid{c}, syncedAdCids...)
+		}),
+		// Disable segmentation until the actions in hook are handled appropriately
+		legs.ScopedSegmentDepthLimit(-1),
+	)
+	elapsedSync := time.Since(startSync)
+	attr := metrics.Attributes.StatusSuccess
+	if err != nil {
+		attr = metrics.Attributes.StatusFailure
+	}
+	metrics.Mirror.SyncDuration.Record(ctx, elapsedSync.Milliseconds(), attr)
+	return syncedAdCids, err
 }
