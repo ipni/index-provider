@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var defaultMetadata metadata.Metadata = metadata.New(metadata.Bitswap{})
+var defaultMetadata metadata.Metadata = metadata.Default.New(metadata.Bitswap{})
 
 func testNonceGen() []byte {
 	return []byte{1, 2, 3, 4, 5}
