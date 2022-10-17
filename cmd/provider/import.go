@@ -32,7 +32,7 @@ var (
 		Before:  beforeImportCar,
 		Action:  doImportCar,
 	}
-	md metadata.Metadata
+	md = metadata.Default.New()
 )
 
 func beforeImportCar(cctx *cli.Context) error {

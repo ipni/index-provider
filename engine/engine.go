@@ -680,13 +680,13 @@ func (e *Engine) putKeyMetadataMap(ctx context.Context, provider peer.ID, contex
 }
 
 func (e *Engine) getKeyMetadataMap(ctx context.Context, provider peer.ID, contextID []byte) (metadata.Metadata, error) {
+	md := metadata.Default.New()
 	data, err := e.ds.Get(ctx, e.keyToMetadataKey(provider, contextID))
 	if err != nil {
-		return metadata.Metadata{}, err
+		return md, err
 	}
-	var md metadata.Metadata
 	if err := md.UnmarshalBinary(data); err != nil {
-		return metadata.Metadata{}, err
+		return md, err
 	}
 	return md, nil
 }

@@ -203,7 +203,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	adv, err := schema.UnwrapAdvertisement(advNode)
 	require.NoError(t, err)
 
-	var receivedMd metadata.Metadata
+	receivedMd := metadata.Default.New()
 	err = receivedMd.UnmarshalBinary(adv.Metadata)
 	require.NoError(t, err)
 
@@ -235,7 +235,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	adv2, err := schema.UnwrapAdvertisement(advNode2)
 	require.NoError(t, err)
 
-	var receivedMd2 metadata.Metadata
+	receivedMd2 := metadata.Default.New()
 	err = receivedMd2.UnmarshalBinary(adv2.Metadata)
 	require.NoError(t, err)
 

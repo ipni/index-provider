@@ -33,7 +33,7 @@ func (h *carHandler) handleImport(w http.ResponseWriter, r *http.Request) {
 	var err error
 	ctx := context.Background()
 
-	var md metadata.Metadata
+	md := metadata.Default.New()
 	if err := md.UnmarshalBinary(req.Metadata); err != nil {
 		msg := fmt.Sprintf("failed to unmarshal metadata: %v", err)
 		log.Errorw(msg, "err", err)
