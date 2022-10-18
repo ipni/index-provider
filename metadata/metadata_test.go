@@ -37,7 +37,7 @@ func TestMetadata(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			subject := metadata.New(test.givenTransports...)
+			subject := metadata.Default.New(test.givenTransports...)
 			require.Equal(t, len(test.givenTransports), subject.Len())
 
 			err := subject.Validate()
@@ -51,13 +51,13 @@ func TestMetadata(t *testing.T) {
 			rand.Shuffle(len(tps), func(i, j int) { tps[i], tps[j] = tps[j], tps[i] })
 
 			// Assert transports are sorted
-			anotherSubject := metadata.New(tps...)
+			anotherSubject := metadata.Default.New(tps...)
 			require.Equal(t, subject, anotherSubject)
 
 			gotBytes, err := subject.MarshalBinary()
 			require.NoError(t, err)
 
-			var subjectFromBytes metadata.Metadata
+			subjectFromBytes := metadata.Default.New()
 			err = subjectFromBytes.UnmarshalBinary(gotBytes)
 			require.NoError(t, err)
 			require.Equal(t, subject, subjectFromBytes)
@@ -81,29 +81,29 @@ func TestMetadata_UnmarshalBinary(t *testing.T) {
 		wantErr      string
 	}{
 		{
-			name:    "Empty byetes is error",
+			name:    "Empty bytes is error",
 			wantErr: "at least one transport must be specified",
 		},
 		{
 			name:       "Unknown transport ID is error",
 			givenBytes: varint.ToUvarint(uint64(multicodec.Libp2pRelayRsvp)),
-			wantErr:    "unknwon transport id: libp2p-relay-rsvp",
+			wantErr:    "unknown transport id: libp2p-relay-rsvp",
 		},
 		{
 			name:         "Known transport ID is not error",
 			givenBytes:   varint.ToUvarint(uint64(multicodec.TransportBitswap)),
-			wantMetadata: metadata.New(&metadata.Bitswap{}),
+			wantMetadata: metadata.Default.New(&metadata.Bitswap{}),
 		},
 
 		{
 			name:       "Known transport ID mixed with unknown ID is not error",
 			givenBytes: append(varint.ToUvarint(uint64(123456)), varint.ToUvarint(uint64(multicodec.TransportBitswap))...),
-			wantErr:    "unknwon transport id: Code(123456)",
+			wantErr:    "unknown transport id: Code(123456)",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var subject metadata.Metadata
+			subject := metadata.Default.New()
 			err := subject.UnmarshalBinary(test.givenBytes)
 			if test.wantErr == "" {
 				require.NoError(t, err)

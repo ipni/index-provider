@@ -59,7 +59,7 @@ func Test_NewEngineWithNoPublisherAndRoot(t *testing.T) {
 	subject.RegisterMultihashLister(func(_ context.Context, _ peer.ID, _ []byte) (provider.MultihashIterator, error) {
 		return provider.SliceMultihashIterator(mhs), nil
 	})
-	adCid, err := subject.NotifyPut(ctx, nil, contextID, metadata.New(metadata.Bitswap{}))
+	adCid, err := subject.NotifyPut(ctx, nil, contextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotNil(t, adCid)
 	require.NotEqual(t, adCid, cid.Undef)
@@ -86,7 +86,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
 
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
 	wantAd := schema.Advertisement{
@@ -224,7 +224,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 	mdBytes, err := md.MarshalBinary()
 	require.NoError(t, err)
 
@@ -308,7 +308,7 @@ func TestEngine_NotifyPutWithoutListerIsError(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	gotCid, err := subject.NotifyPut(ctx, nil, []byte("fish"), metadata.New(metadata.Bitswap{}))
+	gotCid, err := subject.NotifyPut(ctx, nil, []byte("fish"), metadata.Default.New(metadata.Bitswap{}))
 	require.Error(t, err, provider.ErrNoMultihashLister)
 	require.Equal(t, cid.Undef, gotCid)
 }
@@ -333,7 +333,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	gotPutAdCid, err := subject.NotifyPut(ctx, nil, wantContextID, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid, err := subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid)
 
@@ -371,7 +371,7 @@ func TestEngine_NotifyRemoveWithDefaultProvider(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	_, err = subject.NotifyPut(ctx, nil, wantContextID, metadata.New(metadata.Bitswap{}))
+	_, err = subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	gotRemoveAdCid, err := subject.NotifyRemove(ctx, "", wantContextID)
 	require.NoError(t, err)
@@ -406,7 +406,7 @@ func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
 	providerId := testutil.NewID(t)
 	providerAddrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
 
-	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: providerId, Addrs: []multiaddr.Multiaddr{providerAddrs}}, wantContextID, metadata.New(metadata.Bitswap{}))
+	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: providerId, Addrs: []multiaddr.Multiaddr{providerAddrs}}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	gotRemoveAdCid, err := subject.NotifyRemove(ctx, providerId, wantContextID)
 	require.NoError(t, err)
@@ -447,7 +447,7 @@ func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	gotPutAdCid1, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider1id, Addrs: []multiaddr.Multiaddr{provider1Addrs}}, wantContextID1, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid1, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider1id, Addrs: []multiaddr.Multiaddr{provider1Addrs}}, wantContextID1, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid1)
 
@@ -457,7 +457,7 @@ func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
 	require.Equal(t, ad.Provider, provider1id.String())
 	require.Equal(t, ad.Addresses, []string{"/ip4/0.0.0.0/tcp/1234/http"})
 
-	gotPutAdCid2, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider2id, Addrs: []multiaddr.Multiaddr{provider2Addrs}}, wantContextID2, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid2, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider2id, Addrs: []multiaddr.Multiaddr{provider2Addrs}}, wantContextID2, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid2)
 
@@ -490,7 +490,7 @@ func TestEngine_NotifyPutUseDefaultProviderAndAddressesWhenNoneGiven(t *testing.
 	})
 
 	// addresses should be ignored as provider is an empty string
-	gotPutAdCid1, err := subject.NotifyPut(ctx, nil, wantContextID, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid1, err := subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid1)
 
@@ -521,15 +521,15 @@ func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	gotPutAdCid1, err := subject.NotifyPut(ctx, nil, wantContextID, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid1, err := subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid1)
 
-	_, err = subject.NotifyPut(ctx, nil, wantContextID, metadata.New(metadata.Bitswap{}))
+	_, err = subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.Error(t, err, provider.ErrAlreadyAdvertised)
 
 	p := testutil.NewID(t)
-	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: p}, wantContextID, metadata.New(metadata.Bitswap{}))
+	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: p}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err, provider.ErrAlreadyAdvertised)
 }
 
@@ -558,12 +558,12 @@ func TestEngine_ShouldHaveSameChunksInChunkerForSameCIDs(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	gotPutAdCid1, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider1id, Addrs: []multiaddr.Multiaddr{provider1Addrs}}, wantContextID, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid1, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider1id, Addrs: []multiaddr.Multiaddr{provider1Addrs}}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid1)
 	require.Equal(t, 1, subject.Chunker().Len())
 
-	gotPutAdCid2, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider2id, Addrs: []multiaddr.Multiaddr{provider2Addrs}}, wantContextID, metadata.New(metadata.Bitswap{}))
+	gotPutAdCid2, err := subject.NotifyPut(ctx, &peer.AddrInfo{ID: provider2id, Addrs: []multiaddr.Multiaddr{provider2Addrs}}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	require.NotEqual(t, cid.Undef, gotPutAdCid2)
 	require.Equal(t, 1, subject.Chunker().Len())
@@ -631,7 +631,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	verifyAd(t, ctx, subject, createAd(t, []byte("byte"), "QmPxKFBM2A7VZURXZhZLCpEnhMFtZ7WSZwFLneFEiYneES", []string{"/ip6/::1/tcp/62698", "/ip4/192.168.1.161/tcp/62695", "/ip4/127.0.0.1/tcp/62695"}, "baguqeera7k7x5kayh2yzp44wq6cd3i2z24o5rxyyedkwtgmwkaq63npcig4q", false, ""), ad)
 
 	// try to create a deplicate to make sure that they are processed correctly against the previously created datastore
-	_, err = subject.NotifyPut(ctx, nil, []byte("tree"), metadata.New(metadata.Bitswap{}))
+	_, err = subject.NotifyPut(ctx, nil, []byte("tree"), metadata.Default.New(metadata.Bitswap{}))
 	require.Equal(t, provider.ErrAlreadyAdvertised, err)
 
 	mmap := make(map[string][]multihash.Multihash)
@@ -644,7 +644,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	})
 
 	// publishing new add for the default provider
-	adId, err := subject.NotifyPut(ctx, nil, []byte("pong"), metadata.New(metadata.Bitswap{}))
+	adId, err := subject.NotifyPut(ctx, nil, []byte("pong"), metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 	ad, _ = subject.GetAdv(ctx, adId)
 	require.Equal(t, existingRoot, ad.PreviousID.(cidlink.Link).Cid)
@@ -655,7 +655,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 
 	// try publishing for new provider
 	newPID := testutil.NewID(t)
-	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: newPID}, []byte("has"), metadata.New(metadata.Bitswap{}))
+	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: newPID}, []byte("has"), metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 }
 

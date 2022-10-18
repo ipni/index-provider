@@ -23,7 +23,7 @@ import (
 )
 
 var log = logging.Logger("reframe/listener")
-var bitswapMetadata = metadata.New(metadata.Bitswap{})
+var bitswapMetadata = metadata.Default.New(metadata.Bitswap{})
 
 const (
 	reframeDSName               = "reframe"

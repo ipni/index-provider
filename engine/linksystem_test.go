@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testMetadata = metadata.New(metadata.Bitswap{})
+var testMetadata = metadata.Default.New(metadata.Bitswap{})
 
 func Test_SchemaNoEntriesErr(t *testing.T) {
 	ctx := contextWithTimeout(t)

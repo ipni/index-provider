@@ -104,7 +104,7 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	contextID := []byte("applesauce")
 	tp, err := cardatatransfer.TransportFromContextID(contextID)
 	require.NoError(t, err)
-	md := metadata.New(tp)
+	md := metadata.Default.New(tp)
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
@@ -183,7 +183,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	contextID := []byte("applesauce")
 	tp, err := cardatatransfer.TransportFromContextID(contextID)
 	require.NoError(t, err)
-	md := metadata.New(tp)
+	md := metadata.Default.New(tp)
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
@@ -203,7 +203,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	adv, err := schema.UnwrapAdvertisement(advNode)
 	require.NoError(t, err)
 
-	var receivedMd metadata.Metadata
+	receivedMd := metadata.Default.New()
 	err = receivedMd.UnmarshalBinary(adv.Metadata)
 	require.NoError(t, err)
 
@@ -216,7 +216,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	contextID2 := []byte("applesauce2")
 	tp2, err := cardatatransfer.TransportFromContextID(contextID2)
 	require.NoError(t, err)
-	md2 := metadata.New(tp2)
+	md2 := metadata.Default.New(tp2)
 	advCid2, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md2)
 	require.NoError(t, err)
 
@@ -235,7 +235,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	adv2, err := schema.UnwrapAdvertisement(advNode2)
 	require.NoError(t, err)
 
-	var receivedMd2 metadata.Metadata
+	receivedMd2 := metadata.Default.New()
 	err = receivedMd2.UnmarshalBinary(adv2.Metadata)
 	require.NoError(t, err)
 

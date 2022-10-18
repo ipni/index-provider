@@ -530,7 +530,7 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 
 		// The advertisement still requires a valid metadata even though
 		// metadata is not used for removal. Create a valid empty metadata.
-		md = metadata.New(metadata.Bitswap{})
+		md = metadata.Default.New()
 	}
 
 	mdBytes, err := md.MarshalBinary()
@@ -680,13 +680,13 @@ func (e *Engine) putKeyMetadataMap(ctx context.Context, provider peer.ID, contex
 }
 
 func (e *Engine) getKeyMetadataMap(ctx context.Context, provider peer.ID, contextID []byte) (metadata.Metadata, error) {
+	md := metadata.Default.New()
 	data, err := e.ds.Get(ctx, e.keyToMetadataKey(provider, contextID))
 	if err != nil {
-		return metadata.Metadata{}, err
+		return md, err
 	}
-	var md metadata.Metadata
 	if err := md.UnmarshalBinary(data); err != nil {
-		return metadata.Metadata{}, err
+		return md, err
 	}
 	return md, nil
 }

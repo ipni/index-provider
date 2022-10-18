@@ -37,7 +37,7 @@ func TestMirror_PutAdIsMirrored(t *testing.T) {
 	rng := rand.New(rand.NewSource(testRandomSeed))
 	wantMhs := testutil.RandomMultihashes(t, rng, 42)
 	wantCtxID := []byte("fish")
-	wantMetadata := metadata.New(metadata.Bitswap{}, &metadata.GraphsyncFilecoinV1{
+	wantMetadata := metadata.Default.New(metadata.Bitswap{}, &metadata.GraphsyncFilecoinV1{
 		PieceCID:     testutil.RandomCids(t, rng, 1)[0],
 		VerifiedDeal: true,
 	})
@@ -67,7 +67,7 @@ func TestMirror_PutAdIsMirrored(t *testing.T) {
 func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 	ctx := newTestContext(t)
 	rng := rand.New(rand.NewSource(testRandomSeed))
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
 	// Start original index provider
@@ -104,7 +104,7 @@ func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 func TestMirror_FormsExpectedAdChain(t *testing.T) {
 	ctx := newTestContext(t)
 	rng := rand.New(rand.NewSource(testRandomSeed))
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
 	// Start original index provider
@@ -186,7 +186,7 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := newTestContext(t)
 			rng := rand.New(rand.NewSource(testRandomSeed))
-			md := metadata.New(metadata.Bitswap{})
+			md := metadata.Default.New(metadata.Bitswap{})
 
 			te := &testEnv{}
 			// Start original index provider
@@ -229,7 +229,7 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 	ctx := newTestContext(t)
 	rng := rand.New(rand.NewSource(testRandomSeed))
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
 	// Start source and publish 3 ads.
@@ -285,7 +285,7 @@ func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 func TestMirror_MirrorsAdsIdenticallyWhenConfiguredTo(t *testing.T) {
 	ctx := newTestContext(t)
 	rng := rand.New(rand.NewSource(testRandomSeed))
-	md := metadata.New(metadata.Bitswap{})
+	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
 	// Start source and publish 3 ads.

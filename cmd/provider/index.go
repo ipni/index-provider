@@ -65,7 +65,7 @@ func indexCommand(cctx *cli.Context) error {
 	if err != nil {
 		return errors.New("metadata is not a valid base64 encoded string")
 	}
-	md = metadata.New()
+	md = metadata.Default.New()
 	err = md.UnmarshalBinary(decoded)
 	if err != nil {
 		return err
