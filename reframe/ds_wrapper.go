@@ -15,36 +15,33 @@ import (
 )
 
 const (
-	chunkByContextIdIndexPrefix = "ccid/"
-	timestampByCidIndexPrefix   = "tc/"
-	timestampsSnapshotIndexKey  = "ts"
+	chunkByContextIdIndexPrefix   = "ccid/"
+	timestampByCidIndexPrefix     = "tc/"
+	timestampsSnapshotIndexPrefix = "ts"
 )
 
 // dsWrapper encapsulates all functionality related top the datastore
 type dsWrapper struct {
-	ds datastore.Datastore
+	ds                   datastore.Datastore
+	snapshotChunkMaxSize int
+}
+
+func newDSWrapper(ds datastore.Datastore, snapshotChunkMaxSize int) *dsWrapper {
+	return &dsWrapper{ds: ds, snapshotChunkMaxSize: snapshotChunkMaxSize}
 }
 
 // initialiseFromTheDatastore initialises in-memory data structures on first start
-func (d *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporter func(n *cidNode), chunkImporter func(c *cidsChunk)) error {
+func (dsw *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporter func(n *cidNode), chunkImporter func(c *cidsChunk)) error {
 	start := time.Now()
 	// reading timestamps snapshot from the datastore
-	snapshot, err := d.ds.Get(ctx, datastore.NewKey(timestampsSnapshotIndexKey))
-	if err != nil && err != datastore.ErrNotFound {
-		return fmt.Errorf("error reading timestamps snapshot from the datastore: %w", err)
-	}
-
-	var cidNodes []*cidNode
-	if snapshot != nil {
-		cidNodes, err = parseSnapshot(snapshot)
-		if err != nil {
-			return fmt.Errorf("error parsing timestamps snapshot: %w", err)
-		}
+	cidNodes, err := dsw.readSnapshotFromDs(ctx)
+	if err != nil {
+		return fmt.Errorf("error reading timestamp snapshot from the datastore: %w", err)
 	}
 
 	// reading timestamp by cid index from the datastore, sorting the slice by the timestamp and providing it into in memory indexes
 	q := dsq.Query{Prefix: timestampByCidIndexPrefix}
-	tcResults, err := d.ds.Query(ctx, q)
+	tcResults, err := dsw.ds.Query(ctx, q)
 	if err != nil {
 		return fmt.Errorf("error reading timestamp by cid index from the datastore: %w", err)
 	}
@@ -78,7 +75,7 @@ func (d *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporter 
 	start = time.Now()
 	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
 	q = dsq.Query{Prefix: chunkByContextIdIndexPrefix}
-	ccResults, err := d.ds.Query(ctx, q)
+	ccResults, err := dsw.ds.Query(ctx, q)
 	if err != nil {
 		return fmt.Errorf("error reading from the datastore: %w", err)
 	}
@@ -105,35 +102,105 @@ func (d *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporter 
 	return nil
 }
 
-func parseSnapshot(snapshot []byte) ([]*cidNode, error) {
-	timestamps := make([]*cidNode, 0)
-	decoder := gob.NewDecoder(bytes.NewBuffer(snapshot))
-	err := decoder.Decode(&timestamps)
+func (dsw *dsWrapper) readSnapshotFromDs(ctx context.Context) ([]*cidNode, error) {
+	cidNodes := make([]*cidNode, 0)
+	keys, err := dsw.getSnapshotChunkKeys(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return timestamps, nil
+	for _, k := range keys {
+		snapshotChunk, err := dsw.ds.Get(ctx, datastore.NewKey(k))
+		if err != nil && err != datastore.ErrNotFound {
+			return nil, fmt.Errorf("error reading timestamps snapshot from the datastore: %w", err)
+		}
+
+		if len(snapshotChunk) == 0 {
+			continue
+		}
+
+		var chunkNodes []*cidNode
+		chunkNodes, err = parseSnapshot(snapshotChunk)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing timestamps snapshot: %w", err)
+		}
+		cidNodes = append(cidNodes, chunkNodes...)
+	}
+
+	return cidNodes, nil
 }
 
-func (dsw *dsWrapper) hasSanpshot(ctx context.Context) (bool, error) {
-	return dsw.ds.Has(ctx, datastore.NewKey(timestampsSnapshotIndexKey))
-}
+func (dsw *dsWrapper) getSnapshotChunkKeys(ctx context.Context) ([]string, error) {
+	q := dsq.Query{Prefix: timestampsSnapshotIndexPrefix, KeysOnly: true}
+	tcResults, err := dsw.ds.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("error reading timestamp snapshot keys from the datastore: %w", err)
+	}
+	defer tcResults.Close()
+	keys, err := tcResults.Rest()
+	if err != nil {
+		return nil, fmt.Errorf("error reading timestamp snapshot keys from the datastore: %w", err)
+	}
 
-func (dsw *dsWrapper) hasCidTimestamp(ctx context.Context, c cid.Cid) (bool, error) {
-	return dsw.ds.Has(ctx, timestampByCidKey(c))
+	keysStr := make([]string, len(keys))
+	seenLegacyKey := false
+	for i, k := range keys {
+		keysStr[i] = k.Key
+		seenLegacyKey = seenLegacyKey || k.Key == timestampsSnapshotIndexPrefix
+	}
+
+	// explicitly adding a legacy key if it exists in the datastore
+	legacySnapshotExists, err := dsw.ds.Has(ctx, datastore.NewKey(timestampsSnapshotIndexPrefix))
+	if err != nil {
+		return nil, fmt.Errorf("error reading timestamp snapshot keys from the datastore: %w", err)
+	}
+	if legacySnapshotExists && !seenLegacyKey {
+		keysStr = append(keysStr, timestampsSnapshotIndexPrefix)
+	}
+
+	return keysStr, nil
 }
 
 func (dsw *dsWrapper) recordTimestampsSnapshot(ctx context.Context, timestamps []*cidNode, cleanUpTimestamps bool) error {
-	b := bytes.Buffer{}
-	e := gob.NewEncoder(&b)
-	err := e.Encode(timestamps)
+	// get the existing snapshot chunks to clean up afterwards
+	keys, err := dsw.getSnapshotChunkKeys(ctx)
 	if err != nil {
 		return err
 	}
+	keysMap := make(map[string]struct{})
+	for _, k := range keys {
+		keysMap[k] = struct{}{}
+	}
 
-	err = dsw.ds.Put(ctx, datastore.NewKey(timestampsSnapshotIndexKey), b.Bytes())
+	// split the snapshot into chunks and store in ds
+	cnt := 0
+	for startPos := 0; startPos < len(timestamps); startPos += dsw.snapshotChunkMaxSize {
+		b := bytes.Buffer{}
+		e := gob.NewEncoder(&b)
+		endPos := min(startPos+dsw.snapshotChunkMaxSize, len(timestamps))
+		err := e.Encode(timestamps[startPos:endPos])
+		if err != nil {
+			return err
+		}
+
+		key := datastore.NewKey(fmt.Sprintf("%s/%d", timestampsSnapshotIndexPrefix, cnt))
+		delete(keysMap, key.String())
+		err = dsw.ds.Put(ctx, key, b.Bytes())
+		if err != nil {
+			return err
+		}
+		cnt++
+	}
+
+	// delete old snapshot chunks
+	for k := range keysMap {
+		err = dsw.ds.Delete(ctx, datastore.NewKey(k))
+		if err != nil {
+			return fmt.Errorf("error cleaning up snapshot chunks from the datastore: %w", err)
+		}
+	}
+
 	if !cleanUpTimestamps {
-		return err
+		return nil
 	}
 
 	q := dsq.Query{Prefix: timestampByCidIndexPrefix, KeysOnly: true}
@@ -211,4 +278,21 @@ func int64ToBytes(i int64) []byte {
 
 func bytesToInt64(b []byte) int64 {
 	return int64(binary.LittleEndian.Uint64(b))
+}
+
+func parseSnapshot(snapshot []byte) ([]*cidNode, error) {
+	timestamps := make([]*cidNode, 0)
+	decoder := gob.NewDecoder(bytes.NewBuffer(snapshot))
+	err := decoder.Decode(&timestamps)
+	if err != nil {
+		return nil, err
+	}
+	return timestamps, nil
+}
+
+func min(l, r int) int {
+	if l < r {
+		return l
+	}
+	return r
 }

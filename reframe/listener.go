@@ -85,15 +85,18 @@ func New(ctx context.Context, engine provider.Interface,
 	providerId string,
 	addresses []string,
 	ds datastore.Datastore,
-	nonceGen func() []byte) (*ReframeListener, error) {
+	nonceGen func() []byte,
+	opts ...Option,
+) (*ReframeListener, error) {
+
+	options := ApplyOptions(opts...)
 
 	listener := &ReframeListener{
-		engine:       engine,
-		cidTtl:       cidTtl,
-		chunkSize:    chunkSize,
-		snapshotSize: snapshotSize,
-		dsWrapper: &dsWrapper{
-			ds: namespace.Wrap(ds, datastore.NewKey(reframeDSName))},
+		engine:                 engine,
+		cidTtl:                 cidTtl,
+		chunkSize:              chunkSize,
+		snapshotSize:           snapshotSize,
+		dsWrapper:              newDSWrapper(namespace.Wrap(ds, datastore.NewKey(reframeDSName)), options.SnapshotMaxChunkSize),
 		lastSeenProviderInfo:   &peer.AddrInfo{},
 		configuredProviderInfo: nil,
 		chunker:                newChunker(func() int { return chunkSize }, nonceGen),

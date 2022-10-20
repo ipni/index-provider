@@ -1035,6 +1035,182 @@ func TestCidsWithoutChunkAreRegisteredInDsAndIndexes(t *testing.T) {
 	require.Equal(t, []cid.Cid{testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
 }
 
+func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
+	// this test can cause race detecting issues because of the stats reporter that gets accessed from multiple goroutines
+	cidsNumber := 10
+	chunkSize := 10000
+	snapshotSize := 1
+	ttl := 24 * time.Hour
+
+	h, err := libp2p.New()
+	require.NoError(t, err)
+	priv, pID := generateKeyAndIdentity(t)
+	ctx := context.Background()
+
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	require.NoError(t, err)
+	err = engine.Start(ctx)
+	defer engine.Shutdown()
+	require.NoError(t, err)
+
+	ds := datastore.NewMapDatastore()
+
+	listener, err := reframelistener.New(ctx,
+		engine,
+		ttl,
+		chunkSize,
+		snapshotSize,
+		"",
+		nil,
+		ds,
+		testNonceGen,
+		reframelistener.WithSnapshotMaxChunkSize(1))
+
+	require.NoError(t, err)
+
+	cids := make([]cid.Cid, cidsNumber)
+	for i := 0; i < len(cids); i++ {
+		cids[i] = newCid(fmt.Sprintf("test%d", i))
+	}
+
+	client, server := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	defer server.Close()
+
+	provideMany(t, client, ctx, cids)
+
+	require.Equal(t, cidsNumber, reframelistener.SnapshotsQty(ctx, listener))
+
+	// create a new listener and verify that it has initialised correctly
+	listener, err = reframelistener.New(ctx,
+		engine,
+		ttl,
+		chunkSize,
+		snapshotSize,
+		"",
+		nil,
+		ds,
+		testNonceGen)
+
+	require.NoError(t, err)
+
+	queue := reframelistener.GetExpiryQueue(ctx, listener)
+	sort.Slice(queue, func(i, j int) bool {
+		return queue[i].String() < queue[j].String()
+	})
+	require.Equal(t, cids, queue)
+}
+
+func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
+	// this test can cause race detecting issues because of the stats reporter that gets accessed from multiple goroutines
+	cidsNumber := 10
+	chunkSize := 10000
+	snapshotSize := 1
+	ttl := time.Second
+
+	h, err := libp2p.New()
+	require.NoError(t, err)
+	priv, pID := generateKeyAndIdentity(t)
+	ctx := context.Background()
+
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	require.NoError(t, err)
+	err = engine.Start(ctx)
+	defer engine.Shutdown()
+	require.NoError(t, err)
+
+	ds := datastore.NewMapDatastore()
+
+	listener, err := reframelistener.New(ctx,
+		engine,
+		ttl,
+		chunkSize,
+		snapshotSize,
+		"",
+		nil,
+		ds,
+		testNonceGen,
+		reframelistener.WithSnapshotMaxChunkSize(1))
+
+	require.NoError(t, err)
+
+	cids := make([]cid.Cid, cidsNumber)
+	for i := 0; i < len(cids); i++ {
+		cids[i] = newCid(fmt.Sprintf("test%d", i))
+	}
+
+	client, server := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	defer server.Close()
+
+	provideMany(t, client, ctx, cids)
+	require.Equal(t, cidsNumber, reframelistener.SnapshotsQty(ctx, listener))
+	time.Sleep(ttl)
+	provideMany(t, client, ctx, cids[0:2])
+	require.Equal(t, 2, reframelistener.SnapshotsQty(ctx, listener))
+}
+
+func TestShouldRecogniseLegacySnapshot(t *testing.T) {
+	// this test can cause race detecting issues because of the stats reporter that gets accessed from multiple goroutines
+	chunkSize := 10000
+	snapshotSize := 1
+	ttl := time.Second
+
+	h, err := libp2p.New()
+	require.NoError(t, err)
+	priv, pID := generateKeyAndIdentity(t)
+	ctx := context.Background()
+
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	require.NoError(t, err)
+	err = engine.Start(ctx)
+	defer engine.Shutdown()
+	require.NoError(t, err)
+
+	ds := datastore.NewMapDatastore()
+
+	listener, err := reframelistener.New(ctx,
+		engine,
+		ttl,
+		chunkSize,
+		snapshotSize,
+		"",
+		nil,
+		ds,
+		testNonceGen,
+		reframelistener.WithSnapshotMaxChunkSize(1))
+
+	require.NoError(t, err)
+
+	client, server := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	defer server.Close()
+
+	provide(t, client, ctx, newCid("test"))
+
+	snapshot, err := reframelistener.WrappedDatastore(listener).Get(ctx, datastore.NewKey("ts/0"))
+	require.NoError(t, err)
+
+	err = reframelistener.WrappedDatastore(listener).Put(ctx, datastore.NewKey("ts"), snapshot)
+	require.NoError(t, err)
+
+	err = reframelistener.WrappedDatastore(listener).Delete(ctx, datastore.NewKey("ts/0"))
+	require.NoError(t, err)
+
+	// create a new listener and verify that it has initialised correctly
+	listener, err = reframelistener.New(ctx,
+		engine,
+		ttl,
+		chunkSize,
+		snapshotSize,
+		"",
+		nil,
+		ds,
+		testNonceGen)
+
+	require.NoError(t, err)
+
+	queue := reframelistener.GetExpiryQueue(ctx, listener)
+	require.Equal(t, []cid.Cid{newCid("test")}, queue)
+}
+
 func provide(t *testing.T, cc *client.Client, ctx context.Context, c cid.Cid) time.Duration {
 	return provideMany(t, cc, ctx, []cid.Cid{c})
 }
