@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
 )
 
 func ChunkExists(ctx context.Context, listener *ReframeListener, cids []cid.Cid, nonceGen func() []byte) bool {
@@ -38,13 +39,21 @@ func ChunkExists(ctx context.Context, listener *ReframeListener, cids []cid.Cid,
 }
 
 func HasSnapshot(ctx context.Context, listener *ReframeListener) bool {
-	has, err := listener.dsWrapper.hasSanpshot(ctx)
-	return has && err == nil
+	return SnapshotsQty(ctx, listener) > 0
+}
+
+func SnapshotsQty(ctx context.Context, listener *ReframeListener) int {
+	keys, _ := listener.dsWrapper.getSnapshotChunkKeys(ctx)
+	return len(keys)
 }
 
 func HasCidTimestamp(ctx context.Context, listener *ReframeListener, c cid.Cid) bool {
-	has, err := listener.dsWrapper.hasCidTimestamp(ctx, c)
+	has, err := listener.dsWrapper.ds.Has(ctx, timestampByCidKey(c))
 	return has && err == nil
+}
+
+func WrappedDatastore(listener *ReframeListener) datastore.Datastore {
+	return listener.dsWrapper.ds
 }
 
 func ChunkNotExist(ctx context.Context, listener *ReframeListener, cids []cid.Cid, nonceGen func() []byte) bool {
