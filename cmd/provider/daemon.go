@@ -206,7 +206,7 @@ func daemonCommand(cctx *cli.Context) error {
 		}
 
 		reframeSrv, err = reframeserver.New(
-			cfg.Reframe.CidTtl,
+			time.Duration(cfg.Reframe.CidTtl),
 			cfg.Reframe.ChunkSize,
 			cfg.Reframe.SnapshotSize,
 			cfg.Reframe.ProviderID,
@@ -214,8 +214,8 @@ func daemonCommand(cctx *cli.Context) error {
 			eng,
 			ds,
 			reframeserver.WithListenAddr(reframeAddr),
-			reframeserver.WithReadTimeout(cfg.Reframe.ReadTimeout),
-			reframeserver.WithWriteTimeout(cfg.Reframe.WriteTimeout),
+			reframeserver.WithReadTimeout(time.Duration(cfg.Reframe.ReadTimeout)),
+			reframeserver.WithWriteTimeout(time.Duration(cfg.Reframe.WriteTimeout)),
 		)
 
 		if err != nil {
