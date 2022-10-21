@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	defaultReframeReadTimeout  = time.Duration(10 * time.Minute)
-	defaultReframeWriteTimeout = time.Duration(10 * time.Minute)
-	defaultReframeCidTtl       = 24 * time.Hour
+	defaultReframeReadTimeout  = Duration(10 * time.Minute)
+	defaultReframeWriteTimeout = Duration(10 * time.Minute)
+	defaultReframeCidTtl       = Duration(24 * time.Hour)
 	defaultReframeChunkSize    = 1_000
 	defaultReframeSnapshotSize = 10_000
 )
@@ -19,10 +19,10 @@ const (
 // allow an IPFS node to advertise their CIDs through the delegated routing protocol.
 type Reframe struct {
 	ListenMultiaddr string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
+	ReadTimeout     Duration
+	WriteTimeout    Duration
 	// CidTtl is a lifetime of a cid after which it is considered expired
-	CidTtl time.Duration
+	CidTtl Duration
 	// ChunkSize is size of a chunk before it gets avertised to an indexer
 	ChunkSize int
 	// SnapshotSize is the maximum number of records in the Provide payload after which it is considered a snapshot.
