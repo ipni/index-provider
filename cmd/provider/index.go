@@ -9,6 +9,7 @@ import (
 	"github.com/filecoin-project/index-provider/metadata"
 	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 )
@@ -65,7 +66,7 @@ func indexCommand(cctx *cli.Context) error {
 	if err != nil {
 		return errors.New("metadata is not a valid base64 encoded string")
 	}
-	md = metadata.Default.New()
+	md = metadata.Default.WithProtocol(multicodec.Http, metadata.HTTPV1).New()
 	err = md.UnmarshalBinary(decoded)
 	if err != nil {
 		return err
