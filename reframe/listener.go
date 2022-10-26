@@ -141,7 +141,7 @@ func New(ctx context.Context, engine provider.Interface,
 
 	// recording merged snapshot and cleaning up individual mappings from the datastore
 	if len(listener.cidQueue.listNodeByCid) > 0 {
-		listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot(), true)
+		listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
 	}
 
 	log.Infof("Loaded up %d cids and %d chunks from the datastore.", len(listener.cidQueue.listNodeByCid), len(listener.chunker.chunkByContextId))
@@ -294,14 +294,14 @@ func (listener *ReframeListener) Provide(ctx context.Context, pr *client.Provide
 				log.Infof("Processed %d out of %d CIDs. startTime=%v", i, len(pr.Key), startTime)
 			}
 		}
-		err := listener.removeExpiredCids(ctx)
+		removedSomething, err := listener.removeExpiredCids(ctx)
 		if err != nil {
 			log.Warnw("Error removing expired cids.", "err", err)
 		}
 
-		// if that was a snapshot - persisting timestamps as binary blob
-		if len(pr.Key) >= listener.snapshotSize {
-			listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot(), false)
+		// if that was a snapshot or some cids have expired - persisting timestamps as binary blob
+		if removedSomething || len(pr.Key) >= listener.snapshotSize {
+			listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
 		}
 
 		response := client.ProvideAsyncResult{AdvisoryTTL: time.Duration(listener.cidTtl), Err: nil}
@@ -310,21 +310,13 @@ func (listener *ReframeListener) Provide(ctx context.Context, pr *client.Provide
 	return ch, nil
 }
 
-func (listener *ReframeListener) deleteCidFromDatastoreAndIndexes(ctx context.Context, c cid.Cid) {
-	err := listener.dsWrapper.deleteCidTimestamp(ctx, c)
-	if err != nil {
-		log.Warnw("Error cleaning up timestamp by cid index. Continuing.", "err", err)
-	}
-
-	listener.cidQueue.removeCidNode(c)
-}
-
 // Revise logic here
-func (listener *ReframeListener) removeExpiredCids(ctx context.Context) error {
+func (listener *ReframeListener) removeExpiredCids(ctx context.Context) (bool, error) {
 	lastElem := listener.cidQueue.nodesLl.Back()
 	currentTime := time.Now()
 	chunksToRemove := make(map[string]*cidsChunk)
 	cidsToRemove := make(map[cid.Cid]struct{})
+	removedSomeCids := false
 	printFrequency := 100
 	var cidsRemoved, chunksRemoved, chunksReplaced int
 	// find expired cids and their respective chunks
@@ -340,13 +332,13 @@ func (listener *ReframeListener) removeExpiredCids(ctx context.Context) error {
 
 		chunk := listener.chunker.getChunkByCID(lastNode.C)
 		lastElem = lastElem.Prev()
+		removedSomeCids = true
 		if chunk != nil {
 			cidsToRemove[lastNode.C] = struct{}{}
 			ctxIdStr := contextIDToStr(chunk.ContextID)
 			chunksToRemove[ctxIdStr] = chunk
 		} else {
-			log.Warnf("No chunk found for expired cid=%s. Cleaning it up from indexes and datastore.", lastNode.C)
-			listener.deleteCidFromDatastoreAndIndexes(ctx, lastNode.C)
+			listener.cidQueue.removeCidNode(lastNode.C)
 		}
 	}
 
@@ -379,7 +371,7 @@ func (listener *ReframeListener) removeExpiredCids(ctx context.Context) error {
 			}
 
 			// cleaning up the expired cid
-			listener.deleteCidFromDatastoreAndIndexes(ctx, c)
+			listener.cidQueue.removeCidNode(c)
 			delete(cidsToRemove, c)
 			listener.stats.incCidsExpired()
 			cidsRemoved++
@@ -407,12 +399,12 @@ func (listener *ReframeListener) removeExpiredCids(ctx context.Context) error {
 	// we might have still some expired cids left, that didn't have any chunk associated to them
 	for c := range cidsToRemove {
 		// cleaning up the expired cid
-		listener.deleteCidFromDatastoreAndIndexes(ctx, c)
+		listener.cidQueue.removeCidNode(c)
 	}
 
 	log.Infow("Finished cleaning up.", "cidsExpired", cidsRemoved, "chunksExpired", chunksRemoved, "chunksReplaced", chunksReplaced)
 
-	return nil
+	return removedSomeCids, nil
 }
 
 func (listener *ReframeListener) notifyRemoveAndPersist(ctx context.Context, chunk *cidsChunk) error {
