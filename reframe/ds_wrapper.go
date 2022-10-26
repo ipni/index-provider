@@ -32,6 +32,45 @@ func newDSWrapper(ds datastore.Datastore, snapshotChunkMaxSize int) *dsWrapper {
 
 // initialiseFromTheDatastore initialises in-memory data structures on first start
 func (dsw *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporter func(n *cidNode), chunkImporter func(c *cidsChunk)) error {
+	err := dsw.initialiseCidTimestampsFromDatastore(ctx, cidImporter)
+	if err != nil {
+		return err
+	}
+	return dsw.initialiseChunksFromDatastore(ctx, chunkImporter)
+}
+
+func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkImporter func(c *cidsChunk)) error {
+	start := time.Now()
+	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
+	q := dsq.Query{Prefix: chunkByContextIdIndexPrefix}
+	ccResults, err := dsw.ds.Query(ctx, q)
+	if err != nil {
+		return fmt.Errorf("error reading from the datastore: %w", err)
+	}
+	defer ccResults.Close()
+
+	for r := range ccResults.Next() {
+		if r.Error != nil {
+			return fmt.Errorf("error fetching datastore record: %w", r.Error)
+		}
+
+		chunk, err := deserialiseChunk(r.Value)
+		if err != nil {
+			return fmt.Errorf("error deserialising record from the datastore: %w", err)
+		}
+		// not importing removed chunks. They can be lazy loaded when needed.
+		if chunk.Removed {
+			continue
+		}
+		chunkImporter(chunk)
+	}
+
+	log.Infof("Loaded up all chunks from the datastore in %v", time.Since(start))
+
+	return nil
+}
+
+func (dsw *dsWrapper) initialiseCidTimestampsFromDatastore(ctx context.Context, cidImporter func(n *cidNode)) error {
 	start := time.Now()
 	// reading timestamps snapshot from the datastore
 	cidNodes, err := dsw.readSnapshotFromDs(ctx)
@@ -71,34 +110,6 @@ func (dsw *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporte
 	}
 
 	log.Infof("Loaded up all CIDs from the datastore in %v", time.Since(start))
-
-	start = time.Now()
-	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
-	q = dsq.Query{Prefix: chunkByContextIdIndexPrefix}
-	ccResults, err := dsw.ds.Query(ctx, q)
-	if err != nil {
-		return fmt.Errorf("error reading from the datastore: %w", err)
-	}
-	defer ccResults.Close()
-
-	for r := range ccResults.Next() {
-		if r.Error != nil {
-			return fmt.Errorf("error fetching datastore record: %w", r.Error)
-		}
-
-		chunk, err := deserialiseChunk(r.Value)
-		if err != nil {
-			return fmt.Errorf("error deserialising record from the datastore: %w", err)
-		}
-		// not importing removed chunks. They can be lazy loaded when needed.
-		if chunk.Removed {
-			continue
-		}
-		chunkImporter(chunk)
-	}
-
-	log.Infof("Loaded up all chunks from the datastore in %v", time.Since(start))
-
 	return nil
 }
 
@@ -160,7 +171,7 @@ func (dsw *dsWrapper) getSnapshotChunkKeys(ctx context.Context) ([]string, error
 	return keysStr, nil
 }
 
-func (dsw *dsWrapper) recordTimestampsSnapshot(ctx context.Context, timestamps []*cidNode, cleanUpTimestamps bool) error {
+func (dsw *dsWrapper) recordTimestampsSnapshot(ctx context.Context, timestamps []*cidNode) error {
 	// get the existing snapshot chunks to clean up afterwards
 	keys, err := dsw.getSnapshotChunkKeys(ctx)
 	if err != nil {
@@ -199,10 +210,6 @@ func (dsw *dsWrapper) recordTimestampsSnapshot(ctx context.Context, timestamps [
 		}
 	}
 
-	if !cleanUpTimestamps {
-		return nil
-	}
-
 	q := dsq.Query{Prefix: timestampByCidIndexPrefix, KeysOnly: true}
 	tcResults, err := dsw.ds.Query(ctx, q)
 	if err != nil {
@@ -220,10 +227,6 @@ func (dsw *dsWrapper) recordTimestampsSnapshot(ctx context.Context, timestamps [
 
 func (dsw *dsWrapper) recordCidTimestamp(ctx context.Context, c cid.Cid, t time.Time) error {
 	return dsw.ds.Put(ctx, timestampByCidKey(c), int64ToBytes(t.UnixMilli()))
-}
-
-func (dsw *dsWrapper) deleteCidTimestamp(ctx context.Context, c cid.Cid) error {
-	return dsw.ds.Delete(ctx, timestampByCidKey(c))
 }
 
 func (dsw *dsWrapper) getCidTimestamp(ctx context.Context, c cid.Cid) (time.Time, error) {
