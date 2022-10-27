@@ -2,6 +2,7 @@ package reframe
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -88,8 +89,16 @@ func CidNotExist(ctx context.Context, listener *ReframeListener, c cid.Cid) bool
 	return listener.cidQueue.getNodeByCid(c) == nil && listener.chunker.getChunkByCID(c) == nil
 }
 
-func GetCidTimestamp(ctx context.Context, listener *ReframeListener, c cid.Cid) (time.Time, error) {
+func GetCidTimestampFromDatastore(ctx context.Context, listener *ReframeListener, c cid.Cid) (time.Time, error) {
 	return listener.dsWrapper.getCidTimestamp(ctx, c)
+}
+
+func GetCidTimestampFromCache(ctx context.Context, listener *ReframeListener, c cid.Cid) (time.Time, error) {
+	node := listener.cidQueue.getNodeByCid(c)
+	if node == nil {
+		return time.Unix(0, 0), fmt.Errorf("Timestamp not found")
+	}
+	return node.Value.(*cidNode).Timestamp, nil
 }
 
 func GetChunk(ctx context.Context, listener *ReframeListener, contextID string) *cidsChunk {
@@ -124,7 +133,5 @@ func cidsListToMap(cids []cid.Cid) map[cid.Cid]struct{} {
 }
 
 func StatsReporter() *statsReporter {
-
 	return &statsReporter{}
-
 }
