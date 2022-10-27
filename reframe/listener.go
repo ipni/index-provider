@@ -133,13 +133,24 @@ func New(ctx context.Context, engine provider.Interface,
 		listener.cidQueue.recordCidNode(n)
 	}, func(chunk *cidsChunk) {
 		listener.chunker.addChunk(chunk)
+		now := time.Now()
+		// some timestamps might be missing in the case if the latest snapshot hasn't been persisted due to an error
+		// while some chunks containing those CIDs haven been persisted and sent out. In that case - backfilling the missing CIDs with the current timestamp.
+		// That is safe to do. Even if those CIDs have expired, they will still expire from the index-provider just at a later date.
+		for c := range chunk.Cids {
+			if listener.cidQueue.getNodeByCid(c) != nil {
+				continue
+			}
+			listener.cidQueue.recordCidNode(&cidNode{C: c, Timestamp: now})
+		}
+
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	// recording merged snapshot and cleaning up individual mappings from the datastore
+	// recording the merged snapshot and cleaning up individual mappings from the datastore
 	if len(listener.cidQueue.listNodeByCid) > 0 {
 		listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
 	}

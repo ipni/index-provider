@@ -325,7 +325,7 @@ func TestProvideRegistersCidInDatastore(t *testing.T) {
 	require.True(t, reframelistener.CidExist(ctx, listener, testCid1, false))
 
 	// verifying that the CID has a current timestamp
-	tt, err := reframelistener.GetCidTimestamp(ctx, listener, testCid1)
+	tt, err := reframelistener.GetCidTimestampFromDatastore(ctx, listener, testCid1)
 	require.NoError(t, err)
 	require.True(t, time.Since(tt) < time.Second)
 	require.Equal(t, []cid.Cid{testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
@@ -701,6 +701,71 @@ func TestDoNoLoadRemovedChunksOnInitialisation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, reframelistener.ChunkNotExist(ctx, listener2, []cid.Cid{testCid1}, testNonceGen))
+}
+
+func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
+	ttl := time.Hour
+	chunkSize := 1
+	snapshotSize := 1000
+
+	priv, pID := generateKeyAndIdentity(t)
+
+	ctx := context.Background()
+	defer ctx.Done()
+	testCid1 := newCid("test1")
+	testCid2 := newCid("test2")
+	testCid3 := newCid("test3")
+	prov := newProvider(t, pID)
+
+	mc := gomock.NewController(t)
+	defer mc.Finish()
+	mockEng := mock_provider.NewMockInterface(mc)
+
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
+
+	ds := datastore.NewMapDatastore()
+	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	require.NoError(t, err)
+
+	c, s := createClientAndServer(t, listener1, prov, priv)
+
+	provide(t, c, ctx, testCid1)
+	time.Sleep(100 * time.Millisecond)
+	provide(t, c, ctx, testCid2)
+	time.Sleep(100 * time.Millisecond)
+	provide(t, c, ctx, testCid3)
+
+	t1Before, err := reframelistener.GetCidTimestampFromDatastore(ctx, listener1, testCid1)
+	require.NoError(t, err)
+
+	t2Before, err := reframelistener.GetCidTimestampFromDatastore(ctx, listener1, testCid2)
+	require.NoError(t, err)
+
+	// cid2 timestamp should be after cid1 timestamp as it has been provided later
+	require.True(t, t1Before.Before(t2Before))
+
+	s.Close()
+
+	reframelistener.WrappedDatastore(listener1).Delete(ctx, datastore.NewKey("tc/"+testCid1.String()))
+
+	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	require.NoError(t, err)
+
+	t1After, err := reframelistener.GetCidTimestampFromCache(ctx, listener2, testCid1)
+	require.NoError(t, err)
+
+	t2After, err := reframelistener.GetCidTimestampFromCache(ctx, listener2, testCid2)
+	require.NoError(t, err)
+
+	require.NotEqual(t, t1After, t2After)
+	require.NotEqual(t, t1Before, t1After)
+	require.Equal(t, t2Before, t2After)
+	// even though cid2 has been provided after cid1, cid1 shoudl have a higher timestamp as it has been backfilled
+	require.True(t, t1After.After(t2After))
+
 }
 
 func TestSameCidNotDuplicatedInTheCurrentChunkIfProvidedTwice(t *testing.T) {
