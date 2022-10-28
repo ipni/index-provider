@@ -26,19 +26,35 @@ func (u *Unknown) ID() multicodec.Code {
 }
 
 func (u *Unknown) MarshalBinary() ([]byte, error) {
-	return u.Payload, nil
+	init := varint.ToUvarint(uint64(u.Code))
+	return append(init, u.Payload...), nil
 }
 
 func (u *Unknown) UnmarshalBinary(data []byte) error {
-	u.Payload = data
+	init := varint.ToUvarint(uint64(u.Code))
+	if len(data) < len(init) {
+		return fmt.Errorf("doesn't start as expected")
+	}
+	u.Payload = data[len(init):]
 	return nil
 }
 
 func (u *Unknown) ReadFrom(r io.Reader) (n int64, err error) {
-	// see if it starts with a reasonable looking uvarint.
-	size, err := varint.ReadUvarint(rbr{r, [1]byte{0}})
+	code, err := varint.ReadUvarint(rbr{r, [1]byte{0}})
 	if err != nil {
 		return 0, err
+	}
+	if code != uint64(u.Code) {
+		return int64(varint.UvarintSize(code)), fmt.Errorf("unexpected code")
+	}
+
+	// see if it starts with a reasonable looking uvarint.
+	size, err := varint.ReadUvarint(rbr{r, [1]byte{0}})
+	if err == io.EOF {
+		return int64(varint.UvarintSize(code)), nil
+	}
+	if err != nil {
+		return int64(varint.UvarintSize(code)), err
 	}
 
 	rl := varint.ToUvarint(size)
@@ -56,8 +72,9 @@ func (u *Unknown) ReadFrom(r io.Reader) (n int64, err error) {
 	if size != uint64(read) {
 		return preSize + bRead, fmt.Errorf("expected %d readable bytes but read %d", size, read)
 	}
+	u.Payload = buf
 
-	return preSize + bRead, nil
+	return int64(varint.UvarintSize(code)) + preSize + bRead, nil
 }
 
 type rbr struct {

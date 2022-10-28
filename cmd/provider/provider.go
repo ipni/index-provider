@@ -45,6 +45,7 @@ func run() int {
 			AnnounceHttpCmd,
 			ConnectCmd,
 			DaemonCmd,
+			ExtendCmd,
 			FindCmd,
 			ImportCmd,
 			IndexCmd,

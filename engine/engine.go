@@ -96,6 +96,10 @@ func New(o ...Option) (*Engine, error) {
 	return e, nil
 }
 
+func (e *Engine) Lsys() ipld.LinkSystem {
+	return e.lsys
+}
+
 // Start starts the engine by instantiating the internal storage and joining
 // the configured gossipsub topic used for publishing advertisements.
 //
