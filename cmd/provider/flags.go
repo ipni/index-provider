@@ -85,6 +85,14 @@ var indexFlags = []cli.Flag{
 	metadataFlag,
 }
 
+var extendFlags = append([]cli.Flag{
+	&cli.StringFlag{
+		Name:     "outDir",
+		Usage:    "Where to dump the chain",
+		Required: true,
+	},
+}, indexFlags...)
+
 var registerFlags = []cli.Flag{
 	indexerFlag,
 	addrFlag,
