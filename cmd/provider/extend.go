@@ -31,6 +31,15 @@ var ExtendCmd = &cli.Command{
 }
 
 func extendCmd(cctx *cli.Context) error {
+	/*
+		raw := "/dns4/willscott.github.io/tcp/443/https/httpath/http-cid-data/p2p/12D3KooWLgFiazzEvU9LZ7mgGdexRrkZYz61SajLv5ZWT3abiR74"
+		max, _ := multiaddr.NewMultiaddr(raw)
+		bbb := max.Bytes()
+		fmt.Printf("raw: %s\n", base64.StdEncoding.EncodeToString(bbb))
+		//	_, _, errx := manet.DialArgs(max)
+		panic(nil)
+	*/
+
 	mhArg := cctx.String("mh")
 	cidArg := cctx.String("cid")
 	if mhArg == "" && cidArg == "" {
