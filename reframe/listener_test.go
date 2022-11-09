@@ -2,7 +2,6 @@ package reframe_test
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"net/http/httptest"
@@ -14,6 +13,7 @@ import (
 	"github.com/filecoin-project/index-provider/metadata"
 	mock_provider "github.com/filecoin-project/index-provider/mock"
 	reframelistener "github.com/filecoin-project/index-provider/reframe"
+	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -56,7 +56,7 @@ func TestReframeMultihashLister(t *testing.T) {
 	cids[newCid("test2")] = struct{}{}
 	cids[newCid("test3")] = struct{}{}
 
-	_, pID := generateKeyAndIdentity(t)
+	_, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	lister := &reframelistener.ReframeMultihashLister{
 		CidFetcher: func(contextID []byte) (map[cid.Cid]struct{}, error) {
@@ -120,7 +120,7 @@ func TestProvideRoundtrip(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -179,7 +179,7 @@ func TestProvideRoundtripWithRemove(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -235,7 +235,7 @@ func TestAdvertiseTwoChunksWithOneCidInEach(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -266,7 +266,7 @@ func TestAdvertiseUsingAddrsFromParameters(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -301,7 +301,7 @@ func TestProvideRegistersCidInDatastore(t *testing.T) {
 	chunkSize := 2
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -336,7 +336,7 @@ func TestCidsAreOrderedByArrivalInExpiryQueue(t *testing.T) {
 	chunkSize := 1000
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -371,7 +371,7 @@ func TestFullChunkAdvertisedAndRegisteredInDatastore(t *testing.T) {
 	chunkSize := 2
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -408,7 +408,7 @@ func TestRemovedChunkIsRemovedFromIndexes(t *testing.T) {
 	chunkSize := 2
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -447,7 +447,7 @@ func TestAdvertiseOneChunkWithTwoCidsInIt(t *testing.T) {
 	chunkSize := 2
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -477,7 +477,7 @@ func TestDoNotReAdvertiseRepeatedCids(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -510,7 +510,7 @@ func TestAdvertiseExpiredCidsIfProvidedAgain(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -548,7 +548,7 @@ func TestRemoveExpiredCidAndReadvertiseChunk(t *testing.T) {
 	chunkSize := 2
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -592,7 +592,7 @@ func TestExpireMultipleChunks(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -630,7 +630,7 @@ func TestDoNotReadvertiseChunkIfAllCidsExpired(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -668,7 +668,7 @@ func TestDoNoLoadRemovedChunksOnInitialisation(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -708,7 +708,7 @@ func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
 	chunkSize := 1
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -773,7 +773,7 @@ func TestSameCidNotDuplicatedInTheCurrentChunkIfProvidedTwice(t *testing.T) {
 	chunkSize := 2
 	snapshotSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -802,7 +802,7 @@ func TestShouldStoreSnapshotInDatastore(t *testing.T) {
 	ttl := time.Hour
 	chunkSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -843,7 +843,7 @@ func TestShouldNotStoreSnapshotInDatastore(t *testing.T) {
 	ttl := time.Hour
 	chunkSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -882,7 +882,7 @@ func TestShouldCleanUpTimestampMappingsFromDatastore(t *testing.T) {
 	ttl := time.Hour
 	chunkSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -928,7 +928,7 @@ func TestShouldCorrectlyMergeSnapshotAndCidTimestamps(t *testing.T) {
 	ttl := time.Hour
 	chunkSize := 1000
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -980,7 +980,7 @@ func TestInitialiseFromDatastoreWithSnapshot(t *testing.T) {
 }
 
 func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.Duration, chunkSize int) {
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -1035,7 +1035,7 @@ func TestCleanUpExpiredCidsThatDontHaveChunk(t *testing.T) {
 	ttl := time.Second
 	chunkSize := 2
 	snapshotSize := 1000
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -1076,7 +1076,7 @@ func TestCidsWithoutChunkAreRegisteredInDsAndIndexes(t *testing.T) {
 	ttl := 1 * time.Hour
 	chunkSize := 2
 	snapshotSize := 1000
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -1109,7 +1109,7 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -1174,7 +1174,7 @@ func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -1221,7 +1221,7 @@ func TestShouldRecogniseLegacySnapshot(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -1299,14 +1299,6 @@ func generateContextID(cids []string, nonce []byte) []byte {
 func newCid(s string) cid.Cid {
 	testMH1, _ := multihash.Encode([]byte(s), multihash.IDENTITY)
 	return cid.NewCidV1(cid.Raw, testMH1)
-}
-
-func generateKeyAndIdentity(t *testing.T) (crypto.PrivKey, peer.ID) {
-	priv, _, err := crypto.GenerateEd25519Key(rand.Reader)
-	require.NoError(t, err)
-	pID, err := peer.IDFromPrivateKey(priv)
-	require.NoError(t, err)
-	return priv, pID
 }
 
 func createClientAndServer(t *testing.T, service server.DelegatedRoutingService, p *client.Provider, identity crypto.PrivKey) (*client.Client, *httptest.Server) {

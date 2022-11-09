@@ -49,7 +49,7 @@ func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 
 func Test_NewEngineWithNoPublisherAndRoot(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	mhs := testutil.RandomMultihashes(t, rng, 1)
 	contextID := []byte("fish")
 
@@ -73,7 +73,7 @@ func Test_NewEngineWithNoPublisherAndRoot(t *testing.T) {
 }
 
 func TestEngine_PublishLocal(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -92,7 +92,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 	require.NoError(t, err)
 	wantAd := schema.Advertisement{
 		Provider:  subject.Host().ID().String(),
-		Addresses: multiAddsToString(subject.Host().Addrs()),
+		Addresses: testutil.MultiAddsToString(subject.Host().Addrs()),
 		Entries:   chunkLnk,
 		ContextID: []byte("fish"),
 		Metadata:  mdBytes,
@@ -111,7 +111,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 }
 
 func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -240,7 +240,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	wantAd := schema.Advertisement{
 		Provider:  subject.Host().ID().String(),
-		Addresses: multiAddsToString(subject.Host().Addrs()),
+		Addresses: testutil.MultiAddsToString(subject.Host().Addrs()),
 		Entries:   chunkLnk,
 		ContextID: wantContextID,
 		Metadata:  mdBytes,
@@ -311,7 +311,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 }
 
 func TestEngine_NotifyPutWithoutListerIsError(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	subject, err := engine.New()
 	require.NoError(t, err)
 	err = subject.Start(ctx)
@@ -324,7 +324,7 @@ func TestEngine_NotifyPutWithoutListerIsError(t *testing.T) {
 }
 
 func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -362,7 +362,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 }
 
 func TestEngine_NotifyRemoveWithDefaultProvider(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -394,7 +394,7 @@ func TestEngine_NotifyRemoveWithDefaultProvider(t *testing.T) {
 }
 
 func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -428,7 +428,7 @@ func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
 }
 
 func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs1 := testutil.RandomMultihashes(t, rng, 42)
@@ -480,7 +480,7 @@ func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
 }
 
 func TestEngine_NotifyPutUseDefaultProviderAndAddressesWhenNoneGiven(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -512,7 +512,7 @@ func TestEngine_NotifyPutUseDefaultProviderAndAddressesWhenNoneGiven(t *testing.
 }
 
 func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -544,7 +544,7 @@ func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
 }
 
 func TestEngine_ShouldHaveSameChunksInChunkerForSameCIDs(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	rng := rand.New(rand.NewSource(1413))
 
 	mhs := testutil.RandomMultihashes(t, rng, 42)
@@ -610,7 +610,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	ma3, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/62695")
 	pID, _ := peer.Decode("QmPxKFBM2A7VZURXZhZLCpEnhMFtZ7WSZwFLneFEiYneES")
 
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 	subject, err := engine.New(engine.WithDatastore(ds), engine.WithProvider(peer.AddrInfo{ID: pID, Addrs: []multiaddr.Multiaddr{ma1, ma2, ma3}}))
 	require.NoError(t, err)
 	err = subject.Start(ctx)
@@ -683,12 +683,6 @@ func verifyAd(t *testing.T, ctx context.Context, subject *engine.Engine, expecte
 	}
 }
 
-func contextWithTimeout(t *testing.T) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
-	return ctx
-}
-
 func requireEqualDagsyncMessage(t *testing.T, got, want gossiptopic.Message) {
 	require.Equal(t, want.Cid, got.Cid)
 	require.Equal(t, want.ExtraData, got.ExtraData)
@@ -696,17 +690,9 @@ func requireEqualDagsyncMessage(t *testing.T, got, want gossiptopic.Message) {
 	require.NoError(t, err)
 	gotAddrs, err := got.GetAddrs()
 	require.NoError(t, err)
-	wantAddrsStr := multiAddsToString(wantAddrs)
+	wantAddrsStr := testutil.MultiAddsToString(wantAddrs)
 	sort.Strings(wantAddrsStr)
-	gotAddrsStr := multiAddsToString(gotAddrs)
+	gotAddrsStr := testutil.MultiAddsToString(gotAddrs)
 	sort.Strings(gotAddrsStr)
 	require.Equal(t, wantAddrsStr, gotAddrsStr)
-}
-
-func multiAddsToString(addrs []multiaddr.Multiaddr) []string {
-	var rAddrs []string
-	for _, addr := range addrs {
-		rAddrs = append(rAddrs, addr.String())
-	}
-	return rAddrs
 }

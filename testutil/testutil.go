@@ -27,6 +27,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -172,4 +173,26 @@ func WaitForAddrs(h host.Host) peer.AddrInfo {
 		addrInfo = h.Peerstore().PeerInfo(h.ID())
 	}
 	return addrInfo
+}
+
+func GenerateKeysAndIdentity(t *testing.T) (crypto.PrivKey, crypto.PubKey, peer.ID) {
+	priv, pub, err := crypto.GenerateEd25519Key(crand.Reader)
+	require.NoError(t, err)
+	pID, err := peer.IDFromPrivateKey(priv)
+	require.NoError(t, err)
+	return priv, pub, pID
+}
+
+func ContextWithTimeout(t *testing.T) context.Context {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+func MultiAddsToString(addrs []multiaddr.Multiaddr) []string {
+	var rAddrs []string
+	for _, addr := range addrs {
+		rAddrs = append(rAddrs, addr.String())
+	}
+	return rAddrs
 }

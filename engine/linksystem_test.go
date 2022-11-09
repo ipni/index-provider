@@ -26,7 +26,7 @@ import (
 var testMetadata = metadata.Default.New(metadata.Bitswap{})
 
 func Test_SchemaNoEntriesErr(t *testing.T) {
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -40,7 +40,7 @@ func Test_SchemaNoEntriesErr(t *testing.T) {
 
 func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 
 func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	rng := rand.New(rand.NewSource(1413))
-	ctx := contextWithTimeout(t)
+	ctx := testutil.ContextWithTimeout(t)
 
 	chunkSize := 2
 	cacheCap := 1
