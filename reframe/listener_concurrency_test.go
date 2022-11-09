@@ -11,6 +11,7 @@ import (
 	"github.com/filecoin-project/index-provider/engine"
 	mock_provider "github.com/filecoin-project/index-provider/mock"
 	reframelistener "github.com/filecoin-project/index-provider/reframe"
+	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -25,7 +26,7 @@ func TestHandleConcurrentRequests(t *testing.T) {
 	snapshotSize := 1000
 	concurrencyFactor := 10
 
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -78,7 +79,7 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, pID := generateKeyAndIdentity(t)
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))

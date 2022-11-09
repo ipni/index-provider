@@ -153,6 +153,33 @@ advertise content, see:
 
 * [`engine/example_test.go`](engine/example_test.go)
 
+#### Publishing ads with extended providers
+
+[Extended providers](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
+field allows for specification of provider families, in cases where a provider operates multiple PeerIDs, perhaps 
+with different transport protocols between them, but over the same database of content. 
+
+Such ads can be composed manually or using a convenience builder `ExtendedProvidersAdBuilder`.
+```
+
+  adv, err := ep.NewExtendedProviderAdBuilder(providerID, priv, addrs). // the main ad's providerID, private key and addresses
+    WithContextID(contextID). // optional context id
+    WithMetadata(metadata). // optional metadata
+    WithOverride(override). // override flag, false by default
+    WithExtendedProviders(extendedProviders). // one or more extended providers to be included in the ad, represented by ExtendedProviderInfo struct
+    WithLastAdID(lastAdId). // cid of the last published ad, which is false by default
+    BuildAndSign()
+
+  if err != nil {
+    //...
+  }
+
+  engine.Publish(ctx, *adv)
+)
+```
+
+> Identity of the main provider will be added to the extended providers list automatically and should not be passed in explicitly
+
 ### `provider` CLI
 
 The `provider` CLI can be used to interact with a running daemon via the admin server to perform a
@@ -243,6 +270,7 @@ advertisement. The cache expansion is logged in `INFO` level at `provider/engine
 * [Indexer Node Design](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
 * [Providing data to a network indexer](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md)
 * [`storetheindex`](https://github.com/filecoin-project/storetheindex): indexer node implementation
+* [`storetheindex` documentation](https://github.com/filecoin-project/storetheindex/blob/main/doc/)
 * [`go-indexer-core`](https://github.com/filecoin-project/go-indexer-core): Core index key-value
   store
 
