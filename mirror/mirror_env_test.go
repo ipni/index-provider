@@ -7,12 +7,12 @@ import (
 	"io"
 	"testing"
 
-	"github.com/filecoin-project/go-legs/dtsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/mirror"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/dagsync/dtsync"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -46,7 +46,7 @@ type testEnv struct {
 
 func (te *testEnv) startMirror(t *testing.T, ctx context.Context, opts ...mirror.Option) {
 	var err error
-	te.mirrorHost, err = libp2p.New()
+	te.mirrorHost, err = libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
 	require.NoError(t, err)
 	// Override the host, since test environment needs explicit access to it.
 	opts = append(opts, mirror.WithHost(te.mirrorHost))
@@ -55,7 +55,7 @@ func (te *testEnv) startMirror(t *testing.T, ctx context.Context, opts ...mirror
 	require.NoError(t, te.mirror.Start())
 	t.Cleanup(func() { require.NoError(t, te.mirror.Shutdown()) })
 
-	te.mirrorSyncHost, err = libp2p.New()
+	te.mirrorSyncHost, err = libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
 	require.NoError(t, err)
 	te.mirrorSyncHost.Peerstore().AddAddrs(te.mirrorHost.ID(), te.mirrorHost.Addrs(), peerstore.PermanentAddrTTL)
 
@@ -77,7 +77,7 @@ func (te *testEnv) sourceAddrInfo(t *testing.T) peer.AddrInfo {
 
 func (te *testEnv) startSource(t *testing.T, ctx context.Context, opts ...engine.Option) {
 	var err error
-	te.sourceHost, err = libp2p.New()
+	te.sourceHost, err = libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
 	require.NoError(t, err)
 	// Override the host, since test environment needs explicit access to it.
 	opts = append(opts, engine.WithHost(te.sourceHost))

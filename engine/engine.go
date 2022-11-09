@@ -8,14 +8,14 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/filecoin-project/go-legs"
-	"github.com/filecoin-project/go-legs/dtsync"
-	"github.com/filecoin-project/go-legs/httpsync"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/metadata"
 	httpclient "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/dagsync"
+	"github.com/filecoin-project/storetheindex/dagsync/dtsync"
+	"github.com/filecoin-project/storetheindex/dagsync/httpsync"
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -49,7 +49,7 @@ type Engine struct {
 
 	entriesChunker *chunker.CachedEntriesChunker
 
-	publisher legs.Publisher
+	publisher dagsync.Publisher
 
 	mhLister provider.MultihashLister
 	cblk     sync.Mutex
@@ -63,11 +63,10 @@ var _ provider.Interface = (*Engine)(nil)
 // advertisements as defined by the indexer node protocol implemented by
 // "storetheindex".
 //
-// Engine internally uses "go-legs", a protocol for propagating and
+// Engine internally uses "storetheindex/dagsync", a protocol for propagating and
 // synchronizing changes an IPLD DAG, to publish advertisements. See:
 //
-//   - https://github.com/filecoin-project/storetheindex
-//   - https://github.com/filecoin-project/go-legs
+//   - https://github.com/filecoin-project/storetheindex/tree/main/dagsync
 //
 // Published advertisements are signed using the given private key. The
 // retAddrs corresponds to the endpoints at which the data block associated to
@@ -113,7 +112,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.publisher, err = e.newPublisher()
 	if err != nil {
-		log.Errorw("Failed to instantiate legs publisher", "err", err, "kind", e.pubKind)
+		log.Errorw("Failed to instantiate dagsync publisher", "err", err, "kind", e.pubKind)
 		return err
 	}
 
@@ -133,7 +132,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) newPublisher() (legs.Publisher, error) {
+func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	switch e.pubKind {
 	case NoPublisher:
 		log.Info("Remote announcements is disabled; all advertisements will only be store locally.")
@@ -148,7 +147,7 @@ func (e *Engine) newPublisher() (legs.Publisher, error) {
 		if e.pubDT != nil {
 			return dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtOpts...)
 		}
-		ds := dsn.Wrap(e.ds, datastore.NewKey("/legs/dtsync/pub"))
+		ds := dsn.Wrap(e.ds, datastore.NewKey("/dagsync/dtsync/pub"))
 		return dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtOpts...)
 	case HttpPublisher:
 		return httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.h.ID(), e.key)
@@ -194,8 +193,8 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 // first, then publishes a message onto the gossipsub to signal the change in
 // the latest advertisement by the provider to indexer nodes.
 //
-// The publication mechanism uses legs.Publisher internally.
-// See: https://github.com/filecoin-project/go-legs
+// The publication mechanism uses dagsync.Publisher internally.
+// See: https://github.com/filecoin-project/storetheindex/tree/main/dagsync
 func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	c, err := e.PublishLocal(ctx, adv)
 	if err != nil {

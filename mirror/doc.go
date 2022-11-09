@@ -7,7 +7,7 @@
 // entries entirely. Note that any change to the structure of advertisement will require the ad to
 // be re-signed as the original signature will no longer be valid.
 //
-// A Mirror will also act as a CDN for the original advertisement chain by exposing a legs.Publisher
+// A Mirror will also act as a CDN for the original advertisement chain by exposing a dagsync.Publisher
 // over GraphSync. The endpoint enables an indexer node to fetch the content associated with the
 // original chain of advertisement as well as the mirrored advertisement chain which may be
 // different.

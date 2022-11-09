@@ -205,8 +205,6 @@ github.com/filecoin-project/go-data-transfer v1.15.2 h1:PzqsFr2Q/onMGKrGh7TtRT0d
 github.com/filecoin-project/go-data-transfer v1.15.2/go.mod h1:qXOJ3IF5dEJQHykXXTwcaRxu17bXAxr+LglXzkL6bZQ=
 github.com/filecoin-project/go-ds-versioning v0.1.2 h1:to4pTadv3IeV1wvgbCbN6Vqd+fu+7tveXgv/rCEZy6w=
 github.com/filecoin-project/go-ds-versioning v0.1.2/go.mod h1:C9/l9PnB1+mwPa26BBVpCjG/XQCB0yj/q5CK2J8X1I4=
-github.com/filecoin-project/go-legs v0.4.16 h1:m5Ht1/NTIfJNw8FA+KAsPYfxzqW5AUHbAlNa2EzEkmU=
-github.com/filecoin-project/go-legs v0.4.16/go.mod h1:5ZrHXEhKfVXJXQNOb5mm9pzFuU5xLqY8ZIHQQtYFSSM=
 github.com/filecoin-project/go-state-types v0.1.0 h1:9r2HCSMMCmyMfGyMKxQtv0GKp6VT/m5GgVk8EhYbLJU=
 github.com/filecoin-project/go-state-types v0.1.0/go.mod h1:ezYnPf0bNkTsDibL/psSz5dy4B5awOJ/E7P2Saeep8g=
 github.com/filecoin-project/go-statemachine v0.0.0-20200925024713-05bd7c71fbfe/go.mod h1:FGwQgZAt2Gh5mjlwJUlVB62JeYdo+if0xWxSEfBD9ig=
@@ -215,8 +213,8 @@ github.com/filecoin-project/go-statemachine v1.0.2/go.mod h1:jZdXXiHa61n4NmgWFG4
 github.com/filecoin-project/go-statestore v0.1.0/go.mod h1:LFc9hD+fRxPqiHiaqUEZOinUJB4WARkRfNl10O7kTnI=
 github.com/filecoin-project/go-statestore v0.2.0 h1:cRRO0aPLrxKQCZ2UOQbzFGn4WDNdofHZoGPjfNaAo5Q=
 github.com/filecoin-project/go-statestore v0.2.0/go.mod h1:8sjBYbS35HwPzct7iT4lIXjLlYyPor80aU7t7a/Kspo=
-github.com/filecoin-project/storetheindex v0.4.28 h1:CMAOGyG8aiG+Pu5VsLJemFsW+P50U/tulurib0xOQA4=
-github.com/filecoin-project/storetheindex v0.4.28/go.mod h1:EB+KexIaRJ1BkDuAuJ+t3FLU36VItavLvANIlNhJBPQ=
+github.com/filecoin-project/storetheindex v0.4.30-0.20221109085212-74031627a73f h1:BNsZ3RJ2qa2qzcF9KD5vfHaI3CiwWU56QXyTDj0u16M=
+github.com/filecoin-project/storetheindex v0.4.30-0.20221109085212-74031627a73f/go.mod h1:S7590oDimBvXMUtzWsBXoshu9HtYKwtXl47zAK9rcP8=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/flynn/noise v1.0.0 h1:DlTHqmzmvcEiKj+4RYo/imoswx/4r6iBlCMfVtrMXpQ=
 github.com/flynn/noise v1.0.0/go.mod h1:xbMo+0i6+IGbYdJhF31t2eR1BIU0CYc12+BNAKwUTag=
