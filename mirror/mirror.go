@@ -388,6 +388,9 @@ func (m *Mirror) remapEntries(ctx context.Context, original ipld.Link) (ipld.Lin
 }
 
 func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) {
+	if len(m.source.Addrs) == 0 {
+		return nil, errors.New("no address for source")
+	}
 	startSync := time.Now()
 	var syncedAdCids []cid.Cid
 	_, err := m.sub.Sync(ctx, m.source.ID, cid.Undef, sel, m.source.Addrs[0],
