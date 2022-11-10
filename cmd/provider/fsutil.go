@@ -4,16 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
 )
 
-// checkWritable checks the the directory is writable.
-// If the directory does not exist it is created with writable permission.
+// checkWritable checks the the directory is writable. If the directory does
+// not exist it is created with writable permission.
 func checkWritable(dir string) error {
 	if dir == "" {
-		return errors.New("cannot check empty directory")
+		return errors.New("directory not specified")
 	}
 
 	var err error
@@ -28,27 +27,26 @@ func checkWritable(dir string) error {
 			// dir doesn't exist, check that we can create it
 			return os.Mkdir(dir, 0o775)
 		case errors.Is(err, os.ErrPermission):
-			return fmt.Errorf("cannot write to %s, incorrect permissions", err)
+			return fmt.Errorf("cannot write to %s, incorrect permissions", dir)
 		default:
 			return err
 		}
 	}
 
 	// dir exists, make sure we can write to it
-	testfile := filepath.Join(dir, "test")
-	fi, err := os.Create(testfile)
+	file, err := os.CreateTemp(dir, "test")
 	if err != nil {
-		if os.IsPermission(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("%s is not writeable by the current user", dir)
 		}
-		return fmt.Errorf("unexpected error while checking writeablility of repo root: %s", err)
+		return fmt.Errorf("error checking writeablility of directory %s: %w", dir, err)
 	}
-	fi.Close()
-	return os.Remove(testfile)
+	file.Close()
+	return os.Remove(file.Name())
 }
 
 // fileExists checks whether the file exists.
 func fileExists(filename string) bool {
-	fi, err := os.Lstat(filename)
-	return fi != nil || (err != nil && !errors.Is(err, os.ErrNotExist))
+	_, err := os.Lstat(filename)
+	return !errors.Is(err, os.ErrNotExist)
 }
