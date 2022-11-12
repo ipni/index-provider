@@ -178,6 +178,7 @@ func (m *Mirror) Start() error {
 }
 
 func (m *Mirror) Shutdown() error {
+	m.ticker.Stop()
 	if m.cancel != nil {
 		m.cancel()
 	}

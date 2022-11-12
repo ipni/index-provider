@@ -40,7 +40,6 @@ type (
 
 func newOptions(o ...Option) (*options, error) {
 	opts := options{
-		ticker:            time.NewTicker(10 * time.Minute),
 		initAdRecurLimit:  selector.RecursionLimitNone(),
 		entriesRecurLimit: selector.RecursionLimitNone(),
 		chunkCacheCap:     1024,
@@ -61,6 +60,10 @@ func newOptions(o ...Option) (*options, error) {
 	if opts.ds == nil {
 		opts.ds = dssync.MutexWrap(datastore.NewMapDatastore())
 	}
+	if opts.ticker == nil {
+		opts.ticker = time.NewTicker(10 * time.Minute)
+	}
+
 	return &opts, nil
 }
 
@@ -129,9 +132,9 @@ func WithSkipRemapOnEntriesTypeMatch(s bool) Option {
 // WithSyncInterval specifies the time interval at which the original provider is checked for new
 // advertisements.
 // If unset, the default time interval of 10 minutes is used.
-func WithSyncInterval(t *time.Ticker) Option {
+func WithSyncInterval(interval time.Duration) Option {
 	return func(o *options) error {
-		o.ticker = t
+		o.ticker = time.NewTicker(interval)
 		return nil
 	}
 }

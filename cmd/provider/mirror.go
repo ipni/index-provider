@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/filecoin-project/index-provider/metrics"
 	"github.com/filecoin-project/index-provider/mirror"
@@ -152,8 +151,7 @@ func beforeMirror(cctx *cli.Context) error {
 		return err
 	}
 	if cctx.IsSet(Mirror.flags.syncInterval.Name) {
-		ticker := time.NewTicker(Mirror.flags.syncInterval.Get(cctx))
-		Mirror.options = append(Mirror.options, mirror.WithSyncInterval(ticker))
+		Mirror.options = append(Mirror.options, mirror.WithSyncInterval(Mirror.flags.syncInterval.Get(cctx)))
 	}
 	var hostOpts []libp2p.Option
 	if cctx.IsSet(Mirror.flags.identityPath.Name) {
