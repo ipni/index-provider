@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"time"
 
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/mirror"
+	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/filecoin-project/storetheindex/dagsync/dtsync"
 	"github.com/ipfs/go-cid"
@@ -73,20 +73,7 @@ func (te *testEnv) startMirror(t *testing.T, ctx context.Context, opts ...mirror
 
 func (te *testEnv) sourceAddrInfo(t *testing.T) peer.AddrInfo {
 	require.NotNil(t, te.sourceHost, "start source first")
-	addrInfo := te.sourceHost.Peerstore().PeerInfo(te.sourceHost.ID())
-
-	// If peerstore does not have addresses, delay and retry, up to 10 times.
-	var tries int
-	for len(addrInfo.Addrs) == 0 {
-		if tries == 10 {
-			break
-		}
-		tries++
-		time.Sleep(500 * time.Millisecond)
-		addrInfo = te.sourceHost.Peerstore().PeerInfo(te.sourceHost.ID())
-	}
-
-	return addrInfo
+	return testutil.WaitForAddrs(te.sourceHost)
 }
 
 func (te *testEnv) startSource(t *testing.T, ctx context.Context, opts ...engine.Option) {

@@ -125,9 +125,18 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	pubHost, err := libp2p.New()
 	require.NoError(t, err)
+
+	// DirectConnectTicks set to 5 here, because if the gossub for the subHost
+	// does not start within n ticks then they never peer. So, if
+	// DirectConnectTicks is set to 1, the subHost gossipsub must start within
+	// 1 second in order to peer. This can be confirmed by setting
+	// DirectConnectTicks to 1 and placing a 1 second sleep anywhere between
+	// this and the subHost gossipsub creation, and seeing that it always
+	// fails. With slow CI machine this sometimes failes, so setting
+	// DirectConnectTicks to 5 is enough to make it reliable.
 	pubG, err := pubsub.NewGossipSub(ctx, pubHost,
-		pubsub.WithDirectConnectTicks(1),
-		pubsub.WithDirectPeers([]peer.AddrInfo{subHost.Peerstore().PeerInfo(subHost.ID())}),
+		pubsub.WithDirectConnectTicks(5),
+		pubsub.WithDirectPeers([]peer.AddrInfo{testutil.WaitForAddrs(subHost)}),
 	)
 	require.NoError(t, err)
 
@@ -199,7 +208,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	subG, err := pubsub.NewGossipSub(ctx, subHost,
 		pubsub.WithDirectConnectTicks(1),
-		pubsub.WithDirectPeers([]peer.AddrInfo{pubHost.Peerstore().PeerInfo(pubHost.ID())}),
+		pubsub.WithDirectPeers([]peer.AddrInfo{testutil.WaitForAddrs(pubHost)}),
 	)
 	require.NoError(t, err)
 

@@ -157,3 +157,19 @@ func CopyFile(t *testing.T, src, dst string) {
 	_, err = io.Copy(dstfd, srcfd)
 	require.NoError(t, err)
 }
+
+// Sometimes the peerstore is not populated immediately. This is resolved by a
+// delay and retry.
+func WaitForAddrs(h host.Host) peer.AddrInfo {
+	addrInfo := h.Peerstore().PeerInfo(h.ID())
+	var tries int
+	for len(addrInfo.Addrs) == 0 {
+		if tries == 10 {
+			break
+		}
+		tries++
+		time.Sleep(500 * time.Millisecond)
+		addrInfo = h.Peerstore().PeerInfo(h.ID())
+	}
+	return addrInfo
+}
