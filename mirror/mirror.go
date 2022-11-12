@@ -230,6 +230,9 @@ func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
 		case schema.NoEntries.Cid:
 			// Nothing to do.
 		default:
+			if len(m.source.Addrs) == 0 {
+				return errors.New("no address for source")
+			}
 			// TODO: it is unfortunate that dagsync takes a single address here... this needs to be
 			//       fixed in storetheindex/dagsync.
 			_, err = m.sub.Sync(ctx, m.source.ID, entriesCid, selectors.entriesWithLimit(m.entriesRecurLimit), m.source.Addrs[0])
