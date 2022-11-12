@@ -218,10 +218,10 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	})
 
 	// Await subscriber connection to publisher.
-	requireTrueEventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		pubPeers := pubG.ListPeers(topic)
 		return len(pubPeers) == 1 && pubPeers[0] == subHost.ID()
-	}, time.Second, 8*time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
+	}, 8*time.Second, time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
@@ -700,22 +700,4 @@ func multiAddsToString(addrs []multiaddr.Multiaddr) []string {
 		rAddrs = append(rAddrs, addr.String())
 	}
 	return rAddrs
-}
-
-func requireTrueEventually(t *testing.T, attempt func() bool, interval time.Duration, timeout time.Duration, msgAndArgs ...interface{}) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		if attempt() {
-			return
-		}
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "timed out awaiting eventual success", msgAndArgs...)
-			return
-		case <-ticker.C:
-		}
-	}
 }
