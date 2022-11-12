@@ -135,7 +135,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	// fails. With slow CI machine this sometimes failes, so setting
 	// DirectConnectTicks to 5 is enough to make it reliable.
 	pubG, err := pubsub.NewGossipSub(ctx, pubHost,
-		pubsub.WithDirectConnectTicks(5),
+		pubsub.WithDirectConnectTicks(10),
 		pubsub.WithDirectPeers([]peer.AddrInfo{testutil.WaitForAddrs(subHost)}),
 	)
 	require.NoError(t, err)
