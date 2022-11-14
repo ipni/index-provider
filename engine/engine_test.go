@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/go-legs/dtsync"
-	"github.com/filecoin-project/go-legs/p2p/protocol/head"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/filecoin-project/index-provider/testutil"
+	"github.com/filecoin-project/storetheindex/announce/gossiptopic"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/dagsync/dtsync"
+	"github.com/filecoin-project/storetheindex/dagsync/p2p/protocol/head"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -124,9 +125,18 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	pubHost, err := libp2p.New()
 	require.NoError(t, err)
+
+	// DirectConnectTicks set to 5 here, because if the gossub for the subHost
+	// does not start within n ticks then they never peer. So, if
+	// DirectConnectTicks is set to 1, the subHost gossipsub must start within
+	// 1 second in order to peer. This can be confirmed by setting
+	// DirectConnectTicks to 1 and placing a 1 second sleep anywhere between
+	// this and the subHost gossipsub creation, and seeing that it always
+	// fails. With slow CI machine this sometimes failes, so setting
+	// DirectConnectTicks to 5 is enough to make it reliable.
 	pubG, err := pubsub.NewGossipSub(ctx, pubHost,
-		pubsub.WithDirectConnectTicks(1),
-		pubsub.WithDirectPeers([]peer.AddrInfo{subHost.Peerstore().PeerInfo(subHost.ID())}),
+		pubsub.WithDirectConnectTicks(10),
+		pubsub.WithDirectPeers([]peer.AddrInfo{testutil.WaitForAddrs(subHost)}),
 	)
 	require.NoError(t, err)
 
@@ -138,7 +148,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		defer close(announceErrChan)
 		defer r.Body.Close()
 		// Decode CID and originator addresses from message.
-		an := dtsync.Message{}
+		an := gossiptopic.Message{}
 		if err := an.UnmarshalCBOR(r.Body); err != nil {
 			announceErrChan <- err
 			http.Error(w, err.Error(), 400)
@@ -198,7 +208,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	subG, err := pubsub.NewGossipSub(ctx, subHost,
 		pubsub.WithDirectConnectTicks(1),
-		pubsub.WithDirectPeers([]peer.AddrInfo{pubHost.Peerstore().PeerInfo(pubHost.ID())}),
+		pubsub.WithDirectPeers([]peer.AddrInfo{testutil.WaitForAddrs(pubHost)}),
 	)
 	require.NoError(t, err)
 
@@ -217,10 +227,10 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	})
 
 	// Await subscriber connection to publisher.
-	requireTrueEventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		pubPeers := pubG.ListPeers(topic)
 		return len(pubPeers) == 1 && pubPeers[0] == subHost.ID()
-	}, time.Second, 8*time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
+	}, 8*time.Second, time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
@@ -258,16 +268,16 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.Equal(t, pubsubMsg.GetFrom(), pubHost.ID())
 	require.Equal(t, pubsubMsg.GetTopic(), topic)
 
-	wantMessage := dtsync.Message{
+	wantMessage := gossiptopic.Message{
 		Cid:       gotPublishedAdCid,
 		ExtraData: wantExtraGossipData,
 	}
 	wantMessage.SetAddrs(subject.Host().Addrs())
 
-	gotMessage := dtsync.Message{}
+	gotMessage := gossiptopic.Message{}
 	err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
 	require.NoError(t, err)
-	requireEqualLegsMessage(t, wantMessage, gotMessage)
+	requireEqualDagsyncMessage(t, wantMessage, gotMessage)
 
 	gotRootCid, err := head.QueryRootCid(ctx, subHost, topic, pubHost.ID())
 	require.NoError(t, err)
@@ -679,7 +689,7 @@ func contextWithTimeout(t *testing.T) context.Context {
 	return ctx
 }
 
-func requireEqualLegsMessage(t *testing.T, got, want dtsync.Message) {
+func requireEqualDagsyncMessage(t *testing.T, got, want gossiptopic.Message) {
 	require.Equal(t, want.Cid, got.Cid)
 	require.Equal(t, want.ExtraData, got.ExtraData)
 	wantAddrs, err := want.GetAddrs()
@@ -699,22 +709,4 @@ func multiAddsToString(addrs []multiaddr.Multiaddr) []string {
 		rAddrs = append(rAddrs, addr.String())
 	}
 	return rAddrs
-}
-
-func requireTrueEventually(t *testing.T, attempt func() bool, interval time.Duration, timeout time.Duration, msgAndArgs ...interface{}) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		if attempt() {
-			return
-		}
-		select {
-		case <-ctx.Done():
-			require.FailNow(t, "timed out awaiting eventual success", msgAndArgs...)
-			return
-		case <-ticker.C:
-		}
-	}
 }

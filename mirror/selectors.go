@@ -1,7 +1,7 @@
 package mirror
 
 import (
-	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/storetheindex/dagsync"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
@@ -30,6 +30,6 @@ func init() {
 		return ssb.ExploreRecursive(limit, adSequenceBuilder).Node()
 	}
 	selectors.adsWithStopAt = func(limit selector.RecursionLimit, stop ipld.Link) ipld.Node {
-		return legs.ExploreRecursiveWithStopNode(limit, adSequenceBuilder.Node(), stop)
+		return dagsync.ExploreRecursiveWithStopNode(limit, adSequenceBuilder.Node(), stop)
 	}
 }

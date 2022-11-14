@@ -50,7 +50,7 @@ func TestMirror_PutAdIsMirrored(t *testing.T) {
 	originalAdCid := te.putAdOnSource(t, ctx, wantCtxID, wantMhs, wantMetadata)
 
 	// Start a mirror for the original provider with reduced tick time for faster test turnaround.
-	te.startMirror(t, ctx, mirror.WithSyncInterval(time.NewTicker(time.Second)))
+	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second))
 
 	// Eventually require some head ad CID at the mirror.
 	var gotMirroredHeadCid cid.Cid
@@ -80,7 +80,7 @@ func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 	ad4 := te.removeAdOnSource(t, ctx, []byte("ad1"))
 
 	// Start a mirror for the original provider with reduced tick time for faster test turnaround.
-	te.startMirror(t, ctx, mirror.WithSyncInterval(time.NewTicker(time.Second)))
+	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second))
 
 	// Eventually require all original ads to be retrievable from the mirror.
 	var err error
@@ -117,7 +117,7 @@ func TestMirror_FormsExpectedAdChain(t *testing.T) {
 	originalHeadAdCid := te.removeAdOnSource(t, ctx, []byte("ad1"))
 
 	// Start a mirror for the original provider with reduced tick time for faster test turnaround.
-	te.startMirror(t, ctx, mirror.WithSyncInterval(time.NewTicker(time.Second)))
+	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second))
 
 	// Await until the entire chain is mirrored; this is done by checking if the head mirrored ad
 	// is a removal.
@@ -201,7 +201,7 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 			_ = te.removeAdOnSource(t, ctx, []byte("ad2"))
 			originalHeadAdCid := te.putAdOnSource(t, ctx, []byte("ad5"), testutil.RandomMultihashes(t, rng, 7), md)
 
-			test.mirrorOptions = append(test.mirrorOptions, mirror.WithSyncInterval(time.NewTicker(time.Second)))
+			test.mirrorOptions = append(test.mirrorOptions, mirror.WithSyncInterval(time.Second))
 			te.startMirror(t, ctx, test.mirrorOptions...)
 
 			// Await until the entire chain is mirrored; this is done by checking if the head mirrored ad
@@ -239,7 +239,7 @@ func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 	orignalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 3), md)
 
 	// Start mirror with maximum initial depth of 2.
-	te.startMirror(t, ctx, mirror.WithSyncInterval(time.NewTicker(time.Second)), mirror.WithInitialAdRecursionLimit(selector.RecursionLimitDepth(2)))
+	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second), mirror.WithInitialAdRecursionLimit(selector.RecursionLimitDepth(2)))
 
 	var gotMirroredHeadAdCid cid.Cid
 	var err error
@@ -295,7 +295,7 @@ func TestMirror_MirrorsAdsIdenticallyWhenConfiguredTo(t *testing.T) {
 	_ = te.removeAdOnSource(t, ctx, []byte("ad1"))
 	originalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 3), md)
 
-	te.startMirror(t, ctx, mirror.WithSyncInterval(time.NewTicker(time.Second)), mirror.WithAlwaysReSignAds(false))
+	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second), mirror.WithAlwaysReSignAds(false))
 
 	var gotMirroredHeadAdCid cid.Cid
 	var err error

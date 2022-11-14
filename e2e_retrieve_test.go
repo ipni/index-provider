@@ -10,7 +10,6 @@ import (
 	"time"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/go-legs"
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/cardatatransfer"
 	"github.com/filecoin-project/index-provider/engine"
@@ -18,6 +17,7 @@ import (
 	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/dagsync"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -111,7 +111,7 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
 	// For now instantiate a new host for subscriber so that dt constructed by test client works.
 	subHost := newHost(t)
-	sub, err := legs.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
+	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
 	require.NoError(t, err)
 
 	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
@@ -190,7 +190,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
 	// For now instantiate a new host for subscriber so that dt constructed by test client works.
 	subHost := newHost(t)
-	sub, err := legs.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
+	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
 	require.NoError(t, err)
 
 	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
@@ -265,7 +265,6 @@ type testServer struct {
 }
 
 func newTestServer(t *testing.T, ctx context.Context, o ...engine.Option) *testServer {
-
 	// Explicitly override host so that the host is known for testing purposes.
 	h := newHost(t)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
@@ -325,7 +324,7 @@ func newTestClient(t *testing.T) *testClient {
 }
 
 func newHost(t *testing.T) host.Host {
-	h, err := libp2p.New()
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		h.Close()

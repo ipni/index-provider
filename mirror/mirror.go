@@ -11,11 +11,11 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
-	"github.com/filecoin-project/go-legs"
-	"github.com/filecoin-project/go-legs/dtsync"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/metrics"
 	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
+	"github.com/filecoin-project/storetheindex/dagsync"
+	"github.com/filecoin-project/storetheindex/dagsync/dtsync"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
@@ -42,8 +42,8 @@ var log = logging.Logger("provider/mirror")
 type Mirror struct {
 	*options
 	source  peer.AddrInfo
-	sub     *legs.Subscriber
-	pub     legs.Publisher
+	sub     *dagsync.Subscriber
+	pub     dagsync.Publisher
 	ls      ipld.LinkSystem
 	chunker *chunker.CachedEntriesChunker
 	cancel  context.CancelFunc
@@ -87,7 +87,7 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 	if err != nil {
 		return nil, err
 	}
-	m.sub, err = legs.NewSubscriber(m.h, nil, m.ls, m.topic, nil, legs.DtManager(dm, gx))
+	m.sub, err = dagsync.NewSubscriber(m.h, nil, m.ls, m.topic, nil, dagsync.DtManager(dm, gx))
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +178,7 @@ func (m *Mirror) Start() error {
 }
 
 func (m *Mirror) Shutdown() error {
+	m.ticker.Stop()
 	if m.cancel != nil {
 		m.cancel()
 	}
@@ -229,8 +230,11 @@ func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
 		case schema.NoEntries.Cid:
 			// Nothing to do.
 		default:
-			// TODO: it is unfortunate that go-legs takes a single address here... this needs to be
-			//       fixed in go-legs.
+			if len(m.source.Addrs) == 0 {
+				return errors.New("no address for source")
+			}
+			// TODO: it is unfortunate that dagsync takes a single address here... this needs to be
+			//       fixed in storetheindex/dagsync.
 			_, err = m.sub.Sync(ctx, m.source.ID, entriesCid, selectors.entriesWithLimit(m.entriesRecurLimit), m.source.Addrs[0])
 			if err != nil {
 				log.Errorw("Failed to sync entries", "cid", entriesCid, "err", err)
@@ -388,10 +392,13 @@ func (m *Mirror) remapEntries(ctx context.Context, original ipld.Link) (ipld.Lin
 }
 
 func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) {
+	if len(m.source.Addrs) == 0 {
+		return nil, errors.New("no address for source")
+	}
 	startSync := time.Now()
 	var syncedAdCids []cid.Cid
 	_, err := m.sub.Sync(ctx, m.source.ID, cid.Undef, sel, m.source.Addrs[0],
-		legs.ScopedBlockHook(func(id peer.ID, c cid.Cid, actions legs.SegmentSyncActions) {
+		dagsync.ScopedBlockHook(func(id peer.ID, c cid.Cid, actions dagsync.SegmentSyncActions) {
 			// TODO: set actions next segment link to ad previous id if it is present. For
 			//      now segmentation is disabled.
 			//       Here we could be encountering HAMT or Entry Chunk so picking the next
@@ -402,7 +409,7 @@ func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) 
 			syncedAdCids = append([]cid.Cid{c}, syncedAdCids...)
 		}),
 		// Disable segmentation until the actions in hook are handled appropriately
-		legs.ScopedSegmentDepthLimit(-1),
+		dagsync.ScopedSegmentDepthLimit(-1),
 	)
 	elapsedSync := time.Since(startSync)
 	attr := metrics.Attributes.StatusSuccess

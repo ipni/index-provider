@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/filecoin-project/go-legs"
+	"github.com/filecoin-project/storetheindex/dagsync"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
@@ -26,7 +26,7 @@ type (
 	}
 	providerClient struct {
 		*options
-		sub *legs.Subscriber
+		sub *dagsync.Subscriber
 
 		store     *ProviderClientStore
 		publisher peer.AddrInfo
@@ -48,7 +48,7 @@ func NewProviderClient(provAddr peer.AddrInfo, o ...Option) (ProviderClient, err
 	h.Peerstore().AddAddrs(provAddr.ID, provAddr.Addrs, time.Hour)
 
 	store := newProviderClientStore()
-	sub, err := legs.NewSubscriber(h, store.Batching, store.LinkSystem, opts.topic, nil)
+	sub, err := dagsync.NewSubscriber(h, store.Batching, store.LinkSystem, opts.topic, nil)
 	if err != nil {
 		return nil, err
 	}

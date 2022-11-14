@@ -31,10 +31,10 @@ type Ingest struct {
 	// PurgeLinkCache tells whether to purge the link cache on daemon startup.
 	PurgeLinkCache bool
 
-	// HttpPublisher configures the go-legs httpsync publisher.
+	// HttpPublisher configures the dagsync httpsync publisher.
 	HttpPublisher HttpPublisher
 
-	// PublisherKind specifies which legs.Publisher implementation to use.
+	// PublisherKind specifies which dagsync.Publisher implementation to use.
 	PublisherKind PublisherKind
 
 	// SyncPolicy configures which indexers are allowed to sync advertisements
