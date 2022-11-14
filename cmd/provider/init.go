@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
+	"github.com/filecoin-project/storetheindex/fsutil"
 	"github.com/urfave/cli/v2"
 )
 
@@ -21,7 +22,7 @@ func initCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	if err = checkWritable(configRoot); err != nil {
+	if err = fsutil.DirWritable(configRoot); err != nil {
 		return err
 	}
 
@@ -30,7 +31,7 @@ func initCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	if fileExists(configFile) {
+	if fsutil.FileExists(configFile) {
 		return config.ErrInitialized
 	}
 

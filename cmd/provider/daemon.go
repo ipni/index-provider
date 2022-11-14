@@ -14,10 +14,10 @@ import (
 	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
 	"github.com/filecoin-project/index-provider/engine"
 	"github.com/filecoin-project/index-provider/engine/policy"
-
 	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	reframeserver "github.com/filecoin-project/index-provider/server/reframe/http"
 	"github.com/filecoin-project/index-provider/supplier"
+	"github.com/filecoin-project/storetheindex/fsutil"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
 	gsnet "github.com/ipfs/go-graphsync/network"
@@ -101,7 +101,7 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = checkWritable(dataStorePath)
+	err = fsutil.DirWritable(dataStorePath)
 	if err != nil {
 		return err
 	}
