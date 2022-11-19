@@ -89,10 +89,6 @@ func (pub *AdBuilder) WithLastAdID(lastAdID cid.Cid) *AdBuilder {
 // BuildAndSign verifies and  signs a new extended provider ad. After that it can be published using engine. Identity of the main provider will be appended to the
 // extended provider list automatically.
 func (pub *AdBuilder) BuildAndSign() (*schema.Advertisement, error) {
-	if len(pub.providers) == 0 {
-		return nil, errors.New("providers list is empty")
-	}
-
 	if len(pub.contextID) == 0 && pub.override {
 		return nil, errors.New("override is true for empty context")
 	}
