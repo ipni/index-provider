@@ -87,6 +87,52 @@ func TestPublish(t *testing.T) {
 
 }
 
+func TestPublishWithOnlyMainProviderInTheExtendedList(t *testing.T) {
+	ctx := testutil.ContextWithTimeout(t)
+	contextID := []byte("test-context")
+	rng := rand.New(rand.NewSource(time.Now().Unix()))
+	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	metadata := make([]byte, 0, 10)
+	rng.Read(metadata)
+
+	eng, err := engine.New()
+	require.NoError(t, err)
+	err = eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Shutdown()
+
+	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+
+	override := true
+	adv, err := ep.NewAdBuilder(providerID, priv, addrs).
+		WithOverride(true).
+		WithContextID(contextID).
+		WithMetadata(metadata).
+		BuildAndSign()
+	require.NoError(t, err)
+	advPeerID, err := adv.VerifySignature()
+	require.NoError(t, err)
+
+	// verify that we can publish successfully
+	c, err := eng.Publish(ctx, *adv)
+	require.NoError(t, err)
+	require.NotEqual(t, cid.Undef, c)
+
+	require.Equal(t, providerID, advPeerID)
+	require.Equal(t, testutil.MultiAddsToString(addrs), adv.Addresses)
+	require.Equal(t, contextID, adv.ContextID)
+	require.Equal(t, schema.NoEntries, adv.Entries)
+	require.Equal(t, false, adv.IsRm)
+	require.Equal(t, metadata, adv.Metadata)
+	require.Equal(t, providerID.String(), adv.Provider)
+	require.Equal(t, override, adv.ExtendedProvider.Override)
+	require.Equal(t, 1, len(adv.ExtendedProvider.Providers))
+
+	ep := adv.ExtendedProvider.Providers[0]
+	require.Equal(t, testutil.MultiAddsToString(addrs), ep.Addresses)
+	require.Equal(t, metadata, ep.Metadata)
+}
+
 func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
 	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
