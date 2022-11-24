@@ -73,8 +73,8 @@ func Example_advertiseHelloWorld() {
 	if err != nil {
 		panic(err)
 	}
-	// Only print the first ten characters to keep golang example output happy.
-	fmt.Printf("✓ Published advertisement for content with CID: %s...\n", adCid.String()[:10])
+	// Only print the first three characters to keep golang example output happy.
+	fmt.Printf("✓ Published advertisement for content with CID: %s...\n", adCid.String()[:3])
 
 	// Create an advertisement with ExtendedProviders
 	providerID := h.ID()
@@ -116,8 +116,8 @@ func Example_advertiseHelloWorld() {
 	if err != nil {
 		panic(err)
 	}
-	// Only print the first ten characters to keep golang example output happy.
-	fmt.Printf("✓ Published ExtendedProviders advertisement for content with CID: %s...\n", xAdCid.String()[:10])
+	// Only print the first three characters to keep golang example output happy.
+	fmt.Printf("✓ Published ExtendedProviders advertisement for content with CID: %s...\n", xAdCid.String()[:3])
 
 	if err := engine.Shutdown(); err != nil {
 		panic(err)
@@ -130,8 +130,8 @@ func Example_advertiseHelloWorld() {
 	//✓ Instantiated provider engine
 	//✓ Registered lister for context ID: Say hello
 	//✓ Provider engine started.
-	//✓ Published advertisement for content with CID: baguqeerag...
-	//✓ Published ExtendedProviders advertisement for content with CID: baguqeera2...
+	//✓ Published advertisement for content with CID: bag...
+	//✓ Published ExtendedProviders advertisement for content with CID: bag...
 }
 
 type singleMhIterator struct {
