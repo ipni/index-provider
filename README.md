@@ -140,6 +140,8 @@ Each advertisement contains:
 * [Metadata](metadata): a blob of bytes capturing how to retrieve the data.
 * Entries: a link pointing to a list of chunked multihashes.
 * Context ID: a key for the content being advertised.
+* IsRm: flag that tells whether this advertisement is for removal of the previously published content.
+* ExtendedProviders: an optional field that is explained in the next section. 
 
 The Entries link points to the IPLD node that contains a list of mulitihashes being advertised. The 
 list is represented as a chain of "Entry Chunk"s where each chunk contains a list of multihashes and
@@ -148,26 +150,49 @@ a link to the next chunk. This is to accommodate pagination for a large number o
 The engine can be configured to dynamically look up the list of multihashes that correspond to the
 context ID of an advertisement. To do this, the engine requires a `MultihashLister` to be 
 registered. The `MultihashLister` is then used to look up the list of multihashes associated to a 
-content advertisement. For an example on how to start up a provider engine, register a lister and 
+content advertisement. 
+
+`NotifyPut` and `NotifyRemove` are convinience wrappers on top of `Publish` that aim to help to construct advertisements. 
+They take care of such things as generating entry chunks, linking to the last published advertisement, signing and others. 
+`NotifyPut` can be also used to update metadata for a previously published advertisement 
+(for example in the case when a protocol has changed). That can be done by invoking `NotifyPut` with the same context ID 
+but different metadata field. `ErrAlreadyAdvertised` will be returned if both context ID and metadata have stayed the same.
+
+For an example on how to start up a provider engine, register a lister and 
 advertise content, see:
 
 * [`engine/example_test.go`](engine/example_test.go)
 
-#### Publishing ads with extended providers
+#### Publishing advertisements with extended providers
 
 [Extended providers](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
 field allows for specification of provider families, in cases where a provider operates multiple PeerIDs, perhaps 
 with different transport protocols between them, but over the same database of content. 
 
-Such ads can be composed manually or using a convenience builder `ExtendedProvidersAdBuilder`.
-```
+`ExtendedProviders` can either be applied at the *chain-level* (for all previous and future CIDs published by a provider) or at 
+a *context-level* (for CIDs belonging to the specified context ID). That behaviour is set by `ContextID` field.
+Multiple different behaviours can be triggered by a combination of `ContextID`, `Metadata`, `ExtendedProviders` and `Override` fields. 
+For more information see the [specification](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
 
-  adv, err := ep.NewExtendedProviderAdBuilder(providerID, priv, addrs). // the main ad's providerID, private key and addresses
-    WithContextID(contextID). // optional context id
-    WithMetadata(metadata). // optional metadata
-    WithOverride(override). // override flag, false by default
-    WithExtendedProviders(extendedProviders). // one or more extended providers to be included in the ad, represented by ExtendedProviderInfo struct
-    WithLastAdID(lastAdId). // cid of the last published ad, which is false by default
+Advertisements with `ExtendedProviders` can be composed manually or by using a convenience `ExtendedProvidersAdBuilder` 
+and will have to be signed by the main provider as well as by all `ExtendedProviders`' identities. 
+Private keys for these identities have to be provided in the `xproviders.Info` 
+(objects)[https://github.com/filecoin-project/index-provider/blob/main/engine/xproviders/xproviders.go] and  
+`ExtendedProvidersAdBuilder` will take care of the rest.
+
+> Identity of the main provider will be added to the extended providers list automatically and should not be passed in explicitly. 
+
+Some examples can be found below (assumes the readers familiriaty with the 
+(specification)[https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider]).
+
+Publishing an advertisement with context-level `ExtendedProviders`, that will be returned only for CIDs from the specified context ID:
+```
+  adv, err := ep.NewExtendedProviderAdBuilder(providerID, priv, addrs).
+    WithContextID(contextID). 
+    WithMetadata(metadata). 
+    WithOverride(override). 
+    WithExtendedProviders(extendedProviders). 
+    WithLastAdID(lastAdId). 
     BuildAndSign()
 
   if err != nil {
@@ -177,8 +202,31 @@ Such ads can be composed manually or using a convenience builder `ExtendedProvid
   engine.Publish(ctx, *adv)
 )
 ```
+Constructing an advertisement with chain-level `ExtendedProviders`, that will be returned for every past and future CID published by the main provider:
+```
+  adv, err := ep.NewExtendedProviderAdBuilder(providerID, priv, addrs). 
+    WithMetadata(metadata). 
+    WithExtendedProviders(extendedProviders).
+    WithLastAdID(lastAdId). 
+    BuildAndSign()
+)
+```
+`ExtendedProviders` can also be used to add a new metadata to all CIDs published by the main provider. Such advertisement need to be constructed 
+without specifying `ExtendedProviders` at all. The identity of the main provider will be added to the `ExtendedProviders` list by the builder automatically,
+so the resulting advertisement will contain only the main provider in the `ExtendedProviders` list (yes, this is also possible:).
+That can be used for example to advertise new endpoint with a new protocol alongside the previously advertised one:
+```
+  adv, err := ep.NewExtendedProviderAdBuilder(providerID, priv, addrs). 
+    WithMetadata(metadata). 
+    WithLastAdID(lastAdId). 
+    BuildAndSign()
+)
+```
+On ingestion, previously published `ExtendedProviders` get overwritten (not merged!) by the newer ones. So in order to update `ExtendedProviders`, 
+just publish a new chain/context-level advertisement with the required changes.
 
-> Identity of the main provider will be added to the extended providers list automatically and should not be passed in explicitly
+Examples of constructing advertisements with `ExtendedProviders` can be found 
+(here)[https://github.com/filecoin-project/index-provider/blob/main/engine/xproviders/xproviders_test.go].
 
 ### `provider` CLI
 
