@@ -2,14 +2,18 @@ package engine_test
 
 import (
 	"context"
+	crand "crypto/rand"
 	"fmt"
 	"io"
 
 	provider "github.com/filecoin-project/index-provider"
 	"github.com/filecoin-project/index-provider/engine"
+	"github.com/filecoin-project/index-provider/engine/xproviders"
 	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -69,8 +73,51 @@ func Example_advertiseHelloWorld() {
 	if err != nil {
 		panic(err)
 	}
-	// Only print the first three characters to keep golang example output happy.
-	fmt.Printf("✓ Published advertisement for content with CID: %s...\n", adCid.String()[:3])
+	// Only print the first ten characters to keep golang example output happy.
+	fmt.Printf("✓ Published advertisement for content with CID: %s...\n", adCid.String()[:10])
+
+	// Create an advertisement with ExtendedProviders
+	providerID := h.ID()
+	privKey := h.Peerstore().PrivKey(providerID)
+	addrs := h.Addrs()
+	mdBytes, err := md.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+
+	// Generate random keys and identity for a new ExtendedProvider
+	xPrivKey, _, err := crypto.GenerateEd25519Key(crand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	xProviderID, err := peer.IDFromPrivateKey(xPrivKey)
+	if err != nil {
+		panic(err)
+	}
+	xAddr, err := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/9000")
+	if err != nil {
+		panic(err)
+	}
+
+	// Build and sign ExtendedProviders advertisement
+	xAd, err := xproviders.NewAdBuilder(providerID, privKey, addrs).
+		WithLastAdID(adCid).
+		WithExtendedProviders(xproviders.NewInfo(xProviderID, xPrivKey, mdBytes, []multiaddr.Multiaddr{xAddr})).
+		WithOverride(true).
+		WithContextID([]byte("sample-context-id")).
+		WithMetadata(mdBytes).
+		BuildAndSign()
+	if err != nil {
+		panic(err)
+	}
+
+	// Publish the advertisement using engine
+	xAdCid, err := engine.Publish(context.Background(), *xAd)
+	if err != nil {
+		panic(err)
+	}
+	// Only print the first ten characters to keep golang example output happy.
+	fmt.Printf("✓ Published ExtendedProviders advertisement for content with CID: %s...\n", xAdCid.String()[:10])
 
 	if err := engine.Shutdown(); err != nil {
 		panic(err)
@@ -83,7 +130,8 @@ func Example_advertiseHelloWorld() {
 	//✓ Instantiated provider engine
 	//✓ Registered lister for context ID: Say hello
 	//✓ Provider engine started.
-	//✓ Published advertisement for content with CID: bag...
+	//✓ Published advertisement for content with CID: baguqeerag...
+	//✓ Published ExtendedProviders advertisement for content with CID: baguqeera2...
 }
 
 type singleMhIterator struct {
