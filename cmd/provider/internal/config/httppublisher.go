@@ -6,6 +6,12 @@ import (
 )
 
 type HttpPublisher struct {
+	// AnnounceMultiaddr is the address supplied in the announce message
+	// telling indexers the address to use to retrieve advertisements. If not
+	// specified, the ListenMultiaddr is used.
+	AnnounceMultiaddr string
+	// ListenMultiaddr is the address of the interface to listen for HTTP
+	// requests for advertisements.
 	ListenMultiaddr string
 }
 
