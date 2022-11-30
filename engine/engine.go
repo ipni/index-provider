@@ -292,12 +292,11 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	case DataTransferPublisher:
 		ai.Addrs = e.h.Addrs()
 	case HttpPublisher:
-		maddr, err := hostToMultiaddr(e.pubHttpListenAddr)
-		if err != nil {
-			return err
+		if len(e.pubHttpAnnounceAddrs) != 0 {
+			ai.Addrs = e.pubHttpAnnounceAddrs
+		} else {
+			ai.Addrs = e.publisher.Addrs()
 		}
-		proto, _ := multiaddr.NewMultiaddr("/http")
-		ai.Addrs = append(ai.Addrs, multiaddr.Join(maddr, proto))
 	}
 
 	errChan := make(chan error)

@@ -7,6 +7,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer"
 	"github.com/filecoin-project/index-provider/engine/chunker"
 	"github.com/filecoin-project/index-provider/engine/policy"
+	_ "github.com/filecoin-project/storetheindex/dagsync/httpsync/maconv"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/libp2p/go-libp2p"
@@ -55,17 +56,22 @@ type (
 		// ID.
 		key crypto.PrivKey
 
-		// It's important to not to change this parameter when running against existing datastores. The reason for that is to maintain backward compatibility.
-		// Older records from previous library versions aren't indexed by provider ID as there could have been only one provider in the previous versions.
-		// Provider host and retrieval addresses can be overidden from the NotifyPut and Notify Remove method, otherwise the default configured provider will be assumed.
+		// It is important to not to change this parameter when running against
+		// existing datastores. The reason for that is to maintain backward
+		// compatibility. Older records from previous library versions aren't
+		// indexed by provider ID as there could have been only one provider in
+		// the previous versions. Provider host and retrieval addresses can be
+		// overidden from the NotifyPut and Notify Remove method, otherwise the
+		// default configured provider will be assumed.
 		provider peer.AddrInfo
 
-		pubKind            PublisherKind
-		pubDT              datatransfer.Manager
-		pubHttpListenAddr  string
-		pubTopicName       string
-		pubTopic           *pubsub.Topic
-		pubExtraGossipData []byte
+		pubKind              PublisherKind
+		pubDT                datatransfer.Manager
+		pubHttpAnnounceAddrs []multiaddr.Multiaddr
+		pubHttpListenAddr    string
+		pubTopicName         string
+		pubTopic             *pubsub.Topic
+		pubExtraGossipData   []byte
 
 		entCacheCap int
 		purgeCache  bool
@@ -227,6 +233,23 @@ func WithPublisherKind(k PublisherKind) Option {
 func WithHttpPublisherListenAddr(addr string) Option {
 	return func(o *options) error {
 		o.pubHttpListenAddr = addr
+		return nil
+	}
+}
+
+// WithHttpPublisherAnnounceAddr sets the address to be supplied in announce
+// messages to tell indexers where to retrieve advertisements.
+//
+// This option only takes effect if the PublisherKind is set to HttpPublisher.
+func WithHttpPublisherAnnounceAddr(addr string) Option {
+	return func(o *options) error {
+		if addr != "" {
+			maddr, err := multiaddr.NewMultiaddr(addr)
+			if err != nil {
+				return fmt.Errorf("here: %w", err)
+			}
+			o.pubHttpAnnounceAddrs = append(o.pubHttpAnnounceAddrs, maddr)
+		}
 		return nil
 	}
 }

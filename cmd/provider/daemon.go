@@ -123,6 +123,11 @@ func daemonCommand(cctx *cli.Context) error {
 		return err
 	}
 
+	httpListenAddr, err := cfg.Ingest.HttpPublisher.ListenNetAddr()
+	if err != nil {
+		return err
+	}
+
 	// Starting provider core
 	eng, err := engine.New(
 		engine.WithDatastore(ds),
@@ -133,6 +138,8 @@ func daemonCommand(cctx *cli.Context) error {
 		engine.WithChainedEntries(cfg.Ingest.LinkedChunkSize),
 		engine.WithTopicName(cfg.Ingest.PubSubTopic),
 		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)),
+		engine.WithHttpPublisherListenAddr(httpListenAddr),
+		engine.WithHttpPublisherAnnounceAddr(cfg.Ingest.HttpPublisher.AnnounceMultiaddr),
 		engine.WithSyncPolicy(syncPolicy))
 	if err != nil {
 		return err
