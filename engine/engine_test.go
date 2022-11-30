@@ -218,6 +218,14 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	subsc, err := subT.Subscribe()
 	require.NoError(t, err)
 
+	wantContextID := []byte("fish")
+	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
+		if string(contextID) == string(wantContextID) {
+			return provider.SliceMultihashIterator(mhs), nil
+		}
+		return nil, errors.New("not found")
+	})
+
 	// Await subscriber connection to publisher.
 	require.Eventually(t, func() bool {
 		pubPeers := pubG.ListPeers(topic)
@@ -226,19 +234,8 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 				return true
 			}
 		}
-		subsc.Cancel()
-		subsc, err = subT.Subscribe()
-		require.NoError(t, err)
 		return false
 	}, 10*time.Second, time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
-
-	wantContextID := []byte("fish")
-	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
-		if string(contextID) == string(wantContextID) {
-			return provider.SliceMultihashIterator(mhs), nil
-		}
-		return nil, errors.New("not found")
-	})
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
