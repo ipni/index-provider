@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/ipfs/go-cid"
+	httpfinderclient "github.com/ipni/storetheindex/api/v0/finder/client/http"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 )

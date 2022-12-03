@@ -3,8 +3,8 @@ package chunker
 import (
 	"context"
 
-	provider "github.com/filecoin-project/index-provider"
 	"github.com/ipld/go-ipld-prime"
+	provider "github.com/ipni/index-provider"
 )
 
 // EntriesChunker chunks multihashes supplied by a given provider.MultihashIterator into a chain of

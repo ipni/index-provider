@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/metadata"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/ipfs/go-delegated-routing/client"

@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/filecoin-project/index-provider/cardatatransfer"
-	"github.com/filecoin-project/index-provider/metadata"
-	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
+	"github.com/ipni/index-provider/cardatatransfer"
+	"github.com/ipni/index-provider/metadata"
+	adminserver "github.com/ipni/index-provider/server/admin/http"
 	"github.com/urfave/cli/v2"
 )
 

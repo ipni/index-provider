@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
-	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
+	"github.com/ipni/index-provider/cmd/provider/internal/config"
+	httpc "github.com/ipni/storetheindex/api/v0/ingest/client/http"
 	"github.com/urfave/cli/v2"
 )
 

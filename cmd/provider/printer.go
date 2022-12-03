@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/filecoin-project/index-provider/cmd/provider/internal"
+	"github.com/ipni/index-provider/cmd/provider/internal"
 )
 
 func printVerificationResult(r *internal.VerifyIngestResult) {

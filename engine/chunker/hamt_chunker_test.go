@@ -5,14 +5,14 @@ import (
 	"math/rand"
 	"testing"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/engine/chunker"
-	"github.com/filecoin-project/index-provider/testutil"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/index-provider/engine/chunker"
+	"github.com/ipni/index-provider/testutil"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/require"
 )

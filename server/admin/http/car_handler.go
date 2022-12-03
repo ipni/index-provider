@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/metadata"
-	"github.com/filecoin-project/index-provider/supplier"
 	"github.com/ipfs/go-cid"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/index-provider/metadata"
+	"github.com/ipni/index-provider/supplier"
 )
 
 type carHandler struct {

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/filecoin-project/index-provider/metrics"
-	"github.com/filecoin-project/index-provider/mirror"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipni/index-provider/metrics"
+	"github.com/ipni/index-provider/mirror"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"

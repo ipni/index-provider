@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	provider "github.com/filecoin-project/index-provider"
-	reframelistener "github.com/filecoin-project/index-provider/reframe"
 	"github.com/ipfs/go-datastore"
 	drserver "github.com/ipfs/go-delegated-routing/server"
 	logging "github.com/ipfs/go-log/v2"
+	provider "github.com/ipni/index-provider"
+	reframelistener "github.com/ipni/index-provider/reframe"
 )
 
 var log = logging.Logger("adminserver")

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
-	"github.com/filecoin-project/index-provider/metadata"
-	httpc "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
 	"github.com/ipfs/go-cid"
+	"github.com/ipni/index-provider/cmd/provider/internal/config"
+	"github.com/ipni/index-provider/metadata"
+	httpc "github.com/ipni/storetheindex/api/v0/ingest/client/http"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"

@@ -9,7 +9,6 @@ import (
 	"io"
 	"sync"
 
-	provider "github.com/filecoin-project/index-provider"
 	"github.com/golang/groupcache/lru"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -19,6 +18,7 @@ import (
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	provider "github.com/ipni/index-provider"
 )
 
 var (

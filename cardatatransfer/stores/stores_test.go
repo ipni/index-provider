@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/filecoin-project/index-provider/cardatatransfer/stores"
-	"github.com/filecoin-project/index-provider/testutil"
+	"github.com/ipni/index-provider/cardatatransfer/stores"
+	"github.com/ipni/index-provider/testutil"
 )
 
 func TestReadOnlyStoreTracker(t *testing.T) {

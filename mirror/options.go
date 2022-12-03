@@ -3,13 +3,13 @@ package mirror
 import (
 	"time"
 
-	"github.com/filecoin-project/index-provider/engine/chunker"
-	stischema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
 	"github.com/ipld/go-ipld-prime/schema"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipni/index-provider/engine/chunker"
+	stischema "github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/multiformats/go-multicodec"

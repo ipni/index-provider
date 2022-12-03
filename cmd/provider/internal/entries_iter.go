@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multihash"
 )
 

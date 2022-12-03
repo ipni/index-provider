@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/filecoin-project/index-provider/metadata"
+	"github.com/ipni/index-provider/metadata"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-varint"
 	"github.com/stretchr/testify/require"
