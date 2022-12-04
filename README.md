@@ -1,8 +1,8 @@
 Index Provider :loudspeaker:
 ============================
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](https://protocol.ai)
-[![Go Reference](https://pkg.go.dev/badge/github.com/filecoin-project/index-provider.svg)](https://pkg.go.dev/github.com/filecoin-project/index-provider)
-[![Coverage Status](https://codecov.io/gh/filecoin-project/index-provider/branch/main/graph/badge.svg)](https://codecov.io/gh/filecoin-project/index-provider/branch/main)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ipni/index-provider.svg)](https://pkg.go.dev/github.com/ipni/index-provider)
+[![Coverage Status](https://codecov.io/gh/ipni/index-provider/branch/main/graph/badge.svg)](https://codecov.io/gh/ipni/index-provider/branch/main)
 
 > A golang implementation of index provider
 
@@ -40,10 +40,10 @@ The protocol implemented by this repository is the index provider portion of a l
 protocol
 documented [here](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
 . The indexer node implementation can be found
-at [`storetheindex`](https://github.com/filecoin-project/storetheindex) repository.
+at [`storetheindex`](https://github.com/ipni/storetheindex) repository.
 
 For more details on the ingestion protocol itself
-see [Providing data to a network indexer](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md)
+see [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
 .
 
 ## Install
@@ -55,7 +55,7 @@ Prerequisite:
 To use the provider as a Go library, execute:
 
 ```shell
-go get github.com/filecoin-project/index-provider
+go get github.com/ipni/index-provider
 ```
 
 To install the latest `provider` CLI, run:
@@ -65,11 +65,11 @@ and cannot be installed directly via `go install`
 -->
 
 ```shell
-go install github.com/filecoin-project/index-provider/cmd/provider@latest
+go install github.com/ipni/index-provider/cmd/provider@latest
 ```
 
 Alternatively, download the executables directly from
-the [releases](https://github.com/filecoin-project/index-provider/releases).
+the [releases](https://github.com/ipni/index-provider/releases).
 
 ## Usage
 
@@ -165,25 +165,25 @@ advertise content, see:
 
 #### Publishing advertisements with extended providers
 
-[Extended providers](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
+[Extended providers](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
 field allows for specification of provider families, in cases where a provider operates multiple PeerIDs, perhaps 
 with different transport protocols between them, but over the same database of content. 
 
 `ExtendedProviders` can either be applied at the *chain-level* (for all previous and future CIDs published by a provider) or at 
 a *context-level* (for CIDs belonging to the specified context ID). That behaviour is set by `ContextID` field.
 Multiple different behaviours can be triggered by a combination of `ContextID`, `Metadata`, `ExtendedProviders` and `Override` fields. 
-For more information see the [specification](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
+For more information see the [specification](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
 
 Advertisements with `ExtendedProviders` can be composed manually or by using a convenience `ExtendedProvidersAdBuilder` 
 and will have to be signed by the main provider as well as by all `ExtendedProviders`' identities. 
 Private keys for these identities have to be provided in the `xproviders.Info` 
-(objects)[https://github.com/filecoin-project/index-provider/blob/main/engine/xproviders/xproviders.go] and  
+(objects)[https://github.com/ipni/index-provider/blob/main/engine/xproviders/xproviders.go] and  
 `ExtendedProvidersAdBuilder` will take care of the rest.
 
 > Identity of the main provider will be added to the extended providers list automatically and should not be passed in explicitly. 
 
 Some examples can be found below (assumes the readers familiriaty with the 
-(specification)[https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md#extendedprovider]).
+(specification)[https://github.com/ipni/storetheindex/blob/main/doc/ingest.md#extendedprovider]).
 
 Publishing an advertisement with context-level `ExtendedProviders`, that will be returned only for CIDs from the specified context ID:
 ```
@@ -226,7 +226,7 @@ On ingestion, previously published `ExtendedProviders` get overwritten (not merg
 just publish a new chain/context-level advertisement with the required changes.
 
 Examples of constructing advertisements with `ExtendedProviders` can be found 
-(here)[https://github.com/filecoin-project/index-provider/blob/main/engine/xproviders/xproviders_test.go].
+(here)[https://github.com/ipni/index-provider/blob/main/engine/xproviders/xproviders_test.go].
 
 ### `provider` CLI
 
@@ -295,7 +295,7 @@ advertisements published.
 This category stores chunked entries generated by publishing an advertisement with a never seen
 before context ID. The chunks are stored in an LRU cache, the maximum size of which is configured by
 the following configuration parameters
-in [`Ingest`](https://pkg.go.dev/github.com/filecoin-project/index-provider@v0.2.6/config#Ingest)
+in [`Ingest`](https://pkg.go.dev/github.com/ipni/index-provider@v0.2.6/config#Ingest)
 config:
 
 - `LinkChunkSize` - The maximum number of multihashes in a chunk (defaults to `16,384`)
@@ -314,11 +314,11 @@ advertisement. The cache expansion is logged in `INFO` level at `provider/engine
 ## Related Resources
 
 * [Indexer Ingestion Interface](https://www.notion.so/protocollabs/Indexer-Ingestion-Interface-4a120c698b31417385204ec401137cb1)
-* [Indexer Ingestion IPLD Schema](https://github.com/filecoin-project/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch)
+* [Indexer Ingestion IPLD Schema](https://github.com/ipni/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch)
 * [Indexer Node Design](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
-* [Providing data to a network indexer](https://github.com/filecoin-project/storetheindex/blob/main/doc/ingest.md)
-* [`storetheindex`](https://github.com/filecoin-project/storetheindex): indexer node implementation
-* [`storetheindex` documentation](https://github.com/filecoin-project/storetheindex/blob/main/doc/)
+* [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
+* [`storetheindex`](https://github.com/ipni/storetheindex): indexer node implementation
+* [`storetheindex` documentation](https://github.com/ipni/storetheindex/blob/main/doc/)
 * [`go-indexer-core`](https://github.com/filecoin-project/go-indexer-core): Core index key-value
   store
 

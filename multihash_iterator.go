@@ -6,10 +6,10 @@ import (
 	"io"
 	"sort"
 
-	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	carindex "github.com/ipld/go-car/v2/index"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multihash"
 )
 

@@ -31,10 +31,10 @@ import (
 	cbg "github.com/whyrusleeping/cbor-gen"
 
 	datatransfer "github.com/filecoin-project/go-data-transfer"
-	"github.com/filecoin-project/index-provider/cardatatransfer"
-	"github.com/filecoin-project/index-provider/metadata"
-	"github.com/filecoin-project/index-provider/supplier"
-	"github.com/filecoin-project/index-provider/testutil"
+	"github.com/ipni/index-provider/cardatatransfer"
+	"github.com/ipni/index-provider/metadata"
+	"github.com/ipni/index-provider/supplier"
+	"github.com/ipni/index-provider/testutil"
 )
 
 func TestCarDataTransfer(t *testing.T) {

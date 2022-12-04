@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
-	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
+	httpfinderclient "github.com/ipni/storetheindex/api/v0/finder/client/http"
+	"github.com/ipni/storetheindex/api/v0/finder/model"
 	"github.com/multiformats/go-multihash"
 )
 

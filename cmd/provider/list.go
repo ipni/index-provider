@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/filecoin-project/index-provider/cmd/provider/internal"
-	adminserver "github.com/filecoin-project/index-provider/server/admin/http"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipni/index-provider/cmd/provider/internal"
+	adminserver "github.com/ipni/index-provider/server/admin/http"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"

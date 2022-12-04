@@ -5,13 +5,13 @@ import (
 	"errors"
 	"io"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 

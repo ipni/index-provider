@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipld/go-ipld-prime"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multihash"
 )
 

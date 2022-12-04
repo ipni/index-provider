@@ -8,11 +8,11 @@ import (
 	context "context"
 	reflect "reflect"
 
-	provider "github.com/filecoin-project/index-provider"
-	metadata "github.com/filecoin-project/index-provider/metadata"
-	schema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
+	provider "github.com/ipni/index-provider"
+	metadata "github.com/ipni/index-provider/metadata"
+	schema "github.com/ipni/storetheindex/api/v0/ingest/schema"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	multihash "github.com/multiformats/go-multihash"
 )

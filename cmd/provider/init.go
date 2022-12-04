@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/filecoin-project/index-provider/cmd/provider/internal/config"
-	"github.com/filecoin-project/storetheindex/fsutil"
+	"github.com/ipni/index-provider/cmd/provider/internal/config"
+	"github.com/ipni/storetheindex/fsutil"
 	"github.com/urfave/cli/v2"
 )
 

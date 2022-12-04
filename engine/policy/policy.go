@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/filecoin-project/storetheindex/peerutil"
+	"github.com/ipni/storetheindex/peerutil"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 

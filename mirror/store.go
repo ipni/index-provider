@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 
-	provider "github.com/filecoin-project/index-provider"
-	stischema "github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
@@ -14,6 +12,8 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
+	provider "github.com/ipni/index-provider"
+	stischema "github.com/ipni/storetheindex/api/v0/ingest/schema"
 )
 
 var (

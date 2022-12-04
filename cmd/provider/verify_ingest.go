@@ -7,11 +7,11 @@ import (
 	"path"
 	"time"
 
-	"github.com/filecoin-project/index-provider/cmd/provider/internal"
-	httpfinderclient "github.com/filecoin-project/storetheindex/api/v0/finder/client/http"
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
+	"github.com/ipni/index-provider/cmd/provider/internal"
+	httpfinderclient "github.com/ipni/storetheindex/api/v0/finder/client/http"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"

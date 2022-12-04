@@ -1,11 +1,10 @@
-module github.com/filecoin-project/index-provider
+module github.com/ipni/index-provider
 
 go 1.18
 
 require (
 	github.com/filecoin-project/go-data-transfer v1.15.2
 	github.com/filecoin-project/go-state-types v0.1.0
-	github.com/filecoin-project/storetheindex v0.5.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.0
@@ -22,6 +21,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.5.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.18.0
+	github.com/ipni/storetheindex v0.5.3-0.20221203123030-16745cb63f15
 	github.com/libp2p/go-libp2p v0.23.2
 	github.com/libp2p/go-libp2p-pubsub v0.8.1
 	github.com/mitchellh/go-homedir v1.1.0

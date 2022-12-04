@@ -3,7 +3,7 @@ package reframe_test
 import (
 	"testing"
 
-	reframeListener "github.com/filecoin-project/index-provider/reframe"
+	reframeListener "github.com/ipni/index-provider/reframe"
 	"github.com/stretchr/testify/require"
 )
 

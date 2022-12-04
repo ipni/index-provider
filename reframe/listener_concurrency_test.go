@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/index-provider/engine"
-	mock_provider "github.com/filecoin-project/index-provider/mock"
-	reframelistener "github.com/filecoin-project/index-provider/reframe"
-	"github.com/filecoin-project/index-provider/testutil"
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	leveldb "github.com/ipfs/go-ds-leveldb"
+	"github.com/ipni/index-provider/engine"
+	mock_provider "github.com/ipni/index-provider/mock"
+	reframelistener "github.com/ipni/index-provider/reframe"
+	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p"
 	"github.com/stretchr/testify/require"
 )

@@ -1,11 +1,11 @@
 package mirror
 
 import (
-	"github.com/filecoin-project/storetheindex/dagsync"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
+	"github.com/ipni/storetheindex/dagsync"
 )
 
 var selectors struct {

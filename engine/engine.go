@@ -8,14 +8,6 @@ import (
 	"net/url"
 	"sync"
 
-	provider "github.com/filecoin-project/index-provider"
-	"github.com/filecoin-project/index-provider/engine/chunker"
-	"github.com/filecoin-project/index-provider/metadata"
-	httpclient "github.com/filecoin-project/storetheindex/api/v0/ingest/client/http"
-	"github.com/filecoin-project/storetheindex/api/v0/ingest/schema"
-	"github.com/filecoin-project/storetheindex/dagsync"
-	"github.com/filecoin-project/storetheindex/dagsync/dtsync"
-	"github.com/filecoin-project/storetheindex/dagsync/httpsync"
 	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -23,6 +15,14 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	provider "github.com/ipni/index-provider"
+	"github.com/ipni/index-provider/engine/chunker"
+	"github.com/ipni/index-provider/metadata"
+	httpclient "github.com/ipni/storetheindex/api/v0/ingest/client/http"
+	"github.com/ipni/storetheindex/api/v0/ingest/schema"
+	"github.com/ipni/storetheindex/dagsync"
+	"github.com/ipni/storetheindex/dagsync/dtsync"
+	"github.com/ipni/storetheindex/dagsync/httpsync"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -66,7 +66,7 @@ var _ provider.Interface = (*Engine)(nil)
 // Engine internally uses "storetheindex/dagsync", a protocol for propagating and
 // synchronizing changes an IPLD DAG, to publish advertisements. See:
 //
-//   - https://github.com/filecoin-project/storetheindex/tree/main/dagsync
+//   - https://github.com/ipni/storetheindex/tree/main/dagsync
 //
 // Published advertisements are signed using the given private key. The
 // retAddrs corresponds to the endpoints at which the data block associated to
@@ -194,7 +194,7 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 // the latest advertisement by the provider to indexer nodes.
 //
 // The publication mechanism uses dagsync.Publisher internally.
-// See: https://github.com/filecoin-project/storetheindex/tree/main/dagsync
+// See: https://github.com/ipni/storetheindex/tree/main/dagsync
 func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	c, err := e.PublishLocal(ctx, adv)
 	if err != nil {
