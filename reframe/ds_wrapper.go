@@ -22,12 +22,15 @@ const (
 
 // dsWrapper encapsulates all functionality related top the datastore
 type dsWrapper struct {
-	ds                   datastore.Datastore
+	ds datastore.Datastore
+	// snapshotChunkMaxSize specifies max number of cids that can be conatined inside one snapshot chunk
 	snapshotChunkMaxSize int
+	// pageSize specifies size of database page that is used when initialising from the datastore
+	pageSize int
 }
 
-func newDSWrapper(ds datastore.Datastore, snapshotChunkMaxSize int) *dsWrapper {
-	return &dsWrapper{ds: ds, snapshotChunkMaxSize: snapshotChunkMaxSize}
+func newDSWrapper(ds datastore.Datastore, snapshotChunkMaxSize int, pageSize int) *dsWrapper {
+	return &dsWrapper{ds: ds, snapshotChunkMaxSize: snapshotChunkMaxSize, pageSize: pageSize}
 }
 
 // initialiseFromTheDatastore initialises in-memory data structures on first start
@@ -40,29 +43,42 @@ func (dsw *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporte
 }
 
 func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkImporter func(c *cidsChunk)) error {
+	offset := 0
 	start := time.Now()
 	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
-	q := dsq.Query{Prefix: chunkByContextIdIndexPrefix}
-	ccResults, err := dsw.ds.Query(ctx, q)
-	if err != nil {
-		return fmt.Errorf("error reading from the datastore: %w", err)
-	}
-	defer ccResults.Close()
-
-	for r := range ccResults.Next() {
-		if r.Error != nil {
-			return fmt.Errorf("error fetching datastore record: %w", r.Error)
+	for {
+		q := dsq.Query{
+			Prefix: chunkByContextIdIndexPrefix,
+			Offset: offset,
+			Limit:  dsw.pageSize,
 		}
-
-		chunk, err := deserialiseChunk(r.Value)
+		ccResults, err := dsw.ds.Query(ctx, q)
 		if err != nil {
-			return fmt.Errorf("error deserialising record from the datastore: %w", err)
+			return fmt.Errorf("error reading from the datastore: %w", err)
 		}
-		// not importing removed chunks. They can be lazy loaded when needed.
-		if chunk.Removed {
-			continue
+		defer ccResults.Close()
+
+		resultsCount := 0
+		for r := range ccResults.Next() {
+			resultsCount++
+			if r.Error != nil {
+				return fmt.Errorf("error fetching datastore record: %w", r.Error)
+			}
+
+			chunk, err := deserialiseChunk(r.Value)
+			if err != nil {
+				return fmt.Errorf("error deserialising record from the datastore: %w", err)
+			}
+			// not importing removed chunks. They can be lazy loaded when needed.
+			if chunk.Removed {
+				continue
+			}
+			chunkImporter(chunk)
 		}
-		chunkImporter(chunk)
+		if resultsCount == 0 {
+			break
+		}
+		offset += dsw.pageSize
 	}
 
 	log.Infof("Loaded up all chunks from the datastore in %v", time.Since(start))
