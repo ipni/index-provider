@@ -13,6 +13,7 @@ const (
 	defaultReframeCidTtl       = Duration(24 * time.Hour)
 	defaultReframeChunkSize    = 1_000
 	defaultReframeSnapshotSize = 10_000
+	defaultPageSize            = 5_000
 )
 
 // Reframe tracks the configuration of reframe serber. If specified, index provider will expose a reframe server that will
@@ -23,13 +24,16 @@ type Reframe struct {
 	WriteTimeout    Duration
 	// CidTtl is a lifetime of a cid after which it is considered expired
 	CidTtl Duration
-	// ChunkSize is size of a chunk before it gets avertised to an indexer
+	// ChunkSize is size of a chunk before it gets advertised to an indexer.
+	// In other words it's a number of CIDs per advertisement
 	ChunkSize int
 	// SnapshotSize is the maximum number of records in the Provide payload after which it is considered a snapshot.
 	// Snapshots don't have individual timestamps recorded into the datastore. Instead, timestamps are recorded as a binary blob after processing is done.
 	SnapshotSize int
 	// ProviderID is a Peer ID of the IPFS node that the reframe server is expecting advertisements from
 	ProviderID string
+	// DsPageSize is a size of the database page that is going to be used on reframe server initialisation.
+	DsPageSize int
 	// Addrs is a list of multiaddresses of the IPFS node that the reframe server is expecting advertisements from
 	Addrs []string
 }
@@ -45,6 +49,7 @@ func NewReframe() Reframe {
 		CidTtl:          defaultReframeCidTtl,
 		ChunkSize:       defaultReframeChunkSize,
 		SnapshotSize:    defaultReframeSnapshotSize,
+		DsPageSize:      defaultPageSize,
 	}
 }
 
@@ -64,6 +69,9 @@ func (c *Reframe) PopulateDefaults() {
 	}
 	if c.SnapshotSize == 0 {
 		c.SnapshotSize = defaultReframeSnapshotSize
+	}
+	if c.DsPageSize == 0 {
+		c.DsPageSize = defaultPageSize
 	}
 }
 

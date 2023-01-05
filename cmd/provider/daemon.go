@@ -216,6 +216,7 @@ func daemonCommand(cctx *cli.Context) error {
 			time.Duration(cfg.Reframe.CidTtl),
 			cfg.Reframe.ChunkSize,
 			cfg.Reframe.SnapshotSize,
+			cfg.Reframe.DsPageSize,
 			cfg.Reframe.ProviderID,
 			cfg.Reframe.Addrs,
 			eng,
