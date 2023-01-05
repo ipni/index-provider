@@ -47,6 +47,7 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 	start := time.Now()
 	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
 	for {
+		log.Infow("Reading chunk page %d from the datastore", offset/dsw.pageSize)
 		q := dsq.Query{
 			Prefix: chunkByContextIdIndexPrefix,
 			Offset: offset,

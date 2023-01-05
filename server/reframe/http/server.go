@@ -25,6 +25,7 @@ type Server struct {
 func New(cidTtl time.Duration,
 	chunkSize int,
 	snapshotSize int,
+	pageSize int,
 	providerID string,
 	addrs []string,
 	e provider.Interface,
@@ -40,7 +41,7 @@ func New(cidTtl time.Duration,
 		return nil, fmt.Errorf("reframe initialisation failed: %s", err)
 	}
 
-	rListener, err := reframelistener.New(context.Background(), e, cidTtl, chunkSize, snapshotSize, providerID, addrs, ds, nil)
+	rListener, err := reframelistener.New(context.Background(), e, cidTtl, chunkSize, snapshotSize, providerID, addrs, ds, nil, reframelistener.WithPageSize(pageSize))
 	if err != nil {
 		return nil, fmt.Errorf("reframe initialisation failed: %s", err)
 	}
