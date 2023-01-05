@@ -56,7 +56,6 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 		if err != nil {
 			return fmt.Errorf("error reading from the datastore: %w", err)
 		}
-		defer ccResults.Close()
 
 		resultsCount := 0
 		for r := range ccResults.Next() {
@@ -75,6 +74,8 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 			}
 			chunkImporter(chunk)
 		}
+		_ = ccResults.Close()
+
 		if resultsCount == 0 {
 			break
 		}
