@@ -981,14 +981,21 @@ func TestInitialiseFromDatastoreWithSnapshot(t *testing.T) {
 
 func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.Duration, chunkSize int) {
 	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
+	// total number of test cids to generate
+	// - has to be not even so that not all of the cids end up included into chunks
+	// - has to span multiple page sizes so that datastore is initialised in pages
+	testCidsNum := 11
+	// verifying with small page size that is smaller than the total number of chunks generated
+	pageSize := 2
 
 	ctx := context.Background()
 	defer ctx.Done()
-	testCid1 := newCid("test1")
-	testCid2 := newCid("test2")
-	testCid3 := newCid("test3")
-	testCid4 := newCid("test4")
-	testCid5 := newCid("test5")
+
+	// generate test cids
+	testCids := make([]cid.Cid, testCidsNum)
+	for i := 0; i < len(testCids); i++ {
+		testCids[i] = newCid(fmt.Sprintf("test%d", i))
+	}
 	prov := newProvider(t, pID)
 
 	mc := gomock.NewController(t)
@@ -996,39 +1003,64 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid3.String(), testCid4.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	// set mock expectations for chunks to be generated
+	for i := 0; i < len(testCids); i += chunkSize {
+		if i+chunkSize >= len(testCids) {
+			break
+		}
+		cids := testCids[i : i+chunkSize]
+		cidStrs := make([]string, 0, len(cids))
+		for _, c := range cids {
+			cidStrs = append(cidStrs, c.String())
+		}
+
+		mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID(cidStrs, testNonceGen())), gomock.Eq(defaultMetadata))
+	}
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+
+	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen, reframelistener.WithPageSize(pageSize))
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener1, prov, priv)
 
-	provide(t, client, ctx, testCid1)
-	time.Sleep(100 * time.Millisecond)
-	provide(t, client, ctx, testCid2)
-	time.Sleep(100 * time.Millisecond)
-	provide(t, client, ctx, testCid3)
-	time.Sleep(100 * time.Millisecond)
-	provide(t, client, ctx, testCid4)
-	time.Sleep(100 * time.Millisecond)
-	provide(t, client, ctx, testCid5)
+	// provide cids
+	// cids are provided with 20ms intervals so that they have different timestamps that would allow us to deterministically verify expiry order
+	for _, c := range testCids {
+		provide(t, client, ctx, c)
+		time.Sleep(20 * time.Millisecond)
+	}
 
 	server.Close()
 
-	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen, reframelistener.WithPageSize(pageSize))
 	require.NoError(t, err)
 
-	require.True(t, reframelistener.ChunkExists(ctx, listener2, []cid.Cid{testCid1, testCid2}, testNonceGen))
-	require.True(t, reframelistener.ChunkExists(ctx, listener2, []cid.Cid{testCid3, testCid4}, testNonceGen))
-	require.True(t, reframelistener.CidExist(ctx, listener2, testCid1, true))
-	require.True(t, reframelistener.CidExist(ctx, listener2, testCid2, true))
-	require.True(t, reframelistener.CidExist(ctx, listener2, testCid3, true))
-	require.True(t, reframelistener.CidExist(ctx, listener2, testCid4, true))
-	require.True(t, reframelistener.CidExist(ctx, listener2, testCid5, false))
-	require.Equal(t, []cid.Cid{testCid5, testCid4, testCid3, testCid2, testCid1}, reframelistener.GetExpiryQueue(ctx, listener2))
+	// verify that:
+	// - all chunks have been initialised from the datastore
+	// - all cids have been initialised form the datastore
+	// - cids that have not been included into a chunk should not have been initialised form the datastore
+	for i := 0; i < len(testCids); i += chunkSize {
+		if i+chunkSize < len(testCids) {
+			for j := i; j < len(testCids); j++ {
+				require.True(t, reframelistener.CidExist(ctx, listener2, testCids[j], false))
+			}
+			break
+		}
+		require.True(t, reframelistener.ChunkExists(ctx, listener2, testCids[i:i+chunkSize], testNonceGen))
+		for j := 0; j < chunkSize; j++ {
+			require.True(t, reframelistener.CidExist(ctx, listener2, testCids[i+j], true))
+		}
+	}
+
+	// verify that in-memory expiry queue contains cids in the correct order
+	reverseTestCids := make([]cid.Cid, len(testCids))
+	for i := 0; i < len(testCids); i++ {
+		reverseTestCids[i] = testCids[len(testCids)-i-1]
+	}
+
+	require.Equal(t, reverseTestCids, reframelistener.GetExpiryQueue(ctx, listener2))
 }
 
 func TestCleanUpExpiredCidsThatDontHaveChunk(t *testing.T) {
