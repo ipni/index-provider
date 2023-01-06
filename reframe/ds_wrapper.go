@@ -44,10 +44,14 @@ func (dsw *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporte
 
 func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkImporter func(c *cidsChunk)) error {
 	offset := 0
+	removedChunks := 0
+	totalCids := 0
 	start := time.Now()
 	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
 	for {
-		log.Infow("Reading chunk page %d from the datastore", offset/dsw.pageSize)
+		pageNum := offset / dsw.pageSize
+		log.Infof("Reading chunk page %d from the datastore. totalChunks=%d, removedChunks=%d, totalCids=%d", pageNum, pageNum*dsw.pageSize, removedChunks, totalCids)
+
 		q := dsq.Query{
 			Prefix: chunkByContextIdIndexPrefix,
 			Offset: offset,
@@ -71,8 +75,10 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 			}
 			// not importing removed chunks. They can be lazy loaded when needed.
 			if chunk.Removed {
+				removedChunks++
 				continue
 			}
+			totalCids += len(chunk.Cids)
 			chunkImporter(chunk)
 		}
 		_ = ccResults.Close()
