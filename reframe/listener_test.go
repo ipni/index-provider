@@ -663,7 +663,38 @@ func TestDoNotReadvertiseChunkIfAllCidsExpired(t *testing.T) {
 	require.Equal(t, []cid.Cid{testCid2}, reframelistener.GetExpiryQueue(ctx, listener))
 }
 
-func TestDoNoLoadRemovedChunksOnInitialisation(t *testing.T) {
+func TestDoNotReadvertiseTheSameCids(t *testing.T) {
+	ttl := 24 * time.Hour
+	chunkSize := 2
+	snapshotSize := 1000
+
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
+
+	ctx := context.Background()
+	defer ctx.Done()
+	testCid1 := newCid("test1")
+	testCid2 := newCid("test2")
+	testCid3 := newCid("test3")
+	prov := newProvider(t, pID)
+
+	mc := gomock.NewController(t)
+	defer mc.Finish()
+	mockEng := mock_provider.NewMockInterface(mc)
+
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+
+	ip, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	require.NoError(t, err)
+
+	c, s := createClientAndServer(t, ip, prov, priv)
+	defer s.Close()
+
+	provideMany(t, c, ctx, []cid.Cid{testCid1, testCid2, testCid3})
+	provideMany(t, c, ctx, []cid.Cid{testCid1, testCid2, testCid3})
+}
+
+func TestDoNotLoadRemovedChunksOnInitialisation(t *testing.T) {
 	ttl := time.Second
 	chunkSize := 1
 	snapshotSize := 1000
