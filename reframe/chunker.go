@@ -11,7 +11,6 @@ import (
 
 type chunker struct {
 	chunkByContextId map[string]*cidsChunk
-	chunkByCid       map[cid.Cid]*cidsChunk
 	currentChunk     *cidsChunk
 	chunkSizeFunc    func() int
 	nonceGen         func() []byte
@@ -35,7 +34,6 @@ func newChunker(chunkSizeFunc func() int, nonceGenFunc func() []byte) *chunker {
 	}
 	ch := &chunker{
 		chunkByContextId: make(map[string]*cidsChunk),
-		chunkByCid:       make(map[cid.Cid]*cidsChunk),
 		chunkSizeFunc:    chunkSizeFunc,
 		nonceGen:         nonceGenFunc,
 	}
@@ -50,23 +48,12 @@ func (ch *chunker) getChunkByContextID(ctxID string) *cidsChunk {
 	return ch.chunkByContextId[ctxID]
 }
 
-func (ch *chunker) getChunkByCID(c cid.Cid) *cidsChunk {
-	return ch.chunkByCid[c]
-}
-
 func (ch *chunker) addChunk(chunk *cidsChunk) {
 	ch.chunkByContextId[contextIDToStr(chunk.ContextID)] = chunk
-	for k := range chunk.Cids {
-		ch.chunkByCid[k] = chunk
-	}
 }
 
 func (ch *chunker) removeChunk(chunk *cidsChunk) {
-	ctxIDStr := contextIDToStr(chunk.ContextID)
-	delete(ch.chunkByContextId, ctxIDStr)
-	for c := range chunk.Cids {
-		delete(ch.chunkByCid, c)
-	}
+	delete(ch.chunkByContextId, contextIDToStr(chunk.ContextID))
 }
 
 func (ch *chunker) newCidsChunk() *cidsChunk {

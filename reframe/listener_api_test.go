@@ -1,6 +1,7 @@
 package reframe
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -18,9 +19,14 @@ func ChunkExists(ctx context.Context, listener *ReframeListener, cids []cid.Cid,
 		return false
 	}
 	cidsRegistered := true
+	// verifying that chunk has been assigned to nodes in the expiry queue
 	for c := range chunkFromIndex.Cids {
-		chunkFromCidIndex := listener.chunker.getChunkByCID(c)
-		if chunkFromCidIndex == nil || contextIDToStr(chunkFromCidIndex.ContextID) != ctxIDStr {
+		elem := listener.cidQueue.getNodeByCid(c)
+		if elem == nil {
+			cidsRegistered = false
+			break
+		}
+		if elem.Value.(*cidNode).chunk != chunkFromIndex {
 			cidsRegistered = false
 			break
 		}
@@ -62,8 +68,8 @@ func ChunkNotExist(ctx context.Context, listener *ReframeListener, cids []cid.Ci
 	ctxIDStr := contextIDToStr(ctxID)
 	cidsRegistered := false
 	for _, c := range cids {
-		chunkFromIndex := listener.chunker.getChunkByCID(c)
-		if chunkFromIndex == nil || contextIDToStr(chunkFromIndex.ContextID) != ctxIDStr {
+		elem := listener.cidQueue.getNodeByCid(c)
+		if elem == nil || elem.Value.(*cidNode).chunk == nil || !bytes.Equal(elem.Value.(*cidNode).chunk.ContextID, ctxID) {
 			continue
 		}
 		cidsRegistered = true
@@ -82,11 +88,12 @@ func ChunkNotExist(ctx context.Context, listener *ReframeListener, cids []cid.Ci
 }
 
 func CidExist(ctx context.Context, listener *ReframeListener, c cid.Cid, requireChunk bool) bool {
-	return listener.cidQueue.getNodeByCid(c) != nil && (!requireChunk || listener.chunker.getChunkByCID(c) != nil)
+	elem := listener.cidQueue.getNodeByCid(c)
+	return elem != nil && (!requireChunk || elem.Value.(*cidNode).chunk != nil)
 }
 
 func CidNotExist(ctx context.Context, listener *ReframeListener, c cid.Cid) bool {
-	return listener.cidQueue.getNodeByCid(c) == nil && listener.chunker.getChunkByCID(c) == nil
+	return listener.cidQueue.getNodeByCid(c) == nil
 }
 
 func GetCidTimestampFromDatastore(ctx context.Context, listener *ReframeListener, c cid.Cid) (time.Time, error) {

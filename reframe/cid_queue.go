@@ -15,6 +15,8 @@ type cidQueue struct {
 type cidNode struct {
 	Timestamp time.Time
 	C         cid.Cid
+	// chunk field is private to avoid serialisation
+	chunk *cidsChunk
 }
 
 func newCidQueue() *cidQueue {
@@ -40,6 +42,13 @@ func (cq *cidQueue) removeCidNode(c cid.Cid) {
 	if listNode, ok := cq.listNodeByCid[c]; ok {
 		cq.nodesLl.Remove(listNode)
 		delete(cq.listNodeByCid, c)
+	}
+}
+
+func (cq *cidQueue) assignCidsChunk(c cid.Cid, chunk *cidsChunk) {
+	if elem, ok := cq.listNodeByCid[c]; ok {
+		node := elem.Value.(*cidNode)
+		node.chunk = chunk
 	}
 }
 

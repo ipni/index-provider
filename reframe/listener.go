@@ -114,6 +114,8 @@ func New(ctx context.Context, engine provider.Interface,
 			ctxIdStr := contextIDToStr(contextID)
 			chunk := listener.chunker.getChunkByContextID(ctxIdStr)
 			if chunk != nil {
+				// remove chunk from the in-memory index as it will be indexed by engine and should not be re-requested anymore
+				listener.chunker.removeChunk(chunk)
 				return chunk.Cids, nil
 			}
 			// if chunk doesn't exist in memory - it might have been evicted during deletion
@@ -132,7 +134,7 @@ func New(ctx context.Context, engine provider.Interface,
 	err := listener.dsWrapper.initialiseFromTheDatastore(ctx, func(n *cidNode) {
 		listener.cidQueue.recordCidNode(n)
 	}, func(chunk *cidsChunk) {
-		listener.chunker.addChunk(chunk)
+		// We don't need to add chunk to the in memory index as old chunks must have been already processed by the engine
 		now := time.Now()
 		// some timestamps might be missing in the case if the latest snapshot hasn't been persisted due to an error
 		// while some chunks containing those CIDs haven been persisted and sent out. In that case - backfilling the missing CIDs with the current timestamp.
@@ -141,7 +143,7 @@ func New(ctx context.Context, engine provider.Interface,
 			if listener.cidQueue.getNodeByCid(c) != nil {
 				continue
 			}
-			listener.cidQueue.recordCidNode(&cidNode{C: c, Timestamp: now})
+			listener.cidQueue.recordCidNode(&cidNode{C: c, Timestamp: now, chunk: chunk})
 		}
 
 	})
@@ -289,12 +291,14 @@ func (listener *ReframeListener) Provide(ctx context.Context, pr *client.Provide
 				//     * when currentChunk disappears between restarts as it doesn't get persisted until it's advertised
 				//     * when the same cid comes multiple times within the lifespan of the same chunk
 				//	   * after a error to generate a replacement chunk
-				err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
-					return listener.notifyPutAndPersist(ctx, cc)
-				})
-				if err != nil {
-					log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
-					continue
+				if node.chunk == nil {
+					err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
+						return listener.notifyPutAndPersist(ctx, cc)
+					})
+					if err != nil {
+						log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
+						continue
+					}
 				}
 				listener.stats.incExistingCidsProcessed()
 			}
@@ -341,9 +345,10 @@ func (listener *ReframeListener) removeExpiredCids(ctx context.Context) (bool, e
 			break
 		}
 
-		chunk := listener.chunker.getChunkByCID(lastNode.C)
+		chunk := lastNode.chunk
 		lastElem = lastElem.Prev()
 		removedSomeCids = true
+		// chunk field can be nil for cids from the current chunk that has not been advertised yet
 		if chunk != nil {
 			cidsToRemove[lastNode.C] = struct{}{}
 			ctxIdStr := contextIDToStr(chunk.ContextID)
@@ -422,7 +427,7 @@ func (listener *ReframeListener) notifyRemoveAndPersist(ctx context.Context, chu
 	ctxIdStr := contextIDToStr(chunk.ContextID)
 	log.Infof("Notifying Remove for chunk=%s", ctxIdStr)
 
-	// notifying the indexer
+	// notify the indexer
 	err := RetryWithBackoff(func() error {
 		_, e := listener.engine.NotifyRemove(ctx, listener.provider(), chunk.ContextID)
 		if e == provider.ErrAlreadyAdvertised {
@@ -436,15 +441,14 @@ func (listener *ReframeListener) notifyRemoveAndPersist(ctx context.Context, chu
 	}
 	listener.stats.incRemoveAdsSent()
 
-	// removing the chunk from in-memory indexes
+	// remove the chunk from the in-memory index
 	listener.chunker.removeChunk(chunk)
 
-	// marking the chunk as removed in the datastore. Removed chunks won't be re-loaded on next initialisation
+	// mark the chunk as removed in the datastore. Removed chunks won't be re-loaded on the next initialisation
 	chunk.Removed = true
 	err = listener.dsWrapper.recordChunkByContextID(ctx, chunk)
 	if err != nil {
 		chunk.Removed = false
-		listener.chunker.addChunk(chunk)
 		return err
 	}
 
@@ -455,11 +459,17 @@ func (listener *ReframeListener) notifyPutAndPersist(ctx context.Context, chunk 
 	ctxIdStr := contextIDToStr(chunk.ContextID)
 	log.Infof("Notifying Put for chunk=%s, provider=%s, addrs=%q, cidsTotal=%d", ctxIdStr, listener.provider(), listener.addrs(), len(chunk.Cids))
 
-	// adding chunk into in-memory indexes so that multihash listed can find it
+	// add chunk into in-memory indexes so that multihash listed can find it
 	listener.chunker.addChunk(chunk)
 
-	// deleting the chunk from the datastore
-	err := RetryWithBackoff(func() error {
+	// update the datastore
+	err := listener.dsWrapper.recordChunkByContextID(ctx, chunk)
+	if err != nil {
+		return err
+	}
+
+	// delete the chunk from the datastore
+	err = RetryWithBackoff(func() error {
 		_, e := listener.engine.NotifyPut(ctx, &peer.AddrInfo{ID: listener.provider(), Addrs: listener.addrs()}, chunk.ContextID, bitswapMetadata)
 		if e == provider.ErrAlreadyAdvertised {
 			e = nil
@@ -475,10 +485,9 @@ func (listener *ReframeListener) notifyPutAndPersist(ctx context.Context, chunk 
 
 	listener.stats.incPutAdsSent()
 
-	// updating the datastore
-	err = listener.dsWrapper.recordChunkByContextID(ctx, chunk)
-	if err != nil {
-		return err
+	// update the chunk in the cid queue
+	for c := range chunk.Cids {
+		listener.cidQueue.assignCidsChunk(c, chunk)
 	}
 
 	return nil
