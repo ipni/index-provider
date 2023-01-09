@@ -75,14 +75,20 @@ func (h *HamtChunker) Chunk(ctx context.Context, iterator provider.MultihashIter
 	if err != nil {
 		return nil, err
 	}
+	var count int
 	for {
 		mh, err := iterator.Next()
 		if err == io.EOF {
+			// Iterator had no elements
+			if count == 0 {
+				return nil, nil
+			}
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
+		count++
 		if err := ma.AssembleKey().AssignBytes(mh); err != nil {
 			return nil, err
 		}
@@ -90,6 +96,7 @@ func (h *HamtChunker) Chunk(ctx context.Context, iterator provider.MultihashIter
 			return nil, err
 		}
 	}
+	log.Debugw("finished iterating over multihash lister", "mhCount", count)
 	if err := ma.Finish(); err != nil {
 		return nil, err
 	}
