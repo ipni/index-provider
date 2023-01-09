@@ -248,7 +248,7 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 	// Intercept the links that are being stored.
 	// It is safe to swap the StorageWriteOpener, because:
 	//  - Chunk is the only place we expect to write to the linksystem, and
-	//  - calls to Chunk are syncronized using a lock.
+	//  - calls to Chunk are synchronized using a lock.
 	// It is also an efficient way to collecting all the links without having to traverse the dag
 	// from the root link, or make the EntriesChunker interface more complex.
 	ls.lsys.StorageWriteOpener = func(ctx linking.LinkContext) (io.Writer, linking.BlockWriteCommitter, error) {
@@ -267,6 +267,9 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 	root, err := ls.chunker.Chunk(ctx, mhi)
 	if err != nil {
 		return nil, err
+	} else if root == nil {
+		log.Debugw("multihash iterator returned no elements")
+		return nil, nil
 	}
 
 	// Store internal mappings for caching purposes.

@@ -15,7 +15,12 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-var errNoEntries = errors.New("no entries; see schema.NoEntries")
+var (
+	errNoEntries = errors.New("no entries; see schema.NoEntries")
+
+	// ErrEntriesLinkMismatch signals that the link generated from chunking the mulithashes returned by provider.MultihashLister does not match the previously generated link. This error is most likely caused by the lister returning inconsistent multihashes for the same key.
+	ErrEntriesLinkMismatch = errors.New("regenerated link from multihash lister did not match the original link; multihashes returned by the lister for the same key are not consistent")
+)
 
 // Creates the main engine linksystem.
 func (e *Engine) mkLinkSystem() ipld.LinkSystem {
@@ -109,10 +114,14 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// Store the linked list entries in cache as we generate them.  We
 			// use the cache linksystem that stores entries in an in-memory
 			// datastore.
-			_, err = e.entriesChunker.Chunk(ctx, mhIter)
+			regeneratedLink, err := e.entriesChunker.Chunk(ctx, mhIter)
 			if err != nil {
 				log.Errorf("Error generating linked list from multihash lister: %s", err)
 				return nil, err
+			}
+			if regeneratedLink == nil || !c.Equals(regeneratedLink.(cidlink.Link).Cid) {
+				log.Errorw("Regeneration of entries link from multihash iterator did not match the original link. Check that multihash iterator consistently returns the same entries for the same key.", "want", lnk, "got", regeneratedLink)
+				return nil, ErrEntriesLinkMismatch
 			}
 		} else {
 			log.Debugw("Found cache entry for CID", "cid", c)
