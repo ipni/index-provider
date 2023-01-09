@@ -109,6 +109,9 @@ func New(ctx context.Context, engine provider.Interface,
 		func() int { return len(listener.chunker.currentChunk.Cids) },
 	)
 
+	// used for reporting only
+	uniqueChunks := make(map[string]struct{})
+
 	lister := &ReframeMultihashLister{
 		CidFetcher: func(contextID []byte) (map[cid.Cid]struct{}, error) {
 			ctxIdStr := contextIDToStr(contextID)
@@ -134,6 +137,7 @@ func New(ctx context.Context, engine provider.Interface,
 	err := listener.dsWrapper.initialiseFromTheDatastore(ctx, func(n *cidNode) {
 		listener.cidQueue.recordCidNode(n)
 	}, func(chunk *cidsChunk) {
+		uniqueChunks[contextIDToStr(chunk.ContextID)] = struct{}{}
 		// We don't need to add chunk to the in memory index as old chunks must have been already processed by the engine
 		now := time.Now()
 		// some timestamps might be missing in the case if the latest snapshot hasn't been persisted due to an error
@@ -157,7 +161,7 @@ func New(ctx context.Context, engine provider.Interface,
 		listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
 	}
 
-	log.Infof("Loaded up %d cids and %d chunks from the datastore.", len(listener.cidQueue.listNodeByCid), len(listener.chunker.chunkByContextId))
+	log.Infof("Loaded up %d cids and %d chunks from the datastore.", len(listener.cidQueue.listNodeByCid), len(uniqueChunks))
 
 	if providerId != "" {
 		p, err := peer.Decode(providerId)
