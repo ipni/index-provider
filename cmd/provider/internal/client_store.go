@@ -31,15 +31,16 @@ type (
 	//       sti.
 
 	Advertisement struct {
-		ID         cid.Cid
-		PreviousID cid.Cid
-		ProviderID peer.ID
-		ContextID  []byte
-		Metadata   []byte
-		Addresses  []string
-		Signature  []byte
-		Entries    *EntriesIterator
-		IsRemove   bool
+		ID               cid.Cid
+		PreviousID       cid.Cid
+		ProviderID       peer.ID
+		ContextID        []byte
+		Metadata         []byte
+		Addresses        []string
+		Signature        []byte
+		Entries          *EntriesIterator
+		IsRemove         bool
+		ExtendedProvider *schema.ExtendedProvider
 	}
 )
 
@@ -156,7 +157,8 @@ func (s *ProviderClientStore) getAdvertisement(ctx context.Context, id cid.Cid) 
 			ctx:   ctx,
 			store: s,
 		},
-		IsRemove: ad.IsRm,
+		IsRemove:         ad.IsRm,
+		ExtendedProvider: ad.ExtendedProvider,
 	}
 	return a, nil
 }

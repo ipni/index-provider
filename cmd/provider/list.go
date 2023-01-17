@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -133,7 +134,24 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	fmt.Printf("ProviderID:   %s\n", ad.ProviderID)
 	fmt.Printf("Addresses:    %v\n", ad.Addresses)
 	fmt.Printf("Is Remove:    %v\n", ad.IsRemove)
-	fmt.Printf("Metadata Len: %d\n", len(ad.Metadata))
+	fmt.Printf("Metadata :    %s\n", base64.StdEncoding.EncodeToString(ad.Metadata))
+
+	fmt.Println("Extended Providers:")
+	if ad.ExtendedProvider != nil {
+		fmt.Printf("   Override: %v\n", ad.ExtendedProvider.Override)
+		fmt.Println("   Providers:")
+		if len(ad.ExtendedProvider.Providers) != 0 {
+			for i, ep := range ad.ExtendedProvider.Providers {
+				fmt.Printf("    %d. ID:         %v\n", i+1, ep.ID)
+				fmt.Printf("        Addresses:  %v\n", ep.Addresses)
+				fmt.Printf("        Metadata:   %v\n", base64.StdEncoding.EncodeToString(ep.Metadata))
+			}
+		} else {
+			fmt.Println("      None")
+		}
+	} else {
+		fmt.Println("   None")
+	}
 
 	if ad.IsRemove {
 		if ad.HasEntries() {
