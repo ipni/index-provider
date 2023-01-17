@@ -132,6 +132,7 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	fmt.Printf("ID:           %s\n", ad.ID)
 	fmt.Printf("PreviousID:   %s\n", ad.PreviousID)
 	fmt.Printf("ProviderID:   %s\n", ad.ProviderID)
+	fmt.Printf("ContextID:    %s\n", base64.StdEncoding.EncodeToString(ad.ContextID))
 	fmt.Printf("Addresses:    %v\n", ad.Addresses)
 	fmt.Printf("Is Remove:    %v\n", ad.IsRemove)
 	fmt.Printf("Metadata :    %s\n", base64.StdEncoding.EncodeToString(ad.Metadata))
