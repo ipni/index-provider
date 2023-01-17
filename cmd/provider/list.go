@@ -128,11 +128,12 @@ func doGetAdvertisements(cctx *cli.Context) error {
 		fmt.Fprintf(os.Stderr, "⚠️ Failed to fully sync advertisement %s. Output shows partially synced ad.\n  Error: %s\n", adCid, err.Error())
 	}
 
-	fmt.Printf("ID:          %s\n", ad.ID)
-	fmt.Printf("PreviousID:  %s\n", ad.PreviousID)
-	fmt.Printf("ProviderID:  %s\n", ad.ProviderID)
-	fmt.Printf("Addresses:   %v\n", ad.Addresses)
-	fmt.Printf("Is Remove:   %v\n", ad.IsRemove)
+	fmt.Printf("ID:           %s\n", ad.ID)
+	fmt.Printf("PreviousID:   %s\n", ad.PreviousID)
+	fmt.Printf("ProviderID:   %s\n", ad.ProviderID)
+	fmt.Printf("Addresses:    %v\n", ad.Addresses)
+	fmt.Printf("Is Remove:    %v\n", ad.IsRemove)
+	fmt.Printf("Metadata Len: %d\n", len(ad.Metadata))
 
 	if ad.IsRemove {
 		if ad.HasEntries() {
