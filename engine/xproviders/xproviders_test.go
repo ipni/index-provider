@@ -186,6 +186,24 @@ func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
 	require.Error(t, err, "invalid extended provider peer id")
 }
 
+func TestZeroExtendedProvidersShouldStillCreateExtendedProvidersField(t *testing.T) {
+	rng := rand.New(rand.NewSource(time.Now().Unix()))
+	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	metadata := make([]byte, 10)
+	rng.Read(metadata)
+
+	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+
+	ad, err := ep.NewAdBuilder(providerID, priv, addrs).
+		WithOverride(true).
+		WithContextID([]byte("test-context")).
+		WithMetadata(metadata).
+		BuildAndSign()
+	require.NoError(t, err)
+	require.NotNil(t, ad.ExtendedProvider)
+	require.Empty(t, ad.ExtendedProvider.Providers)
+}
+
 func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) {
 	ctx := testutil.ContextWithTimeout(t)
 	contextID := []byte("test-context")
