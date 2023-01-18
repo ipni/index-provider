@@ -105,21 +105,32 @@ func (pub *AdBuilder) BuildAndSign() (*schema.Advertisement, error) {
 	}
 
 	epMap := map[string]Info{}
-	for _, epInfo := range pub.providers {
-		adv.ExtendedProvider.Providers = append(adv.ExtendedProvider.Providers, schema.Provider{
-			ID:        epInfo.ID,
-			Addresses: epInfo.Addrs,
-			Metadata:  epInfo.Metadata,
-		})
-		epMap[epInfo.ID] = epInfo
-	}
+	if len(pub.providers) != 0 {
+		for _, epInfo := range pub.providers {
+			if len(epInfo.Addrs) == 0 {
+				return nil, errors.New("addresses of an extended provider can not be empty")
+			}
+			_, err := peer.Decode(epInfo.ID)
+			if err != nil {
+				return nil, errors.New("invalid extended provider peer id")
+			}
+			adv.ExtendedProvider.Providers = append(adv.ExtendedProvider.Providers, schema.Provider{
+				ID:        epInfo.ID,
+				Addresses: epInfo.Addrs,
+				Metadata:  epInfo.Metadata,
+			})
+			epMap[epInfo.ID] = epInfo
+		}
 
-	// The main provider has to be on the extended list too
-	adv.ExtendedProvider.Providers = append(adv.ExtendedProvider.Providers, schema.Provider{
-		ID:        pub.providerID,
-		Addresses: pub.addrs,
-		Metadata:  pub.metadata,
-	})
+		// The main provider has to be on the extended list too
+		if _, ok := epMap[pub.providerID]; !ok {
+			adv.ExtendedProvider.Providers = append(adv.ExtendedProvider.Providers, schema.Provider{
+				ID:        pub.providerID,
+				Addresses: pub.addrs,
+				Metadata:  pub.metadata,
+			})
+		}
+	}
 
 	if pub.lastAdID != cid.Undef {
 		prev := ipld.Link(cidlink.Link{Cid: pub.lastAdID})
