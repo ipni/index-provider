@@ -467,6 +467,9 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 			lnk, err := e.entriesChunker.Chunk(ctx, mhIter)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("could not generate entries list: %s", err)
+			} else if lnk == nil {
+				log.Warnw("chunking for context ID resulted in no link", "contextID", contextID)
+				lnk = schema.NoEntries
 			}
 			cidsLnk = lnk.(cidlink.Link)
 
