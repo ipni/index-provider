@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -123,6 +124,10 @@ func (p *providerClient) syncEntriesWithRetry(ctx context.Context, id cid.Cid) (
 		_, err := p.sub.Sync(ctx, p.publisher.ID, id, sel, p.publisher.Addrs[0])
 		if err == nil {
 			return id, nil
+		}
+		if strings.HasSuffix(err.Error(), "content not found") {
+			log.Warnw("Skipping entries sync; content no longer hosted", "cid", id, "err", err)
+			return cid.Undef, nil
 		}
 		if attempt > p.maxSyncRetry {
 			log.Errorw("Reached maximum retry attempt while syncing entries", "cid", id, "attempt", attempt, "err", err)
