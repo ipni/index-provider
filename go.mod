@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/ipfs/go-cid v0.3.2
 	github.com/ipfs/go-datastore v0.6.0
-	github.com/ipfs/go-delegated-routing v0.6.0
+	github.com/ipfs/go-delegated-routing v0.7.0
 	github.com/ipfs/go-ds-leveldb v0.5.0
 	github.com/ipfs/go-graphsync v0.13.2
 	github.com/ipfs/go-ipfs-blockstore v1.2.0
@@ -26,7 +26,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.8.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/montanaflynn/stats v0.6.6
-	github.com/multiformats/go-multiaddr v0.7.0
+	github.com/multiformats/go-multiaddr v0.8.0
 	github.com/multiformats/go-multicodec v0.6.0
 	github.com/multiformats/go-multihash v0.2.1
 	github.com/multiformats/go-varint v0.0.6
@@ -159,6 +159,7 @@ require (
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	go.opencensus.io v0.23.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.10.0 // indirect
 	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
