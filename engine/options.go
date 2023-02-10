@@ -323,7 +323,7 @@ func WithRetrievalAddrs(addrs ...string) Option {
 				var err error
 				maddrs[i], err = multiaddr.NewMultiaddr(a)
 				if err != nil {
-					return fmt.Errorf("Bad multiaddr %q: %w", a, err)
+					return fmt.Errorf("bad multiaddr %q: %w", a, err)
 				}
 			}
 			o.provider.Addrs = maddrs
