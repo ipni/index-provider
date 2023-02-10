@@ -315,9 +315,19 @@ func WithDatastore(ds datastore.Batching) Option {
 // indexing advertisement.
 // If unspecified, the libp2p host listen addresses are used.
 // See: WithHost.
-func WithRetrievalAddrs(addr ...multiaddr.Multiaddr) Option {
+func WithRetrievalAddrs(addrs ...string) Option {
 	return func(o *options) error {
-		o.provider.Addrs = addr
+		if len(addrs) != 0 {
+			maddrs := make([]multiaddr.Multiaddr, len(addrs))
+			for i, a := range addrs {
+				var err error
+				maddrs[i], err = multiaddr.NewMultiaddr(a)
+				if err != nil {
+					return fmt.Errorf("Bad multiaddr %q: %w", a, err)
+				}
+			}
+			o.provider.Addrs = maddrs
+		}
 		return nil
 	}
 }
