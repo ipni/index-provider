@@ -140,7 +140,9 @@ func daemonCommand(cctx *cli.Context) error {
 		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)),
 		engine.WithHttpPublisherListenAddr(httpListenAddr),
 		engine.WithHttpPublisherAnnounceAddr(cfg.Ingest.HttpPublisher.AnnounceMultiaddr),
-		engine.WithSyncPolicy(syncPolicy))
+		engine.WithSyncPolicy(syncPolicy),
+		engine.WithRetrievalAddrs(cfg.ProviderServer.RetrievalMultiaddrs...),
+	)
 	if err != nil {
 		return err
 	}
