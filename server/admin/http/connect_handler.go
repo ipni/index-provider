@@ -9,6 +9,13 @@ import (
 )
 
 func (s *Server) connectHandler(w http.ResponseWriter, r *http.Request) {
+	if !methodOK(w, r, http.MethodPost) {
+		return
+	}
+	if !matchContentTypeJson(w, r) {
+		return
+	}
+
 	// Decode request
 	var req ConnectReq
 	if _, err := req.ReadFrom(r.Body); err != nil {
