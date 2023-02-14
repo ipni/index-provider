@@ -8,6 +8,10 @@ import (
 )
 
 func (s *Server) announceHandler(w http.ResponseWriter, r *http.Request) {
+	if !methodOK(w, r, http.MethodPost) {
+		return
+	}
+
 	adCid, err := s.e.PublishLatest(r.Context())
 	if err != nil {
 		log.Errorw("Could not republish latest advertisement", "err", err)
@@ -21,6 +25,10 @@ func (s *Server) announceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) announceHttpHandler(w http.ResponseWriter, r *http.Request) {
+	if !methodOK(w, r, http.MethodPost) {
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Errorw("failed reading import cidlist request", "err", err)

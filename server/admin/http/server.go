@@ -2,10 +2,10 @@ package adminserver
 
 import (
 	"context"
+	"mime"
 	"net"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/supplier"
@@ -32,35 +32,24 @@ func New(h host.Host, e *engine.Engine, cs *supplier.CarSupplier, o ...Option) (
 		return nil, err
 	}
 
-	r := mux.NewRouter().StrictSlash(true)
+	mux := http.NewServeMux()
 	server := &http.Server{
-		Handler:      r,
+		Handler:      mux,
 		ReadTimeout:  opts.readTimeout,
 		WriteTimeout: opts.writeTimeout,
 	}
 	s := &Server{server, l, h, e}
 
 	// Set protocol handlers
-	r.HandleFunc("/admin/announce", s.announceHandler).
-		Methods(http.MethodPost)
-	r.HandleFunc("/admin/announcehttp", s.announceHttpHandler).
-		Methods(http.MethodPost)
+	mux.HandleFunc("/admin/announce", s.announceHandler)
+	mux.HandleFunc("/admin/announcehttp", s.announceHttpHandler)
 
-	r.HandleFunc("/admin/connect", s.connectHandler).
-		Methods(http.MethodPost).
-		Headers("Content-Type", "application/json")
+	mux.HandleFunc("/admin/connect", s.connectHandler)
 
 	cHandler := &carHandler{cs}
-	r.HandleFunc("/admin/import/car", cHandler.handleImport).
-		Methods(http.MethodPost).
-		Headers("Content-Type", "application/json")
-
-	r.HandleFunc("/admin/remove/car", cHandler.handleRemove).
-		Methods(http.MethodPost).
-		Headers("Content-Type", "application/json")
-
-	r.HandleFunc("/admin/list/car", cHandler.handleList).
-		Methods(http.MethodGet)
+	mux.HandleFunc("/admin/import/car", cHandler.handleImport)
+	mux.HandleFunc("/admin/remove/car", cHandler.handleRemove)
+	mux.HandleFunc("/admin/list/car", cHandler.handleList)
 
 	return s, nil
 }
@@ -73,4 +62,30 @@ func (s *Server) Start() error {
 func (s *Server) Shutdown(ctx context.Context) error {
 	log.Info("admin http server shutdown")
 	return s.server.Shutdown(ctx)
+}
+
+func methodOK(w http.ResponseWriter, r *http.Request, method string) bool {
+	if r.Method != method {
+		w.Header().Set("Allow", method)
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return false
+	}
+	return true
+}
+
+func matchContentTypeJson(w http.ResponseWriter, r *http.Request) bool {
+	return matchContentType(w, r, "application/json")
+}
+
+func matchContentType(w http.ResponseWriter, r *http.Request, matchType string) bool {
+	ctHdr := r.Header.Get("Content-Type")
+	// If request does not have content type, assume it is correct.
+	if ctHdr != "" {
+		contentType, _, err := mime.ParseMediaType(ctHdr)
+		if err != nil || contentType != matchType {
+			http.Error(w, "", http.StatusUnsupportedMediaType)
+			return false
+		}
+	}
+	return true
 }

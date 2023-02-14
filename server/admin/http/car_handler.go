@@ -17,6 +17,12 @@ type carHandler struct {
 }
 
 func (h *carHandler) handleImport(w http.ResponseWriter, r *http.Request) {
+	if !methodOK(w, r, http.MethodPost) {
+		return
+	}
+	if !matchContentTypeJson(w, r) {
+		return
+	}
 	log.Info("received import CAR request")
 
 	// Decode request.
@@ -66,6 +72,12 @@ func (h *carHandler) handleImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *carHandler) handleRemove(w http.ResponseWriter, r *http.Request) {
+	if !methodOK(w, r, http.MethodPost) {
+		return
+	}
+	if !matchContentTypeJson(w, r) {
+		return
+	}
 	log.Info("Received remove CAR request")
 
 	// Decode request.
@@ -108,7 +120,11 @@ func (h *carHandler) handleRemove(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, resp)
 }
 
-func (h *carHandler) handleList(w http.ResponseWriter, _ *http.Request) {
+func (h *carHandler) handleList(w http.ResponseWriter, r *http.Request) {
+	if !methodOK(w, r, http.MethodGet) {
+		return
+	}
+
 	paths, err := h.cs.List(context.Background())
 	if err != nil {
 		err = fmt.Errorf("failed to list CARs %w", err)
