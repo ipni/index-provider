@@ -19,7 +19,7 @@ require (
 	github.com/ipld/go-car/v2 v2.4.1
 	github.com/ipld/go-codec-dagpb v1.5.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
-	github.com/ipld/go-ipld-prime v0.18.0
+	github.com/ipld/go-ipld-prime v0.19.0
 	github.com/ipni/storetheindex v0.5.3-0.20221203123030-16745cb63f15
 	github.com/libp2p/go-libp2p v0.23.2
 	github.com/libp2p/go-libp2p-pubsub v0.8.1
