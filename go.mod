@@ -19,18 +19,18 @@ require (
 	github.com/ipld/go-car/v2 v2.4.1
 	github.com/ipld/go-codec-dagpb v1.5.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
-	github.com/ipld/go-ipld-prime v0.19.0
+	github.com/ipld/go-ipld-prime v0.20.0
 	github.com/ipni/storetheindex v0.5.3-0.20221203123030-16745cb63f15
 	github.com/libp2p/go-libp2p v0.23.2
 	github.com/libp2p/go-libp2p-pubsub v0.8.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/montanaflynn/stats v0.6.6
 	github.com/multiformats/go-multiaddr v0.8.0
-	github.com/multiformats/go-multicodec v0.6.0
+	github.com/multiformats/go-multicodec v0.8.0
 	github.com/multiformats/go-multihash v0.2.1
 	github.com/multiformats/go-varint v0.0.6
 	github.com/prometheus/client_golang v1.13.0
-	github.com/rogpeppe/go-internal v1.8.1
+	github.com/rogpeppe/go-internal v1.9.0
 	github.com/stretchr/testify v1.8.0
 	github.com/urfave/cli/v2 v2.16.3
 	github.com/whyrusleeping/cbor-gen v0.0.0-20220514204315-f29c37e9c44c
@@ -172,7 +172,6 @@ require (
 	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
-	gopkg.in/errgo.v2 v2.1.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
