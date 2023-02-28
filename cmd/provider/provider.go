@@ -54,6 +54,7 @@ func run() int {
 			RemoveCmd,
 			VerifyIngestCmd,
 			Mirror.Command,
+			CompareIndexersCmd,
 		},
 	}
 

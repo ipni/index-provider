@@ -146,6 +146,64 @@ var (
 	}
 )
 
+var compareIndexersFlags = []cli.Flag{
+	sourceIndexerFlag,
+	targetIndexerFlag,
+	depthFlag,
+	topicFlag,
+	parallelismFlag,
+}
+
+var (
+	depthFlagValue int64
+	depthFlag      = &cli.Int64Flag{
+		Name:        "depth",
+		Usage:       "Max depth of advertisements to fetch during comparison",
+		Destination: &depthFlagValue,
+		Value:       2_000,
+	}
+)
+
+var (
+	parallelismFlagValue int64
+	parallelismFlag      = &cli.Int64Flag{
+		Name:        "parallelism",
+		Usage:       "Max number of concurrent goroutines to use",
+		Destination: &parallelismFlagValue,
+		Value:       50,
+	}
+)
+
+var (
+	topicFlagValue string
+	topicFlag      = &cli.StringFlag{
+		Name:        "topic",
+		Usage:       "Url of the source indexer",
+		Destination: &topicFlagValue,
+		Value:       "/indexer/ingest/mainnet",
+	}
+)
+
+var (
+	sourceIndexerFlagValue string
+	sourceIndexerFlag      = &cli.StringFlag{
+		Name:        "source",
+		Usage:       "Url of the source indexer",
+		Destination: &sourceIndexerFlagValue,
+		Required:    true,
+	}
+)
+
+var (
+	targetIndexerFlagValue string
+	targetIndexerFlag      = &cli.StringFlag{
+		Name:        "target",
+		Usage:       "Url of the target indexer",
+		Destination: &targetIndexerFlagValue,
+		Required:    true,
+	}
+)
+
 var (
 	adminAPIFlagValue string
 	adminAPIFlag      = &cli.StringFlag{

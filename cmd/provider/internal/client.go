@@ -23,6 +23,7 @@ var log = logging.Logger("client")
 type (
 	ProviderClient interface {
 		GetAdvertisement(ctx context.Context, id cid.Cid) (*Advertisement, error)
+		GetAdvertisments(ctx context.Context, id cid.Cid, depth int) ([]*Advertisement, error)
 		Close() error
 	}
 	providerClient struct {
@@ -77,9 +78,43 @@ func selectEntriesWithLimit(limit selector.RecursionLimit) datamodel.Node {
 		})).Node()
 }
 
+func (p *providerClient) GetAdvertisments(ctx context.Context, id cid.Cid, depth int) ([]*Advertisement, error) {
+	ssb := selectorbuilder.NewSelectorSpecBuilder(basicnode.Prototype.Any)
+	recursiveAdSel := ssb.ExploreRecursive(selector.RecursionLimitDepth(int64(depth)), ssb.ExploreFields(
+		func(efsb selectorbuilder.ExploreFieldsSpecBuilder) {
+			efsb.Insert("PreviousID", ssb.ExploreRecursiveEdge())
+		})).Node()
+
+	id, err := p.syncAdWithRetry(ctx, id, recursiveAdSel)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load the synced advertisement from local store.
+	ad, err := p.store.getAdvertisement(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]*Advertisement, 0, depth)
+	currId := ad.PreviousID
+
+	for i := 0; i < depth; i++ {
+		ad, err := p.store.getAdvertisement(ctx, currId)
+		if err != nil {
+			break
+		}
+		results = append(results, ad)
+		currId = ad.PreviousID
+	}
+
+	return results, nil
+
+}
+
 func (p *providerClient) GetAdvertisement(ctx context.Context, id cid.Cid) (*Advertisement, error) {
 	// Sync the advertisement without entries first.
-	id, err := p.syncAdWithRetry(ctx, id)
+	id, err := p.syncAdWithRetry(ctx, id, p.adSel)
 	if err != nil {
 		return nil, err
 	}
@@ -99,10 +134,10 @@ func (p *providerClient) GetAdvertisement(ctx context.Context, id cid.Cid) (*Adv
 	return ad, err
 }
 
-func (p *providerClient) syncAdWithRetry(ctx context.Context, id cid.Cid) (cid.Cid, error) {
+func (p *providerClient) syncAdWithRetry(ctx context.Context, id cid.Cid, sel datamodel.Node) (cid.Cid, error) {
 	var attempt uint64
 	for {
-		id, err := p.sub.Sync(ctx, p.publisher.ID, id, p.adSel, p.publisher.Addrs[0])
+		id, err := p.sub.Sync(ctx, p.publisher.ID, id, sel, p.publisher.Addrs[0])
 		if err == nil {
 			return id, nil
 		}
