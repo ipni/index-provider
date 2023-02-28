@@ -121,6 +121,8 @@ func printStats(stats []stat) {
 	match := 0
 	lagsAtTarget := 0
 	lagsAtSource := 0
+	totalLagAtSource := 0
+	totalLagAtTarget := 0
 
 	for _, s := range stats {
 		if s.err == nil {
@@ -128,8 +130,10 @@ func printStats(stats []stat) {
 				match++
 			} else if s.lag > 0 {
 				lagsAtTarget++
+				totalLagAtTarget += s.lag
 			} else {
 				lagsAtSource++
+				totalLagAtSource += -s.lag
 			}
 			continue
 		}
@@ -148,7 +152,9 @@ func printStats(stats []stat) {
 	fmt.Printf("     Total scanned:        %d\n", len(stats))
 	fmt.Printf("     Match:                %d\n", match)
 	fmt.Printf("     Lags at target:       %d\n", lagsAtTarget)
+	fmt.Printf("     Total lag at target:  %d\n", totalLagAtTarget)
 	fmt.Printf("     Lags at source:       %d\n", lagsAtSource)
+	fmt.Printf("     Total lag at source:  %d\n", totalLagAtSource)
 	fmt.Printf("     Fetch errors:         %d\n", fetchErrors)
 	fmt.Printf("     Diff to deep:         %d\n", noMatchErrors)
 	fmt.Printf("     Unknown by target:    %d\n", unknownByTargetErrors)
