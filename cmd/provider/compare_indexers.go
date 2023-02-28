@@ -226,7 +226,7 @@ func fetchAdChain(ctx context.Context, c internal.ProviderClient, addr peer.Addr
 	var err error
 	if c == nil {
 		c, err = internal.NewProviderClient(addr, internal.WithTopicName(topic),
-			internal.WithMaxSyncRetry(2),
+			internal.WithMaxSyncRetry(1),
 			internal.WithEntriesRecursionLimit(selector.RecursionLimitDepth(1)))
 
 		if err != nil {
