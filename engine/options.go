@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipni/index-provider/engine/chunker"
@@ -262,19 +262,6 @@ func WithHttpPublisherAnnounceAddr(addr string) Option {
 func WithTopicName(t string) Option {
 	return func(o *options) error {
 		o.pubTopicName = t
-		return nil
-	}
-}
-
-// WithTopic sets the pubsub topic on which new advertisements are announced.
-// To use the default pubsub configuration with a specific topic name, use WithTopicName. If both
-// options are specified, WithTopic takes presence.
-//
-// Note that this option only takes effect if the PublisherKind is set to DataTransferPublisher.
-// See: WithPublisherKind.
-func WithTopic(t *pubsub.Topic) Option {
-	return func(o *options) error {
-		o.pubTopic = t
 		return nil
 	}
 }

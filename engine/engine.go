@@ -139,9 +139,8 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		return nil, nil
 	case DataTransferPublisher:
 		dtOpts := []dtsync.Option{
-			dtsync.Topic(e.pubTopic),
 			dtsync.WithExtraData(e.pubExtraGossipData),
-			dtsync.AllowPeer(e.syncPolicy.Allowed),
+			dtsync.WithAllowPeer(e.syncPolicy.Allowed),
 		}
 
 		if e.pubDT != nil {

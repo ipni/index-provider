@@ -26,7 +26,7 @@ import (
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/announce/gossiptopic"
+	"github.com/ipni/storetheindex/announce/message"
 	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/ipni/storetheindex/dagsync/dtsync"
 	"github.com/ipni/storetheindex/dagsync/p2p/protocol/head"
@@ -140,7 +140,6 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	pubT, err := pubG.Join(topic)
 	require.NoError(t, err)
 
 	announceErrChan := make(chan error, 1)
@@ -148,7 +147,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		defer close(announceErrChan)
 		defer r.Body.Close()
 		// Decode CID and originator addresses from message.
-		an := gossiptopic.Message{}
+		an := message.Message{}
 		if err := an.UnmarshalCBOR(r.Body); err != nil {
 			announceErrChan <- err
 			http.Error(w, err.Error(), 400)
@@ -197,7 +196,6 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		engine.WithDirectAnnounce(ts.URL),
 		engine.WithHost(pubHost),
 		engine.WithPublisherKind(engine.DataTransferPublisher),
-		engine.WithTopic(pubT),
 		engine.WithTopicName(topic),
 		engine.WithExtraGossipData(wantExtraGossipData),
 	)
@@ -273,13 +271,13 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.Equal(t, pubsubMsg.GetFrom(), pubHost.ID())
 	require.Equal(t, pubsubMsg.GetTopic(), topic)
 
-	wantMessage := gossiptopic.Message{
+	wantMessage := message.Message{
 		Cid:       gotPublishedAdCid,
 		ExtraData: wantExtraGossipData,
 	}
 	wantMessage.SetAddrs(subject.Host().Addrs())
 
-	gotMessage := gossiptopic.Message{}
+	gotMessage := message.Message{}
 	err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
 	require.NoError(t, err)
 	requireEqualDagsyncMessage(t, wantMessage, gotMessage)
@@ -688,7 +686,7 @@ func verifyAd(t *testing.T, ctx context.Context, subject *engine.Engine, expecte
 	}
 }
 
-func requireEqualDagsyncMessage(t *testing.T, got, want gossiptopic.Message) {
+func requireEqualDagsyncMessage(t *testing.T, got, want message.Message) {
 	require.Equal(t, want.Cid, got.Cid)
 	require.Equal(t, want.ExtraData, got.ExtraData)
 	wantAddrs, err := want.GetAddrs()
