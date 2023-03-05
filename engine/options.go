@@ -65,8 +65,11 @@ type (
 		// default configured provider will be assumed.
 		provider peer.AddrInfo
 
-		pubKind              PublisherKind
-		pubDT                datatransfer.Manager
+		pubKind PublisherKind
+		pubDT   datatransfer.Manager
+		// pubHttpAnnounceAddrs are the addresses that are put into announce
+		// messages to tell the indexer the addresses where advertisement are
+		// published.
 		pubHttpAnnounceAddrs []multiaddr.Multiaddr
 		pubHttpListenAddr    string
 		pubTopicName         string
@@ -262,6 +265,19 @@ func WithHttpPublisherAnnounceAddr(addr string) Option {
 func WithTopicName(t string) Option {
 	return func(o *options) error {
 		o.pubTopicName = t
+		return nil
+	}
+}
+
+// WithTopic sets the pubsub topic on which new advertisements are announced.
+// To use the default pubsub configuration with a specific topic name, use WithTopicName. If both
+// options are specified, WithTopic takes presence.
+//
+// Note that this option only takes effect if the PublisherKind is set to DataTransferPublisher.
+// See: WithPublisherKind.
+func WithTopic(t *pubsub.Topic) Option {
+	return func(o *options) error {
+		o.pubTopic = t
 		return nil
 	}
 }

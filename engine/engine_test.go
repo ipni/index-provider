@@ -140,8 +140,6 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.NoError(t, err)
-
 	announceErrChan := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer close(announceErrChan)
@@ -167,7 +165,8 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-
+		// Since the message is coming from a dtsync publisher, the addresses
+		// should include a p2p ID.
 		ais, err := peer.AddrInfosFromP2pAddrs(addrs...)
 		if err != nil {
 			announceErrChan <- err
@@ -187,15 +186,18 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer ts.Close()
+
+	pubT, err := pubG.Join(topic)
+	require.NoError(t, err)
 
 	subject, err := engine.New(
 		engine.WithDirectAnnounce(ts.URL),
 		engine.WithHost(pubHost),
 		engine.WithPublisherKind(engine.DataTransferPublisher),
+		engine.WithTopic(pubT),
 		engine.WithTopicName(topic),
 		engine.WithExtraGossipData(wantExtraGossipData),
 	)
@@ -686,7 +688,7 @@ func verifyAd(t *testing.T, ctx context.Context, subject *engine.Engine, expecte
 	}
 }
 
-func requireEqualDagsyncMessage(t *testing.T, got, want message.Message) {
+func requireEqualDagsyncMessage(t *testing.T, want, got message.Message) {
 	require.Equal(t, want.Cid, got.Cid)
 	require.Equal(t, want.ExtraData, got.ExtraData)
 	wantAddrs, err := want.GetAddrs()

@@ -18,7 +18,10 @@ import (
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/metadata"
-	httpclient "github.com/ipni/storetheindex/api/v0/ingest/client/http"
+	"github.com/ipni/storetheindex/announce"
+	"github.com/ipni/storetheindex/announce/httpsender"
+	"github.com/ipni/storetheindex/announce/message"
+	"github.com/ipni/storetheindex/announce/p2psender"
 	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/ipni/storetheindex/dagsync"
 	"github.com/ipni/storetheindex/dagsync/dtsync"
@@ -137,22 +140,47 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	case NoPublisher:
 		log.Info("Remote announcements is disabled; all advertisements will only be store locally.")
 		return nil, nil
-	case DataTransferPublisher:
-		dtOpts := []dtsync.Option{
-			dtsync.WithExtraData(e.pubExtraGossipData),
-			dtsync.WithAllowPeer(e.syncPolicy.Allowed),
-		}
-
-		if e.pubDT != nil {
-			return dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtOpts...)
-		}
-		ds := dsn.Wrap(e.ds, datastore.NewKey("/dagsync/dtsync/pub"))
-		return dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtOpts...)
-	case HttpPublisher:
-		return httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.h.ID(), e.key)
+	case DataTransferPublisher, HttpPublisher:
 	default:
 		return nil, fmt.Errorf("unknown publisher kind: %s", e.pubKind)
 	}
+
+	var senders []announce.Sender
+
+	// If there are announce URLs, then creage an announce sender to send
+	// direct HTTP announce messages to these URLs.
+	if len(e.announceURLs) != 0 {
+		httpSender, err := httpsender.New(e.announceURLs, e.h.ID())
+		if err != nil {
+			return nil, fmt.Errorf("cannot create http announce sender: %w", err)
+		}
+		senders = append(senders, httpSender)
+	}
+
+	// If there is a libp2p host, then create a gossip pubsub announce sender.
+	if e.h != nil {
+		// Create an announce sender to send over gossip pubsub.
+		p2pSender, err := p2psender.New(e.h, e.pubTopicName, p2psender.WithTopic(e.pubTopic))
+		if err != nil {
+			return nil, err
+		}
+		senders = append(senders, p2pSender)
+	}
+
+	if e.pubKind == HttpPublisher {
+		return httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key, httpsync.WithAnnounceSenders(senders...))
+	}
+
+	dtOpts := []dtsync.Option{
+		dtsync.WithExtraData(e.pubExtraGossipData),
+		dtsync.WithAllowPeer(e.syncPolicy.Allowed),
+		dtsync.WithAnnounceSenders(senders...),
+	}
+	if e.pubDT != nil {
+		return dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtOpts...)
+	}
+	ds := dsn.Wrap(e.ds, datastore.NewKey("/dagsync/dtsync/pub"))
+	return dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtOpts...)
 }
 
 // PublishLocal stores the advertisement in the local link system and marks it
@@ -204,16 +232,15 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	// Only announce the advertisement CID if publisher is configured.
 	if e.publisher != nil {
 		log := log.With("adCid", c)
-		log.Info("Announcing advertisement in pubsub channel")
-		err = e.publisher.UpdateRoot(ctx, c)
-		if err != nil {
-			log.Errorw("Failed to announce advertisement on pubsub channel ", "err", err)
-			return cid.Undef, err
+		if len(e.announceURLs) == 0 {
+			log.Info("Announcing advertisement in pubsub channel")
+		} else {
+			log.Info("Announcing advertisement in pubsub channel and via http")
 		}
 
-		err = e.httpAnnounce(ctx, c, e.announceURLs)
+		err = e.publisher.UpdateRoot(ctx, c)
 		if err != nil {
-			log.Errorw("Failed to announce advertisement via http", "err", err)
+			log.Errorw("Failed to announce advertisement", "err", err)
 			return cid.Undef, err
 		}
 	}
@@ -277,9 +304,13 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if len(announceURLs) == 0 {
+		return nil
+	}
 
-	ai := &peer.AddrInfo{
-		ID: e.h.ID(),
+	// Create announce message.
+	msg := message.Message{
+		Cid: adCid,
 	}
 
 	// The publisher kind determines what addresses to put into the announce
@@ -289,43 +320,23 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 		log.Info("Remote announcements disabled")
 		return nil
 	case DataTransferPublisher:
-		ai.Addrs = e.h.Addrs()
+		msg.SetAddrs(e.h.Addrs())
 	case HttpPublisher:
 		if len(e.pubHttpAnnounceAddrs) != 0 {
-			ai.Addrs = e.pubHttpAnnounceAddrs
+			msg.SetAddrs(e.pubHttpAnnounceAddrs)
 		} else {
-			ai.Addrs = e.publisher.Addrs()
+			msg.SetAddrs(e.publisher.Addrs())
 		}
 	}
 
-	errChan := make(chan error)
-	for _, u := range announceURLs {
-		// Send HTTP announce to indexers concurrently. If context is canceled,
-		// then Announce requests will be canceled.
-		go func(announceURL *url.URL) {
-			log.Infow("Announcing advertisement over HTTP", "url", announceURL)
-			cl, err := httpclient.New(announceURL.String())
-			if err != nil {
-				errChan <- fmt.Errorf("failed to create http client for indexer %s: %w", announceURL, err)
-				return
-			}
-			err = cl.Announce(ctx, ai, adCid)
-			if err != nil {
-				errChan <- fmt.Errorf("failed to send http announce to indexer %s: %w", announceURL, err)
-				return
-			}
-			errChan <- nil
-		}(u)
+	// Create the http announce sender.
+	httpSender, err := httpsender.New(announceURLs, e.h.ID())
+	if err != nil {
+		return fmt.Errorf("cannot create http announce sender: %w", err)
 	}
 
-	var errs error
-	for i := 0; i < len(announceURLs); i++ {
-		err := <-errChan
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
+	log.Infow("Announcing advertisements over HTTP", "urls", announceURLs)
+	return httpSender.Send(ctx, msg)
 }
 
 // RegisterMultihashLister registers a provider.MultihashLister that is used to
