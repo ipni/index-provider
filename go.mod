@@ -18,7 +18,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.5.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.20.0
-	github.com/ipni/storetheindex v0.5.10-0.20230306200852-52ef0e581f7d
+	github.com/ipni/storetheindex v0.5.9
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -89,7 +89,7 @@ require (
 	github.com/filecoin-project/go-cbor-util v0.0.1 // indirect
 	github.com/filecoin-project/go-data-transfer/v2 v2.0.0-rc4
 	github.com/filecoin-project/go-ds-versioning v0.1.2 // indirect
-	github.com/filecoin-project/go-retrieval-types v1.1.0
+	github.com/filecoin-project/go-retrieval-types v1.2.0
 	github.com/filecoin-project/go-statemachine v1.0.2 // indirect
 	github.com/filecoin-project/go-statestore v0.2.0 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
