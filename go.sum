@@ -479,8 +479,8 @@ github.com/ipni/dhstore v0.0.2-0.20230120184057-c54e9d7c72f7 h1:w4sIScjReSAME4FK
 github.com/ipni/dhstore v0.0.2-0.20230120184057-c54e9d7c72f7/go.mod h1:CIz5tpqY9GRSTx2ZML3tmvCZzdDCudDuE3DP57R4ZYo=
 github.com/ipni/go-indexer-core v0.7.2-0.20230221145318-9aef8658e4ea h1:hdbpvjYl7ZB7w9eGn8thjsHNhIzUTEgJyrkF4WrEG8Q=
 github.com/ipni/go-indexer-core v0.7.2-0.20230221145318-9aef8658e4ea/go.mod h1:M8xYlU9CwIm+JbS44B2br+qlyoc6Pm3C8u2Vsov6Fzk=
-github.com/ipni/storetheindex v0.5.10-0.20230306210254-86d8c969ed75 h1:BKOYpeJ18SkU3SL1zghP4ULfavdbjoPxGTwXYVbFgwQ=
-github.com/ipni/storetheindex v0.5.10-0.20230306210254-86d8c969ed75/go.mod h1:xN8U+Ms06QBNbdMyjD5t9JjHyFs20MZWttzuR1Izz8U=
+github.com/ipni/storetheindex v0.5.10-0.20230306231053-2eb82d8535f1 h1:Ceb6F4OQgHaBZdZ81lxqWVcIzgYEgSQLFKxxDwCzjMs=
+github.com/ipni/storetheindex v0.5.10-0.20230306231053-2eb82d8535f1/go.mod h1:alvUkUmU59HPHUiiGBmsyrUhyv4e2XjxtIq3+f9St1k=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52 h1:QG4CGBqCeuBo6aZlGAamSkxWdgWfZGeE49eUOWJPA4c=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52/go.mod h1:fdg+/X9Gg4AsAIzWpEHwnqd+QY3b7lajxyjE1m4hkq4=
 github.com/iris-contrib/blackfriday v2.0.0+incompatible/go.mod h1:UzZ2bDEoaSGPbkg6SAB4att1aAwTmVIx/5gCVqeyUdI=

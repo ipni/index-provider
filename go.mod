@@ -18,7 +18,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.5.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.20.0
-	github.com/ipni/storetheindex v0.5.10-0.20230306210254-86d8c969ed75
+	github.com/ipni/storetheindex v0.5.10-0.20230306231053-2eb82d8535f1
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
 	github.com/mitchellh/go-homedir v1.1.0
