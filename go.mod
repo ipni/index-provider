@@ -10,15 +10,15 @@ require (
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/ipfs/go-delegated-routing v0.7.0
 	github.com/ipfs/go-ds-leveldb v0.5.0
-	github.com/ipfs/go-graphsync v0.14.0
+	github.com/ipfs/go-graphsync v0.14.1
 	github.com/ipfs/go-ipfs-blockstore v1.2.0
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/ipfs/kubo v0.17.0
+	github.com/ipfs/kubo v0.18.1
 	github.com/ipld/go-car/v2 v2.7.0
 	github.com/ipld/go-codec-dagpb v1.5.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.20.0
-	github.com/ipni/storetheindex v0.5.9
+	github.com/ipni/storetheindex v0.5.10-0.20230306210254-86d8c969ed75
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -173,11 +173,11 @@ require (
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/syndtr/goleveldb v1.0.0 // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/whyrusleeping/cbor v0.0.0-20171005072247-63513f603b11 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	go.opencensus.io v0.23.0 // indirect
+	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.10.0 // indirect
 	go.opentelemetry.io/otel/trace v1.12.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
