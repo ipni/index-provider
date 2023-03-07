@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/libp2p/go-libp2p-testing/ci"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestScript(t *testing.T) {
+	if !ci.IsRunning() {
+		t.Skip("Skipping when run in CI")
+	}
 	t.Parallel()
 	testscript.Run(t, testscript.Params{
 		Dir: filepath.Join("testdata", "script"),
