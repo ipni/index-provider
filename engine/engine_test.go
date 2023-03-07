@@ -26,7 +26,7 @@ import (
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/announce/gossiptopic"
+	"github.com/ipni/storetheindex/announce/message"
 	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/ipni/storetheindex/dagsync/dtsync"
 	"github.com/ipni/storetheindex/dagsync/p2p/protocol/head"
@@ -140,15 +140,12 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	pubT, err := pubG.Join(topic)
-	require.NoError(t, err)
-
 	announceErrChan := make(chan error, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer close(announceErrChan)
 		defer r.Body.Close()
 		// Decode CID and originator addresses from message.
-		an := gossiptopic.Message{}
+		an := message.Message{}
 		if err := an.UnmarshalCBOR(r.Body); err != nil {
 			announceErrChan <- err
 			http.Error(w, err.Error(), 400)
@@ -168,7 +165,8 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-
+		// Since the message is coming from a dtsync publisher, the addresses
+		// should include a p2p ID.
 		ais, err := peer.AddrInfosFromP2pAddrs(addrs...)
 		if err != nil {
 			announceErrChan <- err
@@ -188,10 +186,12 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer ts.Close()
+
+	pubT, err := pubG.Join(topic)
+	require.NoError(t, err)
 
 	subject, err := engine.New(
 		engine.WithDirectAnnounce(ts.URL),
@@ -273,13 +273,13 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.Equal(t, pubsubMsg.GetFrom(), pubHost.ID())
 	require.Equal(t, pubsubMsg.GetTopic(), topic)
 
-	wantMessage := gossiptopic.Message{
+	wantMessage := message.Message{
 		Cid:       gotPublishedAdCid,
 		ExtraData: wantExtraGossipData,
 	}
 	wantMessage.SetAddrs(subject.Host().Addrs())
 
-	gotMessage := gossiptopic.Message{}
+	gotMessage := message.Message{}
 	err = gotMessage.UnmarshalCBOR(bytes.NewBuffer(pubsubMsg.Data))
 	require.NoError(t, err)
 	requireEqualDagsyncMessage(t, wantMessage, gotMessage)
@@ -688,7 +688,7 @@ func verifyAd(t *testing.T, ctx context.Context, subject *engine.Engine, expecte
 	}
 }
 
-func requireEqualDagsyncMessage(t *testing.T, got, want gossiptopic.Message) {
+func requireEqualDagsyncMessage(t *testing.T, want, got message.Message) {
 	require.Equal(t, want.Cid, got.Cid)
 	require.Equal(t, want.ExtraData, got.ExtraData)
 	wantAddrs, err := want.GetAddrs()

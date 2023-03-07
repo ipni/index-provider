@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipni/index-provider/engine/chunker"
@@ -65,8 +65,11 @@ type (
 		// default configured provider will be assumed.
 		provider peer.AddrInfo
 
-		pubKind              PublisherKind
-		pubDT                datatransfer.Manager
+		pubKind PublisherKind
+		pubDT   datatransfer.Manager
+		// pubHttpAnnounceAddrs are the addresses that are put into announce
+		// messages to tell the indexer the addresses where advertisement are
+		// published.
 		pubHttpAnnounceAddrs []multiaddr.Multiaddr
 		pubHttpListenAddr    string
 		pubTopicName         string

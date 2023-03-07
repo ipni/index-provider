@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -132,10 +133,10 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	err = dtm.UnmarshalBinary(adv.Metadata)
 	require.NoError(t, err)
 
-	proposal := &cardatatransfer.DealProposal{
+	proposal := &retrievaltypes.DealProposal{
 		PayloadCID: roots[0],
 		ID:         1,
-		Params: cardatatransfer.Params{
+		Params: retrievaltypes.Params{
 			PieceCID: &dtm.PieceCID,
 		},
 	}
@@ -149,11 +150,8 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 		}
 	})
 	defer unsub()
-	err = client.dt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
 	require.NoError(t, err)
-	err = client.dt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
-	require.NoError(t, err)
-	_, err = client.dt.OpenPullDataChannel(ctx, server.h.ID(), proposal, roots[0], selectorparse.CommonSelector_ExploreAllRecursively)
+	_, err = client.dt.OpenPullDataChannel(ctx, server.h.ID(), proposal.AsVoucher(), roots[0], selectorparse.CommonSelector_ExploreAllRecursively)
 	require.NoError(t, err)
 
 	select {

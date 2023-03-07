@@ -2,8 +2,8 @@ package reframe
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
-	"math/rand"
 	"sort"
 
 	"github.com/ipfs/go-cid"

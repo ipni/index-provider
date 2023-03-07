@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer/impl"
-	dtnetwork "github.com/filecoin-project/go-data-transfer/network"
-	gstransport "github.com/filecoin-project/go-data-transfer/transport/graphsync"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2/impl"
+	dtnetwork "github.com/filecoin-project/go-data-transfer/v2/network"
+	gstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
 	gsnet "github.com/ipfs/go-graphsync/network"

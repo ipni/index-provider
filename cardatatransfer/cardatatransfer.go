@@ -1,16 +1,17 @@
 package cardatatransfer
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	dtgs "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
+	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-graphsync/storeutil"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
+	"github.com/ipld/go-ipld-prime/datamodel"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
@@ -23,12 +24,13 @@ import (
 
 var log = logging.Logger("car-data-transfer")
 
-var allSelectorBytes []byte
+type ProviderDealID struct {
+	DealID   retrievaltypes.DealID
+	Receiver peer.ID
+}
 
-func init() {
-	buf := new(bytes.Buffer)
-	_ = dagcbor.Encode(selectorparse.CommonSelector_ExploreAllRecursively, buf)
-	allSelectorBytes = buf.Bytes()
+func (p ProviderDealID) String() string {
+	return fmt.Sprintf("%v/%v", p.Receiver, p.DealID)
 }
 
 type BlockStoreSupplier interface {
@@ -47,15 +49,11 @@ func StartCarDataTransfer(dt datatransfer.Manager, supplier BlockStoreSupplier) 
 		supplier: supplier,
 		stores:   stores.NewReadOnlyBlockstores(),
 	}
-	err := dt.RegisterVoucherType(&DealProposal{}, cdt)
+	err := dt.RegisterVoucherType(retrievaltypes.DealProposalType, cdt)
 	if err != nil {
 		return err
 	}
-	err = dt.RegisterVoucherResultType(&DealResponse{})
-	if err != nil {
-		return err
-	}
-	err = dt.RegisterTransportConfigurer(&DealProposal{}, cdt.transportConfigurer)
+	err = dt.RegisterTransportConfigurer(retrievaltypes.DealProposalType, cdt.transportConfigurer)
 	if err != nil {
 		return err
 	}
@@ -81,40 +79,42 @@ func TransportFromContextID(contextID []byte) (metadata.Protocol, error) {
 }
 
 // ValidatePush validates a push request received from the peer that will send data
-func (cdt *carDataTransfer) ValidatePush(isRestart bool, _ datatransfer.ChannelID, sender peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	return nil, errors.New("no pushes accepted")
+func (cdt *carDataTransfer) ValidatePush(_ datatransfer.ChannelID, sender peer.ID, voucher datamodel.Node, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+	return datatransfer.ValidationResult{}, errors.New("no pushes accepted")
+}
+
+func rejectProposal(proposal *retrievaltypes.DealProposal, status retrievaltypes.DealStatus, reason string) (datatransfer.ValidationResult, error) {
+	vr := (&retrievaltypes.DealResponse{
+		ID:      proposal.ID,
+		Status:  status,
+		Message: reason,
+	}).AsVoucher()
+	return datatransfer.ValidationResult{
+		Accepted:      false,
+		VoucherResult: &vr,
+	}, nil
 }
 
 // ValidatePull validates a pull request received from the peer that will receive data
-func (cdt *carDataTransfer) ValidatePull(isRestart bool, _ datatransfer.ChannelID, receiver peer.ID, voucher datatransfer.Voucher, baseCid cid.Cid, selector ipld.Node) (datatransfer.VoucherResult, error) {
-	proposal, ok := voucher.(*DealProposal)
-	if !ok {
-		return nil, errors.New("wrong voucher type")
+func (cdt *carDataTransfer) ValidatePull(_ datatransfer.ChannelID, receiver peer.ID, voucher datamodel.Node, baseCid cid.Cid, selector ipld.Node) (datatransfer.ValidationResult, error) {
+
+	proposal, err := retrievaltypes.DealProposalFromNode(voucher)
+	if err != nil {
+		return datatransfer.ValidationResult{}, err
 	}
 
 	// Check the proposal CID matches
 	if proposal.PayloadCID != baseCid {
-		return nil, errors.New("incorrect CID for this proposal")
+		return rejectProposal(proposal, retrievaltypes.DealStatusRejected, "incorrect CID for this proposal")
 	}
 
 	// Check the proposal selector matches
-	buf := new(bytes.Buffer)
-	err := dagcbor.Encode(selector, buf)
-	if err != nil {
-		return nil, err
-	}
-	bytesCompare := allSelectorBytes
+	sel := selectorparse.CommonSelector_ExploreAllRecursively
 	if proposal.SelectorSpecified() {
-		bytesCompare = proposal.Selector.Raw
+		sel = proposal.Selector.Node
 	}
-	if !bytes.Equal(buf.Bytes(), bytesCompare) {
-		return nil, errors.New("incorrect selector for this proposal")
-	}
-
-	// If the validation is for a restart request, return nil, which means
-	// the data-transfer should not be explicitly paused or resumed
-	if isRestart {
-		return nil, nil
+	if !ipld.DeepEqual(sel, selector) {
+		return rejectProposal(proposal, retrievaltypes.DealStatusRejected, "incorrect selector specified for this proposal")
 	}
 
 	// attempt to setup the deal
@@ -122,44 +122,76 @@ func (cdt *carDataTransfer) ValidatePull(isRestart bool, _ datatransfer.ChannelI
 
 	status, err := cdt.attemptAcceptDeal(providerDealID, proposal)
 
-	response := DealResponse{
+	response := retrievaltypes.DealResponse{
 		ID:     proposal.ID,
 		Status: status,
 	}
 
+	accepted := true
 	if err != nil {
 		response.Message = err.Error()
-		return &response, err
+		accepted = false
 	}
-	return &response, nil
+	vr := response.AsVoucher()
+	return datatransfer.ValidationResult{
+		Accepted:      accepted,
+		VoucherResult: &vr,
+	}, nil
 }
 
-func (cdt *carDataTransfer) attemptAcceptDeal(providerDealID ProviderDealID, proposal *DealProposal) (DealStatus, error) {
+func (cdt *carDataTransfer) ValidateRestart(channelID datatransfer.ChannelID, channelState datatransfer.ChannelState) (datatransfer.ValidationResult, error) {
+	voucher := channelState.Voucher()
+	proposal, err := retrievaltypes.DealProposalFromNode(voucher.Voucher)
+	if err != nil {
+		return datatransfer.ValidationResult{}, errors.New("wrong voucher type")
+	}
+	providerDealID := ProviderDealID{DealID: proposal.ID, Receiver: channelState.OtherPeer()}
+
+	status, err := cdt.attemptAcceptDeal(providerDealID, proposal)
+
+	response := retrievaltypes.DealResponse{
+		ID:     proposal.ID,
+		Status: status,
+	}
+
+	accepted := true
+	if err != nil {
+		response.Message = err.Error()
+		accepted = false
+	}
+	vr := response.AsVoucher()
+	return datatransfer.ValidationResult{
+		Accepted:      accepted,
+		VoucherResult: &vr,
+	}, nil
+
+}
+func (cdt *carDataTransfer) attemptAcceptDeal(providerDealID ProviderDealID, proposal *retrievaltypes.DealProposal) (retrievaltypes.DealStatus, error) {
 	if proposal.PieceCID == nil {
-		return DealStatusErrored, errors.New("must specific piece CID")
+		return retrievaltypes.DealStatusErrored, errors.New("must specific piece CID")
 	}
 
 	// get contextID
 	prefix := proposal.PieceCID.Prefix()
 	if prefix.Codec != uint64(multicodec.TransportGraphsyncFilecoinv1) {
-		return DealStatusErrored, errors.New("incorrect Piece CID codec")
+		return retrievaltypes.DealStatusErrored, errors.New("incorrect Piece CID codec")
 	}
 	if prefix.MhType != multihash.IDENTITY {
-		return DealStatusErrored, errors.New("piece CID must be an identity CI")
+		return retrievaltypes.DealStatusErrored, errors.New("piece CID must be an identity CI")
 	}
 	dmh, err := multihash.Decode(proposal.PieceCID.Hash())
 	if err != nil {
-		return DealStatusErrored, errors.New("unable to decode piece CID")
+		return retrievaltypes.DealStatusErrored, errors.New("unable to decode piece CID")
 	}
 	contextID := dmh.Digest
 
 	// read blockstore from supplier
 	bs, err := cdt.supplier.ReadOnlyBlockstore(contextID)
 	if err != nil {
-		return DealStatusErrored, fmt.Errorf("error reading blockstore: %w", err)
+		return retrievaltypes.DealStatusErrored, fmt.Errorf("error reading blockstore: %w", err)
 	}
 	cdt.stores.Track(providerDealID.String(), bs)
-	return DealStatusAccepted, nil
+	return retrievaltypes.DealStatusAccepted, nil
 }
 
 func checkTermination(event datatransfer.Event, channelState datatransfer.ChannelState) bool {
@@ -170,9 +202,9 @@ func checkTermination(event datatransfer.Event, channelState datatransfer.Channe
 }
 
 func (cdt *carDataTransfer) eventListener(event datatransfer.Event, channelState datatransfer.ChannelState) {
-	dealProposal, ok := channelState.Voucher().(*DealProposal)
+	dealProposal, err := retrievaltypes.DealProposalFromNode(channelState.Voucher().Voucher)
 	// if this event is for a transfer not related to storage, ignore
-	if !ok {
+	if err != nil {
 		return
 	}
 
@@ -192,26 +224,21 @@ type StoreConfigurableTransport interface {
 	UseStore(datatransfer.ChannelID, ipld.LinkSystem) error
 }
 
-func (ctd *carDataTransfer) transportConfigurer(channelID datatransfer.ChannelID, voucher datatransfer.Voucher, transport datatransfer.Transport) {
-	dealProposal, ok := voucher.(*DealProposal)
-	if !ok {
-		return
+func (ctd *carDataTransfer) transportConfigurer(channelID datatransfer.ChannelID, voucher datatransfer.TypedVoucher) []datatransfer.TransportOption {
+
+	dealProposal, err := retrievaltypes.DealProposalFromNode(voucher.Voucher)
+	if err != nil {
+		return nil
 	}
-	gsTransport, ok := transport.(StoreConfigurableTransport)
-	if !ok {
-		return
-	}
+
 	providerDealID := ProviderDealID{Receiver: channelID.Initiator, DealID: dealProposal.ID}
 	store, err := ctd.stores.Get(providerDealID.String())
 	if err != nil {
 		log.Errorf("attempting to configure data store: %s", err)
-		return
+		return nil
 	}
 	if store == nil {
-		return
+		return nil
 	}
-	err = gsTransport.UseStore(channelID, storeutil.LinkSystemForBlockstore(store))
-	if err != nil {
-		log.Errorf("attempting to configure data store: %s", err)
-	}
+	return []datatransfer.TransportOption{dtgs.UseStore(storeutil.LinkSystemForBlockstore(store))}
 }

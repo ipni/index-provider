@@ -17,7 +17,6 @@ import (
 	bstore "github.com/ipfs/go-ipfs-blockstore"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipld/go-ipld-prime/codec/dagcbor"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -28,9 +27,9 @@ import (
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer"
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
 	"github.com/ipni/index-provider/cardatatransfer"
 	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/supplier"
@@ -67,10 +66,6 @@ func TestCarDataTransfer(t *testing.T) {
 			efsb.Insert("Hash", ssb.Matcher())
 		})))
 	}).Node()
-	buf := new(bytes.Buffer)
-	err = dagcbor.Encode(partialSelector, buf)
-	require.NoError(t, err)
-	psBytes := buf.Bytes()
 
 	partialBs, partialCount := copySelectorOutputToBlockstore(t, rdOnlyBS2, roots2[0], partialSelector, dagpb.Type.PBNode)
 	require.Equal(t, partialCount, 2)
@@ -82,7 +77,7 @@ func TestCarDataTransfer(t *testing.T) {
 	incorrectPieceCid := testutil.RandomCids(t, rng, 1)[0]
 
 	testCases := map[string]struct {
-		voucher                  datatransfer.Voucher
+		voucher                  datatransfer.TypedVoucher
 		root                     cid.Cid
 		selector                 ipld.Node
 		expectSuccess            bool
@@ -90,65 +85,65 @@ func TestCarDataTransfer(t *testing.T) {
 		expectedBlockstoreResult bstore.Blockstore
 	}{
 		"select all": {
-			voucher: &cardatatransfer.DealProposal{
+			voucher: (&retrievaltypes.DealProposal{
 				PayloadCID: roots1[0],
 				ID:         1,
-				Params: cardatatransfer.Params{
+				Params: retrievaltypes.Params{
 					PieceCID: &pieceCID1,
 				},
-			},
+			}).AsVoucher(),
 			root:                     roots1[0],
 			selector:                 selectorparse.CommonSelector_ExploreAllRecursively,
 			expectSuccess:            true,
 			expectedBlockstoreResult: rdOnlyBS1,
 		},
 		"select partial": {
-			voucher: &cardatatransfer.DealProposal{
+			voucher: (&retrievaltypes.DealProposal{
 				PayloadCID: roots2[0],
 				ID:         2,
-				Params: cardatatransfer.Params{
+				Params: retrievaltypes.Params{
 					PieceCID: &pieceCID2,
-					Selector: &cbg.Deferred{
-						Raw: psBytes,
+					Selector: retrievaltypes.CborGenCompatibleNode{
+						Node: partialSelector,
 					},
 				},
-			},
+			}).AsVoucher(),
 			root:                     roots2[0],
 			selector:                 partialSelector,
 			expectSuccess:            true,
 			expectedBlockstoreResult: partialBs,
 		},
 		"no blockstore for context ID": {
-			voucher: &cardatatransfer.DealProposal{
+			voucher: (&retrievaltypes.DealProposal{
 				PayloadCID: missingCid,
 				ID:         3,
-				Params: cardatatransfer.Params{
+				Params: retrievaltypes.Params{
 					PieceCID: &missingPieceCID,
 				},
-			},
+			}).AsVoucher(),
 			root:          missingCid,
 			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			expectSuccess: false,
 			expectMessage: "error reading blockstore: Not found!",
 		},
 		"piece cid that has no context id": {
-			voucher: &cardatatransfer.DealProposal{
+			voucher: (&retrievaltypes.DealProposal{
 				PayloadCID: roots1[0],
 				ID:         4,
-				Params: cardatatransfer.Params{
+				Params: retrievaltypes.Params{
 					PieceCID: &incorrectPieceCid,
 				},
-			},
+			}).AsVoucher(),
 			root:          roots1[0],
 			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			expectSuccess: false,
 			expectMessage: "incorrect Piece CID codec",
 		},
 		"no piece cid": {
-			voucher: &cardatatransfer.DealProposal{
+			voucher: (&retrievaltypes.DealProposal{
 				PayloadCID: roots1[0],
 				ID:         5,
-			},
+			}).AsVoucher(),
 			root:          roots1[0],
 			selector:      selectorparse.CommonSelector_ExploreAllRecursively,
 			expectSuccess: false,
@@ -185,8 +180,8 @@ func TestCarDataTransfer(t *testing.T) {
 			var dstMessage string
 			dstDt.SubscribeToEvents(func(event datatransfer.Event, channelState datatransfer.ChannelState) {
 				if event.Code == datatransfer.NewVoucherResult {
-					vr, ok := channelState.LastVoucherResult().(*cardatatransfer.DealResponse)
-					if ok {
+					vr, err := retrievaltypes.DealResponseFromNode(channelState.LastVoucherResult().Voucher)
+					if err == nil {
 						dstMessage = vr.Message
 					}
 				}
@@ -197,9 +192,7 @@ func TestCarDataTransfer(t *testing.T) {
 					dstResultChan <- true
 				}
 			})
-			err = dstDt.RegisterVoucherResultType(&cardatatransfer.DealResponse{})
-			require.NoError(t, err)
-			err = dstDt.RegisterVoucherType(&cardatatransfer.DealProposal{}, nil)
+			err = dstDt.RegisterVoucherType(retrievaltypes.DealProposalType, nil)
 			require.NoError(t, err)
 			_, err = dstDt.OpenPullDataChannel(ctx, srcHost.ID(), data.voucher, data.root, data.selector)
 			require.NoError(t, err)
