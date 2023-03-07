@@ -8,7 +8,6 @@ builds:
       - darwin
     goarch:
       - 'amd64'
-      - '386'
 release:
   # Do not override manually written release notes.
   mode: keep-existing
