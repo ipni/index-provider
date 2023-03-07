@@ -21,7 +21,6 @@ require (
 	github.com/ipni/storetheindex v0.5.10-0.20230307012823-8641f69c64bb
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
-	github.com/libp2p/go-libp2p-testing v0.12.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/montanaflynn/stats v0.6.6
 	github.com/multiformats/go-multiaddr v0.8.0
