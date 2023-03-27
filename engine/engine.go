@@ -391,6 +391,11 @@ func (e *Engine) NotifyRemove(ctx context.Context, provider peer.ID, contextID [
 	return e.publishAdvForIndex(ctx, provider, nil, contextID, metadata.Metadata{}, true)
 }
 
+// LinkSystem gets the link system used by the engine to store and retrieve advertisement data.
+func (e *Engine) LinkSystem() *ipld.LinkSystem {
+	return &e.lsys
+}
+
 // Shutdown shuts down the engine and discards all resources opened by the
 // engine. The engine is no longer usable after the call to this function.
 func (e *Engine) Shutdown() error {

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-datastore"
-	"github.com/ipld/go-ipld-prime"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -25,11 +24,6 @@ func (e *Engine) Chunker() *chunker.CachedEntriesChunker {
 // Key returns the engine's private key, exposed for testing purposes only.
 func (e *Engine) Key() crypto.PrivKey {
 	return e.key
-}
-
-// LinkSystem returns the engine's linksystem, exposed for testing purposes only.
-func (e *Engine) LinkSystem() *ipld.LinkSystem {
-	return &e.lsys
 }
 
 // ProviderID returns the engine's default provider ID, exposed for testing purposes only.
