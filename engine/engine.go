@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -15,17 +16,17 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
+	"github.com/ipni/go-libipni/announce"
+	"github.com/ipni/go-libipni/announce/httpsender"
+	"github.com/ipni/go-libipni/announce/message"
+	"github.com/ipni/go-libipni/announce/p2psender"
+	"github.com/ipni/go-libipni/dagsync"
+	"github.com/ipni/go-libipni/dagsync/dtsync"
+	"github.com/ipni/go-libipni/dagsync/httpsync"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/metadata"
-	"github.com/ipni/storetheindex/announce"
-	"github.com/ipni/storetheindex/announce/httpsender"
-	"github.com/ipni/storetheindex/announce/message"
-	"github.com/ipni/storetheindex/announce/p2psender"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
-	"github.com/ipni/storetheindex/dagsync"
-	"github.com/ipni/storetheindex/dagsync/dtsync"
-	"github.com/ipni/storetheindex/dagsync/httpsync"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -64,12 +65,12 @@ var _ provider.Interface = (*Engine)(nil)
 // provider.Interface. It provides the ability to advertise the availability of
 // a list of multihashes associated to a context ID as a chain of linked
 // advertisements as defined by the indexer node protocol implemented by
-// "storetheindex".
+// "go-libipni".
 //
-// Engine internally uses "storetheindex/dagsync", a protocol for propagating and
+// Engine internally uses "go-libipni/dagsync", a protocol for propagating and
 // synchronizing changes an IPLD DAG, to publish advertisements. See:
 //
-//   - https://github.com/ipni/storetheindex/tree/main/dagsync
+//   - https://github.com/ipni/go-libipni/tree/main/dagsync
 //
 // Published advertisements are signed using the given private key. The
 // retAddrs corresponds to the endpoints at which the data block associated to
@@ -221,7 +222,7 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 // the latest advertisement by the provider to indexer nodes.
 //
 // The publication mechanism uses dagsync.Publisher internally.
-// See: https://github.com/ipni/storetheindex/tree/main/dagsync
+// See: https://github.com/ipni/go-libipni/tree/main/dagsync
 func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid, error) {
 	c, err := e.PublishLocal(ctx, adv)
 	if err != nil {
@@ -670,7 +671,7 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndConte
 	if err == nil {
 		return &providerAndContext{ContextID: val}, nil
 	}
-	if err != datastore.ErrNotFound {
+	if !errors.Is(err, datastore.ErrNotFound) {
 		return nil, err
 	}
 	// trying to fetch this mapping from the new index
@@ -718,7 +719,7 @@ func (e *Engine) putLatestAdv(ctx context.Context, advID []byte) error {
 func (e *Engine) getLatestAdCid(ctx context.Context) (cid.Cid, error) {
 	b, err := e.ds.Get(ctx, dsLatestAdvKey)
 	if err != nil {
-		if err == datastore.ErrNotFound {
+		if errors.Is(err, datastore.ErrNotFound) {
 			return cid.Undef, nil
 		}
 		return cid.Undef, err

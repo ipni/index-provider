@@ -153,7 +153,7 @@ func (cs *CarSupplier) ReadOnlyBlockstore(contextID []byte) (ClosableBlockstore,
 func (cs *CarSupplier) getPath(ctx context.Context, contextID []byte) (path string, err error) {
 	b, err := cs.ds.Get(ctx, toCarIdKey(contextID))
 	if err != nil {
-		if err == datastore.ErrNotFound {
+		if errors.Is(err, datastore.ErrNotFound) {
 			err = ErrNotFound
 		}
 		return "", err

@@ -10,8 +10,8 @@ import (
 	"github.com/ipld/go-ipld-prime/codec/dagjson"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/basicnode"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	httpfinderclient "github.com/ipni/storetheindex/api/v0/finder/client/http"
-	"github.com/ipni/storetheindex/api/v0/finder/model"
+	httpfindclient "github.com/ipni/go-libipni/find/client/http"
+	"github.com/ipni/go-libipni/find/model"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -35,10 +35,10 @@ func (r *VerifyIngestResult) Add(other *VerifyIngestResult) {
 	r.AbsentMhs = append(r.AbsentMhs, other.AbsentMhs...)
 }
 
-func VerifyIngestFromMhs(finder *httpfinderclient.Client, wantProvID string, mhs []multihash.Multihash) (*VerifyIngestResult, error) {
+func VerifyIngestFromMhs(find *httpfindclient.Client, wantProvID string, mhs []multihash.Multihash) (*VerifyIngestResult, error) {
 	aggResult := &VerifyIngestResult{}
 	for len(mhs) >= verifyChunkSize {
-		result, err := doVerifyIngest(finder, wantProvID, mhs[:verifyChunkSize])
+		result, err := doVerifyIngest(find, wantProvID, mhs[:verifyChunkSize])
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,7 @@ func VerifyIngestFromMhs(finder *httpfinderclient.Client, wantProvID string, mhs
 		mhs = mhs[verifyChunkSize:]
 	}
 	if len(mhs) != 0 {
-		result, err := doVerifyIngest(finder, wantProvID, mhs)
+		result, err := doVerifyIngest(find, wantProvID, mhs)
 		if err != nil {
 			return nil, err
 		}
@@ -55,11 +55,11 @@ func VerifyIngestFromMhs(finder *httpfinderclient.Client, wantProvID string, mhs
 	return aggResult, nil
 }
 
-func doVerifyIngest(finder *httpfinderclient.Client, wantProvID string, mhs []multihash.Multihash) (*VerifyIngestResult, error) {
+func doVerifyIngest(find *httpfindclient.Client, wantProvID string, mhs []multihash.Multihash) (*VerifyIngestResult, error) {
 	result := &VerifyIngestResult{}
 	mhsCount := len(mhs)
 	result.TotalMhChecked = mhsCount
-	response, err := finder.FindBatch(context.Background(), mhs)
+	response, err := find.FindBatch(context.Background(), mhs)
 	if err != nil {
 		result.FailedToVerify = mhsCount
 		err = fmt.Errorf("failed to connect to indexer: %w", err)

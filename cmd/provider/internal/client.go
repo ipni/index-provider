@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	selectorbuilder "github.com/ipld/go-ipld-prime/traversal/selector/builder"
-	"github.com/ipni/storetheindex/dagsync"
+	"github.com/ipni/go-libipni/dagsync"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -102,7 +103,7 @@ func (p *providerClient) GetAdvertisement(ctx context.Context, id cid.Cid) (*Adv
 func (p *providerClient) syncAdWithRetry(ctx context.Context, id cid.Cid) (cid.Cid, error) {
 	var attempt uint64
 	for {
-		id, err := p.sub.Sync(ctx, p.publisher.ID, id, p.adSel, p.publisher.Addrs[0])
+		id, err := p.sub.Sync(ctx, p.publisher, id, p.adSel)
 		if err == nil {
 			return id, nil
 		}
@@ -121,7 +122,7 @@ func (p *providerClient) syncEntriesWithRetry(ctx context.Context, id cid.Cid) (
 	recurLimit := p.entriesRecurLimit
 	for {
 		sel := selectEntriesWithLimit(recurLimit)
-		_, err := p.sub.Sync(ctx, p.publisher.ID, id, sel, p.publisher.Addrs[0])
+		_, err := p.sub.Sync(ctx, p.publisher, id, sel)
 		if err == nil {
 			return id, nil
 		}
@@ -153,7 +154,7 @@ func (p *providerClient) findNextMissingChunkLink(ctx context.Context, next cid.
 			return cid.Undef, depth, false
 		}
 		c, err := p.store.getNextChunkLink(ctx, next)
-		if err == datastore.ErrNotFound {
+		if errors.Is(err, datastore.ErrNotFound) {
 			return next, depth, true
 		}
 		next = c

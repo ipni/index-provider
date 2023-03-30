@@ -3,6 +3,7 @@ package adminserver
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -52,7 +53,7 @@ func (h *carHandler) handleImport(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with cause of failure.
 	if err != nil {
-		if err == provider.ErrAlreadyAdvertised {
+		if errors.Is(err, provider.ErrAlreadyAdvertised) {
 			msg := "CAR already advertised"
 			log.Infow(msg, "path", req.Path)
 			http.Error(w, msg, http.StatusConflict)
@@ -101,7 +102,7 @@ func (h *carHandler) handleRemove(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with cause of failure.
 	if err != nil {
-		if err == supplier.ErrNotFound {
+		if errors.Is(err, supplier.ErrNotFound) {
 			err = fmt.Errorf("provider has no car file for key %s", b64Key)
 			log.Error(err)
 			http.Error(w, err.Error(), http.StatusNotFound)

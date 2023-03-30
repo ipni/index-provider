@@ -166,10 +166,11 @@ func doGetAdvertisements(cctx *cli.Context) error {
 	fmt.Println("Entries:")
 	var entriesOutput string
 	entries, err := ad.Entries.Drain()
-	if err == datastore.ErrNotFound {
+	if err != nil {
+		if !errors.Is(err, datastore.ErrNotFound) {
+			return err
+		}
 		entriesOutput = "⚠️ Note: More entries were available but not synced due to the configured entries recursion limit or error during traversal."
-	} else if err != nil {
-		return err
 	}
 
 	if printEntries {

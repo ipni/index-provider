@@ -2,11 +2,12 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -70,10 +71,10 @@ func (d *EntriesIterator) Drain() ([]multihash.Multihash, error) {
 	var mhs []multihash.Multihash
 	for {
 		mh, err := d.Next()
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			// Return what we have with error.
 			// This is used when err is datastore.ErrNotFound when recursion limit stopped the remaining entries to be synced.
 			return mhs, err

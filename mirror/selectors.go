@@ -5,7 +5,7 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
-	"github.com/ipni/storetheindex/dagsync"
+	"github.com/ipni/go-libipni/dagsync"
 )
 
 var selectors struct {

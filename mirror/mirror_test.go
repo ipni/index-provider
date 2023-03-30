@@ -10,11 +10,11 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
+	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/mirror"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )

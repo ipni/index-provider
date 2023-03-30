@@ -3,6 +3,7 @@ package chunker_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"math"
 	"math/rand"
@@ -16,10 +17,10 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	ipldcodec "github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -545,7 +546,7 @@ func requireDecodeAllMultihashes(t *testing.T, l ipld.Link, ls ipld.LinkSystem) 
 	var mhs []multihash.Multihash
 	for {
 		mh, err := mhi.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

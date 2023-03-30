@@ -12,8 +12,8 @@ import (
 	"github.com/ipld/go-ipld-prime/node/basicnode"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/schema"
+	stischema "github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
-	stischema "github.com/ipni/storetheindex/api/v0/ingest/schema"
 )
 
 var (
@@ -23,10 +23,10 @@ var (
 
 func (m *Mirror) getLatestOriginalAdCid(ctx context.Context) (cid.Cid, error) {
 	v, err := m.ds.Get(ctx, latestOriginalAdCidKey)
-	if err == datastore.ErrNotFound {
-		return cid.Undef, nil
-	}
 	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			return cid.Undef, nil
+		}
 		return cid.Undef, err
 	}
 	_, c, err := cid.CidFromBytes(v)
@@ -42,10 +42,10 @@ func (m *Mirror) setLatestOriginalAdCid(ctx context.Context, c cid.Cid) error {
 
 func (m *Mirror) getLatestMirroredAdCid(ctx context.Context) (cid.Cid, error) {
 	v, err := m.ds.Get(ctx, latestMirroredAdCidKey)
-	if err == datastore.ErrNotFound {
-		return cid.Undef, nil
-	}
 	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			return cid.Undef, nil
+		}
 		return cid.Undef, err
 	}
 	_, c, err := cid.CidFromBytes(v)

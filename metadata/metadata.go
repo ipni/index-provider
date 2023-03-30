@@ -17,7 +17,7 @@ type ErrInvalidMetadata struct {
 }
 
 func (e ErrInvalidMetadata) Error() string {
-	return fmt.Sprintf("storetheindex: invalid metadata: %v", e.Message)
+	return fmt.Sprintf("invalid metadata: %v", e.Message)
 }
 
 var (

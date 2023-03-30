@@ -291,7 +291,7 @@ func (ls *CachedEntriesChunker) sync(ctx context.Context) error {
 // GetRawCachedChunk gets the raw cached entry chunk for the given link, or nil if no such caching exists.
 func (ls *CachedEntriesChunker) GetRawCachedChunk(ctx context.Context, l ipld.Link) ([]byte, error) {
 	raw, err := ls.ds.Get(ctx, dsKey(l))
-	if err == datastore.ErrNotFound {
+	if errors.Is(err, datastore.ErrNotFound) {
 		return nil, nil
 	}
 	if err != nil {
@@ -390,7 +390,7 @@ func (ls *CachedEntriesChunker) restoreCache(ctx context.Context) error {
 		for {
 			_, c, err := cid.CidFromReader(vr)
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return err
@@ -515,7 +515,7 @@ func (ls *CachedEntriesChunker) incrementOverlap(ctx context.Context, lnk ipld.L
 	oVal, err := ls.ds.Get(ctx, oKey)
 	var count uint64
 	if err != nil {
-		if err != datastore.ErrNotFound {
+		if !errors.Is(err, datastore.ErrNotFound) {
 			return err
 		}
 		count = 1
@@ -530,14 +530,14 @@ func (ls *CachedEntriesChunker) incrementOverlap(ctx context.Context, lnk ipld.L
 func (ls *CachedEntriesChunker) decrementOverlap(ctx context.Context, lnk ipld.Link) error {
 	oKey := ls.dsOverlapPrefixedKey(lnk)
 	oVal, err := ls.ds.Get(ctx, oKey)
-	var count uint64
-	if err == datastore.ErrNotFound {
-		return nil
-	}
 	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			return nil
+		}
 		return err
 	}
-	count = binary.LittleEndian.Uint64(oVal) - 1
+
+	count := binary.LittleEndian.Uint64(oVal) - 1
 
 	if count < 1 {
 		return ls.ds.Delete(ctx, oKey)
@@ -550,10 +550,10 @@ func (ls *CachedEntriesChunker) decrementOverlap(ctx context.Context, lnk ipld.L
 func (ls *CachedEntriesChunker) countOverlap(ctx context.Context, link ipld.Link) (uint64, error) {
 	oKey := ls.dsOverlapPrefixedKey(link)
 	oVal, err := ls.ds.Get(ctx, oKey)
-	if err == datastore.ErrNotFound {
-		return 0, nil
-	}
 	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			return 0, nil
+		}
 		return 0, err
 	}
 	return binary.LittleEndian.Uint64(oVal), nil

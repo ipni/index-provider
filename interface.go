@@ -2,7 +2,7 @@
 // It integrates with the indexer node protocol, "storetheinex" in order to advertise the
 // availability of a list of multihashes as an IPLD DAG.
 // For the complete advertisement IPLD schema, see:
-//   - https://github.com/ipni/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
+//   - https://github.com/ipni/go-libipni/blob/main/ingest/schema/schema.ipldsch
 //
 // A reference implementation of provider.Interface can be found in engine.Engine.
 package provider
@@ -11,8 +11,8 @@ import (
 	"context"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/metadata"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multihash"
 )

@@ -23,7 +23,7 @@ import (
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
+	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -195,4 +195,14 @@ func MultiAddsToString(addrs []multiaddr.Multiaddr) []string {
 		rAddrs = append(rAddrs, addr.String())
 	}
 	return rAddrs
+}
+
+func StringsToMultiaddrs(t *testing.T, addrs []string) []multiaddr.Multiaddr {
+	mAddrs := make([]multiaddr.Multiaddr, len(addrs))
+	for i, addr := range addrs {
+		ma, err := multiaddr.NewMultiaddr(addr)
+		require.NoError(t, err)
+		mAddrs[i] = ma
+	}
+	return mAddrs
 }

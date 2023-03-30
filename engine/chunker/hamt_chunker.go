@@ -8,8 +8,8 @@ import (
 
 	hamt "github.com/ipld/go-ipld-adl-hamt"
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multicodec"
 )
 
@@ -78,14 +78,14 @@ func (h *HamtChunker) Chunk(ctx context.Context, iterator provider.MultihashIter
 	var count int
 	for {
 		mh, err := iterator.Next()
-		if err == io.EOF {
-			// Iterator had no elements
-			if count == 0 {
-				return nil, nil
-			}
-			break
-		}
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				// Iterator had no elements
+				if count == 0 {
+					return nil, nil
+				}
+				break
+			}
 			return nil, err
 		}
 		count++

@@ -24,8 +24,8 @@ import (
 	adminserver "github.com/ipni/index-provider/server/admin/http"
 	reframeserver "github.com/ipni/index-provider/server/reframe/http"
 	"github.com/ipni/index-provider/supplier"
-	"github.com/ipni/storetheindex/fsutil"
 	"github.com/libp2p/go-libp2p"
+	"github.com/mitchellh/go-homedir"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
 )
@@ -58,7 +58,7 @@ func daemonCommand(cctx *cli.Context) error {
 
 	cfg, err := config.Load("")
 	if err != nil {
-		if err == config.ErrNotInitialized {
+		if errors.Is(err, config.ErrNotInitialized) {
 			return errors.New("reference provider is not initialized\nTo initialize, run using the \"init\" command")
 		}
 		return fmt.Errorf("cannot load config file: %w", err)
@@ -101,7 +101,7 @@ func daemonCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = fsutil.DirWritable(dataStorePath)
+	err = dirWritable(dataStorePath)
 	if err != nil {
 		return err
 	}
@@ -289,4 +289,43 @@ func daemonCommand(cctx *cli.Context) error {
 	}
 	log.Infow("node stopped")
 	return finalErr
+}
+
+// dirWritable checks if a directory is writable. If the directory does
+// not exist it is created with writable permission.
+func dirWritable(dir string) error {
+	if dir == "" {
+		return errors.New("directory not specified")
+	}
+
+	var err error
+	dir, err = homedir.Expand(dir)
+	if err != nil {
+		return err
+	}
+
+	if _, err = os.Stat(dir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// dir doesn't exist, check that we can create it
+			err = os.Mkdir(dir, 0o775)
+			if err == nil {
+				return nil
+			}
+		}
+		if errors.Is(err, os.ErrPermission) {
+			err = os.ErrPermission
+		}
+		return fmt.Errorf("cannot write to %s: %w", dir, err)
+	}
+
+	// dir exists, make sure we can write to it
+	file, err := os.CreateTemp(dir, "test")
+	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			err = os.ErrPermission
+		}
+		return fmt.Errorf("cannot write to %s: %w", dir, err)
+	}
+	file.Close()
+	return os.Remove(file.Name())
 }
