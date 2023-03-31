@@ -16,13 +16,13 @@ import (
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
+	"github.com/ipni/go-libipni/dagsync/dtsync"
+	"github.com/ipni/go-libipni/ingest/schema"
+	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/mirror"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
-	"github.com/ipni/storetheindex/dagsync/dtsync"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -196,7 +196,7 @@ func (te *testEnv) requireEntriesMirrored(t *testing.T, ctx context.Context, con
 	var gotMhs []multihash.Multihash
 	for {
 		next, err := mirroredMhIter.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

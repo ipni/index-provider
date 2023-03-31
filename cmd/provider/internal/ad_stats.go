@@ -80,7 +80,7 @@ func (a *AdStats) Sample(ad *Advertisement) *AdSample {
 	if err != nil {
 		sample.PartiallySynced = true
 		// Most likely caused by entries recursion limit reached.
-		if err == datastore.ErrNotFound {
+		if errors.Is(err, datastore.ErrNotFound) {
 			err = errors.New("recursion limit reached")
 		}
 		sample.SyncErr = err

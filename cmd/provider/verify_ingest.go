@@ -10,8 +10,8 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/index"
+	httpfindclient "github.com/ipni/go-libipni/find/client/http"
 	"github.com/ipni/index-provider/cmd/provider/internal"
-	httpfinderclient "github.com/ipni/storetheindex/api/v0/finder/client/http"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
@@ -284,7 +284,7 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 		adRecurLimitStr = fmt.Sprintf("%d", adRecurLimit)
 	}
 	var aggResult internal.VerifyIngestResult
-	finder, err := httpfinderclient.New(indexerAddr)
+	find, err := httpfindclient.New(indexerAddr)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func doVerifyIngestFromProvider(cctx *cli.Context) error {
 			if len(ads.MhSample) == 0 {
 				fmt.Println("🔘 Skipped; sampling did not include any multihashes.")
 			} else {
-				result, err := internal.VerifyIngestFromMhs(finder, provId, ads.MhSample)
+				result, err := internal.VerifyIngestFromMhs(find, provId, ads.MhSample)
 				if err != nil {
 					return err
 				}
@@ -358,12 +358,12 @@ func doVerifyIngestFromCar(_ *cli.Context) error {
 		return err
 	}
 
-	finder, err := httpfinderclient.New(indexerAddr)
+	find, err := httpfindclient.New(indexerAddr)
 	if err != nil {
 		return err
 	}
 
-	result, err := verifyIngestFromCarIterableIndex(finder, idx)
+	result, err := verifyIngestFromCarIterableIndex(find, idx)
 	if err != nil {
 		return err
 	}
@@ -424,12 +424,12 @@ func doVerifyIngestFromCarIndex() error {
 		return errInvalidCarIndexFormat()
 	}
 
-	finder, err := httpfinderclient.New(indexerAddr)
+	find, err := httpfindclient.New(indexerAddr)
 	if err != nil {
 		return err
 	}
 
-	result, err := verifyIngestFromCarIterableIndex(finder, iterIdx)
+	result, err := verifyIngestFromCarIterableIndex(find, iterIdx)
 	if err != nil {
 		return err
 	}
@@ -446,7 +446,7 @@ func errVerifyIngestMultipleSources() error {
 	return cli.Exit("Multiple multihash sources are specified. Only a single source at a time is supported.", 1)
 }
 
-func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index.IterableIndex) (*internal.VerifyIngestResult, error) {
+func verifyIngestFromCarIterableIndex(find *httpfindclient.Client, idx index.IterableIndex) (*internal.VerifyIngestResult, error) {
 	var mhs []multihash.Multihash
 	if err := idx.ForEach(func(mh multihash.Multihash, _ uint64) error {
 		if include() {
@@ -456,5 +456,5 @@ func verifyIngestFromCarIterableIndex(finder *httpfinderclient.Client, idx index
 	}); err != nil {
 		return nil, err
 	}
-	return internal.VerifyIngestFromMhs(finder, provId, mhs)
+	return internal.VerifyIngestFromMhs(find, provId, mhs)
 }

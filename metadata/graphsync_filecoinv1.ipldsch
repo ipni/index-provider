@@ -1,5 +1,0 @@
-type GraphsyncFilecoinV1 struct {
-	PieceCID Link
-	VerifiedDeal Bool
-	FastRetrieval Bool
-}

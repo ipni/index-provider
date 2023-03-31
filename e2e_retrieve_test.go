@@ -20,16 +20,17 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
+	"github.com/ipni/go-libipni/dagsync"
+	"github.com/ipni/go-libipni/ingest/schema"
+	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/cardatatransfer"
 	"github.com/ipni/index-provider/engine"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
-	"github.com/ipni/storetheindex/dagsync"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 )
@@ -115,7 +116,11 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
 	require.NoError(t, err)
 
-	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
+	serverInfo := peer.AddrInfo{
+		ID:    server.h.ID(),
+		Addrs: []multiaddr.Multiaddr{server.publisherAddr},
+	}
+	headCid, err := sub.Sync(ctx, serverInfo, cid.Undef, nil)
 	require.NoError(t, err)
 	require.Equal(t, advCid, headCid)
 
@@ -191,7 +196,11 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
 	require.NoError(t, err)
 
-	headCid, err := sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
+	serverInfo := peer.AddrInfo{
+		ID:    server.h.ID(),
+		Addrs: []multiaddr.Multiaddr{server.publisherAddr},
+	}
+	headCid, err := sub.Sync(ctx, serverInfo, cid.Undef, nil)
 	require.NoError(t, err)
 	require.Equal(t, advCid, headCid)
 
@@ -219,7 +228,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	require.NoError(t, err)
 
 	// Sync the new advertisement
-	headCid, err = sub.Sync(ctx, server.h.ID(), cid.Undef, nil, server.publisherAddr)
+	headCid, err = sub.Sync(ctx, serverInfo, cid.Undef, nil)
 	require.NoError(t, err)
 	require.Equal(t, advCid2, headCid)
 

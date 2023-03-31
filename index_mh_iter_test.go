@@ -69,7 +69,7 @@ func TestNewCarSupplier_ReturnsExpectedMultihashes(t *testing.T) {
 	var gotMhs []multihash.Multihash
 	for {
 		gotNext, err := subject.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

@@ -8,10 +8,10 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/stretchr/testify/require"
 )
 

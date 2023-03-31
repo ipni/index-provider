@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
-	httpfinderclient "github.com/ipni/storetheindex/api/v0/finder/client/http"
+	httpfindclient "github.com/ipni/go-libipni/find/client/http"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
 )
@@ -18,7 +18,7 @@ var FindCmd = &cli.Command{
 }
 
 func findCommand(cctx *cli.Context) error {
-	cli, err := httpfinderclient.New(cctx.String("indexer"))
+	cli, err := httpfindclient.New(cctx.String("indexer"))
 	if err != nil {
 		return err
 	}

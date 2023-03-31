@@ -8,8 +8,8 @@
 // provided by the engine.
 // The list of multihashes are paginated as a collection of interlinked chunks.
 // For the complete advertisement IPLD schema, see:
-//   - https://github.com/ipni/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch
+//   - https://github.com/ipni/go-libipni/blob/main/ingest/schema/schema.ipldsch
 //
-// The engine internally uses "storetheindex/dagsync" to sync the IPLD DAG of advertisements.
-// See: https://github.com/ipni/storetheindex/tree/main/dagsync
+// The engine internally uses "go-libipni/dagsync" to sync the IPLD DAG of advertisements.
+// See: https://github.com/ipni/go-libipni/tree/main/dagsync
 package engine

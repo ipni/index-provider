@@ -10,9 +10,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	cid "github.com/ipfs/go-cid"
+	schema "github.com/ipni/go-libipni/ingest/schema"
+	metadata "github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
-	metadata "github.com/ipni/index-provider/metadata"
-	schema "github.com/ipni/storetheindex/api/v0/ingest/schema"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	multihash "github.com/multiformats/go-multihash"
 )

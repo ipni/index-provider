@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ipni/storetheindex/peerutil"
+	"github.com/ipni/index-provider/engine/peerutil"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 

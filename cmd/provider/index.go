@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/ipfs/go-cid"
+	httpc "github.com/ipni/go-libipni/ingest/client"
+	"github.com/ipni/go-libipni/metadata"
 	"github.com/ipni/index-provider/cmd/provider/internal/config"
-	"github.com/ipni/index-provider/metadata"
-	httpc "github.com/ipni/storetheindex/api/v0/ingest/client/http"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"

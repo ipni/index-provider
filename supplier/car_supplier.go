@@ -14,8 +14,8 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-car/v2/index"
+	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 )
@@ -153,7 +153,7 @@ func (cs *CarSupplier) ReadOnlyBlockstore(contextID []byte) (ClosableBlockstore,
 func (cs *CarSupplier) getPath(ctx context.Context, contextID []byte) (path string, err error) {
 	b, err := cs.ds.Get(ctx, toCarIdKey(contextID))
 	if err != nil {
-		if err == datastore.ErrNotFound {
+		if errors.Is(err, datastore.ErrNotFound) {
 			err = ErrNotFound
 		}
 		return "", err

@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/engine"
 	ep "github.com/ipni/index-provider/engine/xproviders"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
-	"github.com/ipni/storetheindex/test/util"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
@@ -21,7 +20,7 @@ func TestPublish(t *testing.T) {
 	ctx := testutil.ContextWithTimeout(t)
 	contextID := []byte("test-context")
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 	eps := make([]ep.Info, 2)
@@ -91,7 +90,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 	contextID := []byte("test-context")
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
 	addrsStr := []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"}
-	addrs := util.StringToMultiaddrs(t, addrsStr)
+	addrs := testutil.StringsToMultiaddrs(t, addrsStr)
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 
@@ -137,7 +136,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 
 func TestExtendedProvidersShouldNotAllowEmptyAddresses(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 
@@ -154,7 +153,7 @@ func TestExtendedProvidersShouldNotAllowEmptyAddresses(t *testing.T) {
 
 func TestExtendedProvidersShouldAllowEmptyMetadata(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 
@@ -171,7 +170,7 @@ func TestExtendedProvidersShouldAllowEmptyMetadata(t *testing.T) {
 
 func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 
@@ -188,7 +187,7 @@ func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
 
 func TestZeroExtendedProvidersShouldStillCreateExtendedProvidersField(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 
@@ -208,7 +207,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 	ctx := testutil.ContextWithTimeout(t)
 	contextID := []byte("test-context")
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 
@@ -248,7 +247,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 
 func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := util.StringToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
+	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
 	metadata := make([]byte, 10)
 	rng.Read(metadata)
 	eps := make([]ep.Info, 2)

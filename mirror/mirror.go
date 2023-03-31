@@ -23,11 +23,11 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipni/go-libipni/dagsync"
+	"github.com/ipni/go-libipni/dagsync/dtsync"
+	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/metrics"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
-	"github.com/ipni/storetheindex/dagsync"
-	"github.com/ipni/storetheindex/dagsync/dtsync"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -233,9 +233,7 @@ func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
 			if len(m.source.Addrs) == 0 {
 				return errors.New("no address for source")
 			}
-			// TODO: it is unfortunate that dagsync takes a single address here... this needs to be
-			//       fixed in storetheindex/dagsync.
-			_, err = m.sub.Sync(ctx, m.source.ID, entriesCid, selectors.entriesWithLimit(m.entriesRecurLimit), m.source.Addrs[0])
+			_, err = m.sub.Sync(ctx, m.source, entriesCid, selectors.entriesWithLimit(m.entriesRecurLimit))
 			if err != nil {
 				log.Errorw("Failed to sync entries", "cid", entriesCid, "err", err)
 				return err
@@ -397,7 +395,7 @@ func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) 
 	}
 	startSync := time.Now()
 	var syncedAdCids []cid.Cid
-	_, err := m.sub.Sync(ctx, m.source.ID, cid.Undef, sel, m.source.Addrs[0],
+	_, err := m.sub.Sync(ctx, m.source, cid.Undef, sel,
 		dagsync.ScopedBlockHook(func(id peer.ID, c cid.Cid, actions dagsync.SegmentSyncActions) {
 			// TODO: set actions next segment link to ad previous id if it is present. For
 			//      now segmentation is disabled.

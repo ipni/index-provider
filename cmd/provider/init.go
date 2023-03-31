@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
+	"os"
+
 	"github.com/ipni/index-provider/cmd/provider/internal/config"
-	"github.com/ipni/storetheindex/fsutil"
 	"github.com/urfave/cli/v2"
 )
 
@@ -22,7 +25,7 @@ func initCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	if err = fsutil.DirWritable(configRoot); err != nil {
+	if err = dirWritable(configRoot); err != nil {
 		return err
 	}
 
@@ -31,7 +34,8 @@ func initCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	if fsutil.FileExists(configFile) {
+	_, err = os.Stat(configFile)
+	if !errors.Is(err, fs.ErrNotExist) {
 		return config.ErrInitialized
 	}
 

@@ -3,6 +3,7 @@ package supplier
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -14,7 +15,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2"
-	"github.com/ipni/index-provider/metadata"
+	"github.com/ipni/go-libipni/metadata"
 	mock_provider "github.com/ipni/index-provider/mock"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multihash"
@@ -75,7 +76,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 				require.NoError(t, err)
 				for {
 					bl, err := br.Next()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					require.NoError(t, err)
@@ -116,7 +117,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			gotMultihashes := 0
 			for {
 				gotMh, err := gotIterator.Next()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break // done
 				}
 				require.NoError(t, err)

@@ -40,7 +40,7 @@ The protocol implemented by this repository is the index provider portion of a l
 protocol
 documented [here](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
 . The indexer node implementation can be found
-at [`storetheindex`](https://github.com/ipni/storetheindex) repository.
+at [`storetheindex`](https://github.com/ipni/storetheindex) and [`go-libipni`](https://github.com/ipni/go-libipni).
 
 For more details on the ingestion protocol itself
 see [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
@@ -314,7 +314,7 @@ advertisement. The cache expansion is logged in `INFO` level at `provider/engine
 ## Related Resources
 
 * [Indexer Ingestion Interface](https://www.notion.so/protocollabs/Indexer-Ingestion-Interface-4a120c698b31417385204ec401137cb1)
-* [Indexer Ingestion IPLD Schema](https://github.com/ipni/storetheindex/blob/main/api/v0/ingest/schema/schema.ipldsch)
+* [Indexer Ingestion IPLD Schema](https://github.com/ipni/go-libipni/blob/main/ingest/schema/schema.ipldsch)
 * [Indexer Node Design](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
 * [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
 * [`storetheindex`](https://github.com/ipni/storetheindex): indexer node implementation

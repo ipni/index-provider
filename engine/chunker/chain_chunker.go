@@ -2,12 +2,13 @@ package chunker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/ipld/go-ipld-prime"
+	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/storetheindex/api/v0/ingest/schema"
 	"github.com/multiformats/go-multihash"
 )
 
@@ -52,10 +53,10 @@ func (ls *ChainChunker) Chunk(ctx context.Context, mhi provider.MultihashIterato
 	var mhCount, chunkCount int
 	for {
 		mh, err := mhi.Next()
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			return nil, err
 		}
 		mhs = append(mhs, mh)
