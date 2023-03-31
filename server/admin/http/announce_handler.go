@@ -15,7 +15,11 @@ func (s *Server) announceHandler(w http.ResponseWriter, r *http.Request) {
 	adCid, err := s.e.PublishLatest(r.Context())
 	if err != nil {
 		log.Errorw("Could not republish latest advertisement", "err", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if adCid.Defined() {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -56,7 +60,11 @@ func (s *Server) announceHttpHandler(w http.ResponseWriter, r *http.Request) {
 	adCid, err := s.e.PublishLatestHTTP(r.Context(), indexerURL)
 	if err != nil {
 		log.Errorw("Could not publish latest advertisement via http", "err", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if adCid.Defined() {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
