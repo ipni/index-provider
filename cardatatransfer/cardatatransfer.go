@@ -13,13 +13,12 @@ import (
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
+	"github.com/ipni/go-libipni/metadata"
+	"github.com/ipni/index-provider/cardatatransfer/stores"
+	"github.com/ipni/index-provider/supplier"
 	peer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
-
-	"github.com/ipni/index-provider/cardatatransfer/stores"
-	"github.com/ipni/index-provider/metadata"
-	"github.com/ipni/index-provider/supplier"
 )
 
 var log = logging.Logger("car-data-transfer")

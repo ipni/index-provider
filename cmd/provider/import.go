@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/ipni/go-libipni/metadata"
 	"github.com/ipni/index-provider/cardatatransfer"
-	"github.com/ipni/index-provider/metadata"
 	adminserver "github.com/ipni/index-provider/server/admin/http"
 	"github.com/urfave/cli/v2"
 )

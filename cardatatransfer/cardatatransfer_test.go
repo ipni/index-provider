@@ -30,8 +30,8 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
+	"github.com/ipni/go-libipni/metadata"
 	"github.com/ipni/index-provider/cardatatransfer"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/ipni/index-provider/testutil"
 )

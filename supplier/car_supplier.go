@@ -14,8 +14,8 @@ import (
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-car/v2/index"
+	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 )

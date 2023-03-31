@@ -24,9 +24,9 @@ import (
 	"github.com/ipni/go-libipni/dagsync/dtsync"
 	"github.com/ipni/go-libipni/dagsync/httpsync"
 	"github.com/ipni/go-libipni/ingest/schema"
+	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/index-provider/metadata"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 )

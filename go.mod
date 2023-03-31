@@ -18,7 +18,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.6.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.20.0
-	github.com/ipni/go-libipni v0.0.0-20230330175745-8950ad3901cc
+	github.com/ipni/go-libipni v0.0.2
 	github.com/libp2p/go-libp2p v0.26.4
 	github.com/libp2p/go-libp2p-pubsub v0.9.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -26,7 +26,6 @@ require (
 	github.com/multiformats/go-multiaddr v0.8.0
 	github.com/multiformats/go-multicodec v0.8.1
 	github.com/multiformats/go-multihash v0.2.1
-	github.com/multiformats/go-varint v0.0.7
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rogpeppe/go-internal v1.9.0
 	github.com/stretchr/testify v1.8.2
@@ -47,6 +46,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.1 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-libipfs v0.6.1 // indirect
+	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/onsi/ginkgo/v2 v2.5.1 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
