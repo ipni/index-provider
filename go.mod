@@ -18,9 +18,9 @@ require (
 	github.com/ipld/go-codec-dagpb v1.6.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.20.0
-	github.com/ipni/go-libipni v0.0.2
+	github.com/ipni/go-libipni v0.0.4
 	github.com/libp2p/go-libp2p v0.26.4
-	github.com/libp2p/go-libp2p-pubsub v0.9.0
+	github.com/libp2p/go-libp2p-pubsub v0.9.3
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/montanaflynn/stats v0.6.6
 	github.com/multiformats/go-multiaddr v0.8.0
@@ -38,7 +38,6 @@ require (
 )
 
 require (
-	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/filecoin-project/go-amt-ipld/v4 v4.0.0 // indirect
 	github.com/filecoin-project/go-hamt-ipld/v3 v3.1.0 // indirect
 	github.com/filecoin-project/go-state-types v0.9.9 // indirect

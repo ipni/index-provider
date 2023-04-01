@@ -242,7 +242,8 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 		err = e.publisher.UpdateRoot(ctx, c)
 		if err != nil {
 			log.Errorw("Failed to announce advertisement", "err", err)
-			return cid.Undef, err
+			// Do not consider a failure to announce an error, since publishing
+			// locally worked.
 		}
 	}
 
@@ -279,7 +280,7 @@ func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
 
 	err = e.publisher.UpdateRoot(ctx, adCid)
 	if err != nil {
-		return cid.Undef, err
+		return adCid, err
 	}
 
 	return adCid, nil
@@ -295,7 +296,7 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL
 
 	err = e.httpAnnounce(ctx, adCid, announceURLs)
 	if err != nil {
-		return cid.Undef, err
+		return adCid, err
 	}
 
 	return adCid, nil
