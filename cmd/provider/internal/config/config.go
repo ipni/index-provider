@@ -11,14 +11,14 @@ import (
 
 // Config is used to load config files.
 type Config struct {
-	Identity       Identity
-	Datastore      Datastore
-	Ingest         Ingest
-	ProviderServer ProviderServer
-	AdminServer    AdminServer
-	Bootstrap      Bootstrap
-	DirectAnnounce DirectAnnounce
-	Reframe        Reframe
+	Identity         Identity
+	Datastore        Datastore
+	Ingest           Ingest
+	ProviderServer   ProviderServer
+	AdminServer      AdminServer
+	Bootstrap        Bootstrap
+	DirectAnnounce   DirectAnnounce
+	DelegatedRouting DelegatedRouting
 }
 
 const (
@@ -96,13 +96,13 @@ func Load(filePath string) (*Config, error) {
 
 	// Populate with initial values in case they are not present in config.
 	cfg := Config{
-		Bootstrap:      NewBootstrap(),
-		Datastore:      NewDatastore(),
-		Ingest:         NewIngest(),
-		AdminServer:    NewAdminServer(),
-		ProviderServer: NewProviderServer(),
-		DirectAnnounce: NewDirectAnnounce(),
-		Reframe:        NewReframe(),
+		Bootstrap:        NewBootstrap(),
+		Datastore:        NewDatastore(),
+		Ingest:           NewIngest(),
+		AdminServer:      NewAdminServer(),
+		ProviderServer:   NewProviderServer(),
+		DirectAnnounce:   NewDirectAnnounce(),
+		DelegatedRouting: NewDelegatedRouting(),
 	}
 
 	if err = json.NewDecoder(f).Decode(&cfg); err != nil {
@@ -158,5 +158,5 @@ func (c *Config) PopulateDefaults() {
 	c.Datastore.PopulateDefaults()
 	c.Ingest.PopulateDefaults()
 	c.ProviderServer.PopulateDefaults()
-	c.Reframe.PopulateDefaults()
+	c.DelegatedRouting.PopulateDefaults()
 }

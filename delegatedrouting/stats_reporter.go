@@ -1,4 +1,4 @@
-package reframe
+package delegatedrouting
 
 import (
 	"sync/atomic"
@@ -14,15 +14,15 @@ type statsReporter struct {
 }
 
 type stats struct {
-	putAdsSent            int64
-	removeAdsSent         int64
-	cidsProcessed         int64
-	existingCidsProcessed int64
-	cidsExpired           int64
-	reframeCallsReceived  int64
-	reframeCallsProcessed int64
-	chunkCacheMisses      int64
-	chunksNotFound        int64
+	putAdsSent                     int64
+	removeAdsSent                  int64
+	cidsProcessed                  int64
+	existingCidsProcessed          int64
+	cidsExpired                    int64
+	delegatedRoutingCallsReceived  int64
+	delegatedRoutingCallsProcessed int64
+	chunkCacheMisses               int64
+	chunksNotFound                 int64
 }
 
 func newStatsReporter(totalCidsFunc func() int, totalChunksFunc func() int, currentChunkSizeFunc func() int) *statsReporter {
@@ -54,13 +54,13 @@ func (reporter *statsReporter) incCidsExpired() {
 	reporter.s.cidsExpired++
 }
 
-func (reporter *statsReporter) incReframeCallsReceived() {
+func (reporter *statsReporter) incDelegatedRoutingCallsReceived() {
 	// needs to be threadsafe as it gets called from the webserver handler
-	atomic.AddInt64(&reporter.s.reframeCallsReceived, 1)
+	atomic.AddInt64(&reporter.s.delegatedRoutingCallsReceived, 1)
 }
 
-func (reporter *statsReporter) incReframeCallsProcessed() {
-	reporter.s.reframeCallsProcessed++
+func (reporter *statsReporter) incDelegatedRoutingCallsProcessed() {
+	reporter.s.delegatedRoutingCallsProcessed++
 }
 
 func (reporter *statsReporter) incChunkCacheMisses() {

@@ -1,4 +1,4 @@
-package reframeserver
+package server
 
 import (
 	"context"
@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/ipfs/go-datastore"
-	drserver "github.com/ipfs/go-delegated-routing/server"
+	"github.com/ipfs/go-libipfs/routing/http/server"
 	logging "github.com/ipfs/go-log/v2"
 	provider "github.com/ipni/index-provider"
-	reframelistener "github.com/ipni/index-provider/reframe"
+	drouting "github.com/ipni/index-provider/delegatedrouting"
 )
 
 var log = logging.Logger("adminserver")
@@ -19,7 +19,7 @@ var log = logging.Logger("adminserver")
 type Server struct {
 	server      *http.Server
 	netListener net.Listener
-	rListener   *reframelistener.ReframeListener
+	rListener   *drouting.Listener
 }
 
 func New(cidTtl time.Duration,
@@ -38,15 +38,15 @@ func New(cidTtl time.Duration,
 	}
 	netListener, err := net.Listen("tcp", opts.listenAddr)
 	if err != nil {
-		return nil, fmt.Errorf("reframe initialisation failed: %s", err)
+		return nil, fmt.Errorf("delegated routing initialisation failed: %s", err)
 	}
 
-	rListener, err := reframelistener.New(context.Background(), e, cidTtl, chunkSize, snapshotSize, providerID, addrs, ds, nil, reframelistener.WithPageSize(pageSize))
+	rListener, err := drouting.New(context.Background(), e, cidTtl, chunkSize, snapshotSize, providerID, addrs, ds, nil, drouting.WithPageSize(pageSize))
 	if err != nil {
-		return nil, fmt.Errorf("reframe initialisation failed: %s", err)
+		return nil, fmt.Errorf("delegated routing initialisation failed: %s", err)
 	}
 
-	handler := drserver.DelegatedRoutingAsyncHandler(rListener)
+	handler := server.Handler(rListener)
 
 	s := &http.Server{
 		Handler:      handler,
@@ -62,12 +62,12 @@ func New(cidTtl time.Duration,
 }
 
 func (s *Server) Start() error {
-	log.Infow("reframe http server listening", "addr", s.netListener.Addr())
+	log.Infow("Delegated Routing http server listening", "addr", s.netListener.Addr())
 	return s.server.Serve(s.netListener)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	log.Info("reframe http server shutdown")
+	log.Info("Delegated Routing http server shutdown")
 	s.rListener.Shutdown()
 	return s.server.Shutdown(ctx)
 }

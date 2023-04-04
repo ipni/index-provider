@@ -1,4 +1,4 @@
-package reframe
+package delegatedrouting
 
 const (
 	defaultSnapshotMaxChunkSize = 1_000_000

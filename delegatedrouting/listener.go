@@ -1,8 +1,9 @@
-package reframe
+package delegatedrouting
 
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -11,37 +12,39 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
+	"github.com/ipfs/go-libipfs/routing/http/server"
+	"github.com/ipfs/go-libipfs/routing/http/types"
 	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/ipfs/go-delegated-routing/client"
 	logging "github.com/ipfs/go-log/v2"
 
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
 
-var log = logging.Logger("reframe/listener")
+var log = logging.Logger("delegatedrouting/listener")
 var bitswapMetadata = metadata.Default.New(metadata.Bitswap{})
 
 const (
-	reframeDSName               = "reframe"
+	// keeping this as "reframe" for backwards compatibility
+	delegatedRoutingDSName      = "reframe"
 	statsPrintFrequency         = time.Minute
 	retryWithBackoffInterval    = 5 * time.Second
 	retryWithBackoffMaxAttempts = 3
 )
 
-type ReframeListener struct {
+type Listener struct {
 	dsWrapper    *dsWrapper
 	engine       provider.Interface
 	cidTtl       time.Duration
 	chunkSize    int
 	snapshotSize int
-	// ReframeListener maintains in memory indexes for fast key value lookups
+	// Listener maintains in memory indexes for fast key value lookups
 	// as well as a rolling double-linked list of CIDs ordered by their timestamp.
 	// Once a CID gets advertised, the respective linked list node gets moved to the
-	// beginning of the list. To identify CIDs to expire, ReframeListener would walk the list tail to head.
+	// beginning of the list. To identify CIDs to expire, Listener would walk the list tail to head.
 	// TODO: offload cid chunks to disk to save RAM
 	chunker                *chunker
 	cidQueue               *cidQueue
@@ -51,11 +54,11 @@ type ReframeListener struct {
 	lock                   sync.Mutex
 }
 
-type ReframeMultihashLister struct {
+type MultihashLister struct {
 	CidFetcher func(contextID []byte) (map[cid.Cid]struct{}, error)
 }
 
-func (lister *ReframeMultihashLister) MultihashLister(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
+func (lister *MultihashLister) MultihashLister(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 	contextIdStr := contextIDToStr(contextID)
 	cids, err := lister.CidFetcher(contextID)
 
@@ -77,7 +80,7 @@ func (lister *ReframeMultihashLister) MultihashLister(ctx context.Context, p pee
 	return provider.SliceMultihashIterator(mhs), nil
 }
 
-// NewReframeListenerWithNonceGen creates a reframe listener and initialises its state from the provided datastore.
+// New creates a delegated routing listener and initialises its state from the provided datastore.
 func New(ctx context.Context, engine provider.Interface,
 	cidTtl time.Duration,
 	chunkSize int,
@@ -87,16 +90,16 @@ func New(ctx context.Context, engine provider.Interface,
 	ds datastore.Datastore,
 	nonceGen func() []byte,
 	opts ...Option,
-) (*ReframeListener, error) {
+) (*Listener, error) {
 
 	options := ApplyOptions(opts...)
 
-	listener := &ReframeListener{
+	listener := &Listener{
 		engine:                 engine,
 		cidTtl:                 cidTtl,
 		chunkSize:              chunkSize,
 		snapshotSize:           snapshotSize,
-		dsWrapper:              newDSWrapper(namespace.Wrap(ds, datastore.NewKey(reframeDSName)), options.SnapshotMaxChunkSize, options.PageSize),
+		dsWrapper:              newDSWrapper(namespace.Wrap(ds, datastore.NewKey(delegatedRoutingDSName)), options.SnapshotMaxChunkSize, options.PageSize),
 		lastSeenProviderInfo:   &peer.AddrInfo{},
 		configuredProviderInfo: nil,
 		chunker:                newChunker(func() int { return chunkSize }, nonceGen),
@@ -109,7 +112,7 @@ func New(ctx context.Context, engine provider.Interface,
 		func() int { return len(listener.chunker.currentChunk.Cids) },
 	)
 
-	lister := &ReframeMultihashLister{
+	lister := &MultihashLister{
 		CidFetcher: func(contextID []byte) (map[cid.Cid]struct{}, error) {
 			ctxIdStr := contextIDToStr(contextID)
 			chunk := listener.chunker.getChunkByContextID(ctxIdStr)
@@ -185,148 +188,120 @@ func New(ctx context.Context, engine provider.Interface,
 	return listener, nil
 }
 
-func (listener *ReframeListener) Shutdown() {
+func (listener *Listener) Shutdown() {
 	listener.stats.shutdown()
 }
 
-func (listener *ReframeListener) GetIPNS(ctx context.Context, id []byte) (<-chan client.GetIPNSAsyncResult, error) {
-	log.Warn("Received unsupported getIPNS request")
-	ch := make(chan client.GetIPNSAsyncResult, 1)
-	go func() {
-		// Not implemented
-		ch <- client.GetIPNSAsyncResult{Record: nil}
-		close(ch)
-	}()
-	return ch, nil
+func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid) ([]types.ProviderResponse, error) {
+	log.Warn("Received unsupported FindProviders request")
+	return nil, errors.New("unsupported find providers request")
 }
 
-func (listener *ReframeListener) PutIPNS(ctx context.Context, id []byte, record []byte) (<-chan client.PutIPNSAsyncResult, error) {
-	log.Warn("Received unsupported putIPNS request")
-	ch := make(chan client.PutIPNSAsyncResult, 1)
-	go func() {
-		// Not implemented
-		ch <- client.PutIPNSAsyncResult{}
-		close(ch)
-	}()
-	return ch, nil
+func (listener *Listener) Provide(ctx context.Context, req *server.WriteProvideRequest) (types.ProviderResponse, error) {
+	log.Warn("Received unsupported Provide request")
+	return nil, errors.New("unsupported provide request")
 }
 
-func (listener *ReframeListener) FindProviders(ctx context.Context, key cid.Cid) (<-chan client.FindProvidersAsyncResult, error) {
-	log.Warn("Received unsupported findProviders request")
-	ch := make(chan client.FindProvidersAsyncResult, 1)
-	go func() {
-		// Not implemented
-		ch <- client.FindProvidersAsyncResult{AddrInfo: nil}
-		close(ch)
+func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.BitswapWriteProvideRequest) (time.Duration, error) {
+	cids := req.Keys
+	pid := req.ID
+	paddrs := req.Addrs
+	startTime := time.Now()
+	printFrequency := 10_000
+	listener.lock.Lock()
+	defer func() {
+		listener.stats.incDelegatedRoutingCallsProcessed()
+		log.Infow("Finished processing Provide request.", "time", time.Since(startTime), "len", len(cids))
+		listener.lock.Unlock()
 	}()
-	return ch, nil
-}
 
-func (listener *ReframeListener) Provide(ctx context.Context, pr *client.ProvideRequest) (<-chan client.ProvideAsyncResult, error) {
-	ch := make(chan client.ProvideAsyncResult, 1)
-	log.Infof("Received Provide request with %d cids.", len(pr.Key))
-	listener.stats.incReframeCallsReceived()
+	log.Infof("Received Provide request with %d cids.", len(cids))
+	listener.stats.incDelegatedRoutingCallsReceived()
 
-	go func() {
-		startTime := time.Now()
-		printFrequency := 10_000
-		listener.lock.Lock()
-		defer func() {
-			listener.stats.incReframeCallsProcessed()
-			log.Infow("Finished processing Provide request.", "time", time.Since(startTime), "len", len(pr.Key))
-			listener.lock.Unlock()
-			close(ch)
-		}()
-		// shadowing the calling function's context so that cancellation of it doesn't affect processing
-		ctx := context.Background()
-		// Using mutex to prevent concurrent Provide requests
+	// shadowing the calling function's context so that cancellation of it doesn't affect processing
+	ctx = context.Background()
+	// Using mutex to prevent concurrent Provide requests
 
-		if listener.configuredProviderInfo != nil && listener.configuredProviderInfo.ID != pr.Provider.Peer.ID {
-			log.Warnw("Skipping Provide request as its provider is different from the configured one.", "configured", listener.configuredProviderInfo.ID, "received", pr.Provider.Peer.ID)
-			ch <- client.ProvideAsyncResult{Err: fmt.Errorf("provider %s isn't allowed", pr.Provider.Peer.ID)}
-			return
-		}
+	if listener.configuredProviderInfo != nil && listener.configuredProviderInfo.ID != pid {
+		log.Warnw("Skipping Provide request as its provider is different from the configured one.", "configured", listener.configuredProviderInfo.ID, "received", pid)
+		return 0, fmt.Errorf("provider %s isn't allowed", pid)
+	}
 
-		if len(listener.lastSeenProviderInfo.ID) > 0 && listener.lastSeenProviderInfo.ID != pr.Provider.Peer.ID {
-			log.Warnw("Skipping Provide request as its provider is different from the last seen one.", "lastSeen", listener.lastSeenProviderInfo.ID, "received", pr.Provider.Peer.ID)
-			ch <- client.ProvideAsyncResult{Err: fmt.Errorf("provider %s isn't allowed", pr.Provider.Peer.ID)}
-			return
-		}
+	if len(listener.lastSeenProviderInfo.ID) > 0 && listener.lastSeenProviderInfo.ID != pid {
+		log.Warnw("Skipping Provide request as its provider is different from the last seen one.", "lastSeen", listener.lastSeenProviderInfo.ID, "received", pid)
+		return 0, fmt.Errorf("provider %s isn't allowed", pid)
+	}
 
-		listener.lastSeenProviderInfo.ID = pr.Provider.Peer.ID
-		listener.lastSeenProviderInfo.Addrs = pr.Provider.Peer.Addrs
+	listener.lastSeenProviderInfo.ID = pid
+	listener.lastSeenProviderInfo.Addrs = paddrs
 
-		timestamp := time.Now()
-		for i, c := range pr.Key {
+	timestamp := time.Now()
+	for i, c := range cids {
 
-			// persisting timestamp only if this is not a snapshot
-			if len(pr.Key) < listener.snapshotSize {
-				err := listener.dsWrapper.recordCidTimestamp(ctx, c, timestamp)
-				if err != nil {
-					log.Errorw("Error persisting timestamp. Continuing.", "cid", c, "err", err)
-					continue
-				}
+		// persisting timestamp only if this is not a snapshot
+		if len(cids) < listener.snapshotSize {
+			err := listener.dsWrapper.recordCidTimestamp(ctx, c, timestamp)
+			if err != nil {
+				log.Errorw("Error persisting timestamp. Continuing.", "cid", c, "err", err)
+				continue
 			}
+		}
 
-			listElem := listener.cidQueue.getNodeByCid(c)
-			if listElem == nil {
-				listener.cidQueue.recordCidNode(&cidNode{
-					C:         c,
-					Timestamp: timestamp,
-				})
+		listElem := listener.cidQueue.getNodeByCid(c)
+		if listElem == nil {
+			listener.cidQueue.recordCidNode(&cidNode{
+				C:         c,
+				Timestamp: timestamp,
+			})
+			err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
+				return listener.notifyPutAndPersist(ctx, cc)
+			})
+			if err != nil {
+				log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
+				listener.cidQueue.removeCidNode(c)
+				continue
+			}
+		} else {
+			node := listElem.Value.(*cidNode)
+			node.Timestamp = timestamp
+			listener.cidQueue.recordCidNode(node)
+			// if no existing chunk has been found for the cid - adding it to the current one
+			// This can happen in the following cases:
+			//     * when currentChunk disappears between restarts as it doesn't get persisted until it's advertised
+			//     * when the same cid comes multiple times within the lifespan of the same chunk
+			//	   * after a error to generate a replacement chunk
+			if node.chunk == nil {
 				err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
 					return listener.notifyPutAndPersist(ctx, cc)
 				})
 				if err != nil {
 					log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
-					listener.cidQueue.removeCidNode(c)
 					continue
 				}
-			} else {
-				node := listElem.Value.(*cidNode)
-				node.Timestamp = timestamp
-				listener.cidQueue.recordCidNode(node)
-				// if no existing chunk has been found for the cid - adding it to the current one
-				// This can happen in the following cases:
-				//     * when currentChunk disappears between restarts as it doesn't get persisted until it's advertised
-				//     * when the same cid comes multiple times within the lifespan of the same chunk
-				//	   * after a error to generate a replacement chunk
-				if node.chunk == nil {
-					err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
-						return listener.notifyPutAndPersist(ctx, cc)
-					})
-					if err != nil {
-						log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
-						continue
-					}
-				}
-				listener.stats.incExistingCidsProcessed()
 			}
-
-			listener.stats.incCidsProcessed()
-			// Doing some logging for larger requests
-			if i != 0 && i%printFrequency == 0 {
-				log.Infof("Processed %d out of %d CIDs. startTime=%v", i, len(pr.Key), startTime)
-			}
-		}
-		removedSomething, err := listener.removeExpiredCids(ctx)
-		if err != nil {
-			log.Warnw("Error removing expired cids.", "err", err)
+			listener.stats.incExistingCidsProcessed()
 		}
 
-		// if that was a snapshot or some cids have expired - persisting timestamps as binary blob
-		if removedSomething || len(pr.Key) >= listener.snapshotSize {
-			listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
+		listener.stats.incCidsProcessed()
+		// Doing some logging for larger requests
+		if i != 0 && i%printFrequency == 0 {
+			log.Infof("Processed %d out of %d CIDs. startTime=%v", i, len(cids), startTime)
 		}
+	}
+	removedSomething, err := listener.removeExpiredCids(ctx)
+	if err != nil {
+		log.Warnw("Error removing expired cids.", "err", err)
+	}
 
-		response := client.ProvideAsyncResult{AdvisoryTTL: time.Duration(listener.cidTtl), Err: nil}
-		ch <- response
-	}()
-	return ch, nil
+	// if that was a snapshot or some cids have expired - persisting timestamps as binary blob
+	if removedSomething || len(cids) >= listener.snapshotSize {
+		listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
+	}
+	return time.Duration(listener.cidTtl), nil
 }
 
 // Revise logic here
-func (listener *ReframeListener) removeExpiredCids(ctx context.Context) (bool, error) {
+func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
 	lastElem := listener.cidQueue.nodesLl.Back()
 	currentTime := time.Now()
 	chunksToRemove := make(map[string]*cidsChunk)
@@ -423,7 +398,7 @@ func (listener *ReframeListener) removeExpiredCids(ctx context.Context) (bool, e
 	return removedSomeCids, nil
 }
 
-func (listener *ReframeListener) notifyRemoveAndPersist(ctx context.Context, chunk *cidsChunk) error {
+func (listener *Listener) notifyRemoveAndPersist(ctx context.Context, chunk *cidsChunk) error {
 	ctxIdStr := contextIDToStr(chunk.ContextID)
 	log.Infof("Notifying Remove for chunk=%s", ctxIdStr)
 
@@ -455,7 +430,7 @@ func (listener *ReframeListener) notifyRemoveAndPersist(ctx context.Context, chu
 	return nil
 }
 
-func (listener *ReframeListener) notifyPutAndPersist(ctx context.Context, chunk *cidsChunk) error {
+func (listener *Listener) notifyPutAndPersist(ctx context.Context, chunk *cidsChunk) error {
 	ctxIdStr := contextIDToStr(chunk.ContextID)
 	log.Infof("Notifying Put for chunk=%s, provider=%s, addrs=%q, cidsTotal=%d", ctxIdStr, listener.provider(), listener.addrs(), len(chunk.Cids))
 
@@ -493,14 +468,14 @@ func (listener *ReframeListener) notifyPutAndPersist(ctx context.Context, chunk 
 	return nil
 }
 
-func (listener *ReframeListener) provider() peer.ID {
+func (listener *Listener) provider() peer.ID {
 	if listener.configuredProviderInfo == nil {
 		return listener.lastSeenProviderInfo.ID
 	}
 	return listener.configuredProviderInfo.ID
 }
 
-func (listener *ReframeListener) addrs() []multiaddr.Multiaddr {
+func (listener *Listener) addrs() []multiaddr.Multiaddr {
 	if listener.configuredProviderInfo == nil {
 		return listener.lastSeenProviderInfo.Addrs
 	}

@@ -1,4 +1,4 @@
-package reframe_test
+package delegatedrouting_test
 
 import (
 	"context"
@@ -12,45 +12,43 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-delegated-routing/client"
-	"github.com/ipfs/go-delegated-routing/gen/proto"
-	"github.com/ipfs/go-delegated-routing/server"
+	"github.com/ipfs/go-libipfs/routing/http/client"
+	"github.com/ipfs/go-libipfs/routing/http/contentrouter"
+	"github.com/ipfs/go-libipfs/routing/http/server"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipni/go-libipni/metadata"
+	drouting "github.com/ipni/index-provider/delegatedrouting"
 	"github.com/ipni/index-provider/engine"
 	mock_provider "github.com/ipni/index-provider/mock"
-	reframelistener "github.com/ipni/index-provider/reframe"
 	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
-var defaultMetadata metadata.Metadata = metadata.Default.New(metadata.Bitswap{})
+var (
+	defaultMetadata metadata.Metadata = metadata.Default.New(metadata.Bitswap{})
+)
 
 func testNonceGen() []byte {
 	return []byte{1, 2, 3, 4, 5}
 }
 
-func newProvider(t *testing.T, pID peer.ID) *client.Provider {
+func newAddrInfo(t *testing.T, pID peer.ID) *peer.AddrInfo {
 	ma, err := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/5001")
 	require.NoError(t, err)
 
-	return &client.Provider{
-		Peer: peer.AddrInfo{
-			ID:    pID,
-			Addrs: []multiaddr.Multiaddr{ma},
-		},
-		ProviderProto: []client.TransferProtocol{{Codec: multicodec.TransportBitswap}},
+	return &peer.AddrInfo{
+		ID:    pID,
+		Addrs: []multiaddr.Multiaddr{ma},
 	}
 }
 
-// TestReframeMultihashLister verifies that multihash lister returns correct number of multihashes in deterministic order
-func TestReframeMultihashLister(t *testing.T) {
+// TestDelegatedRoutingMultihashLister verifies that multihash lister returns correct number of multihashes in deterministic order
+func TestDelegatedRoutingMultihashLister(t *testing.T) {
 	cids := make(map[cid.Cid]struct{})
 	cids[newCid("test1")] = struct{}{}
 	cids[newCid("test2")] = struct{}{}
@@ -58,7 +56,7 @@ func TestReframeMultihashLister(t *testing.T) {
 
 	_, _, pID := testutil.GenerateKeysAndIdentity(t)
 
-	lister := &reframelistener.ReframeMultihashLister{
+	lister := &drouting.MultihashLister{
 		CidFetcher: func(contextID []byte) (map[cid.Cid]struct{}, error) {
 			if string(contextID) == "test" {
 				return cids, nil
@@ -87,7 +85,7 @@ func TestRetryWithBackOffKeepsRetryingOnError(t *testing.T) {
 	// this test verifies that RetryWithBackOff keeps retrying as long as an error is returned or until the max number of attenpts is reached
 	start := time.Now()
 	attempts := 0
-	err := reframelistener.RetryWithBackoff(func() error {
+	err := drouting.RetryWithBackoff(func() error {
 		attempts++
 		return fmt.Errorf("test")
 	}, time.Second, 3)
@@ -102,7 +100,7 @@ func TestRetryWithBackOffKeepsRetryingOnError(t *testing.T) {
 func TestRetryWithBackOffStopsRetryingOnSuccess(t *testing.T) {
 	start := time.Now()
 	attempts := 0
-	err := reframelistener.RetryWithBackoff(func() error {
+	err := drouting.RetryWithBackoff(func() error {
 		attempts++
 		return nil
 	}, time.Second, 3)
@@ -129,7 +127,7 @@ func TestProvideRoundtrip(t *testing.T) {
 	defer engine.Shutdown()
 	require.NoError(t, err)
 
-	ip, err := reframelistener.New(ctx, engine, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	ip, err := drouting.New(ctx, engine, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	errorClient, errorServer := createClientAndServer(t, ip, nil, nil)
@@ -141,11 +139,11 @@ func TestProvideRoundtrip(t *testing.T) {
 	testCid4 := newCid("test4")
 	testCid5 := newCid("test5")
 
-	_, err = errorClient.Provide(ctx, []cid.Cid{testCid1}, time.Hour)
+	_, err = errorClient.ProvideBitswap(ctx, []cid.Cid{testCid1}, time.Hour)
 	require.Error(t, err, "should get sync error on unsigned provide request.")
 	errorServer.Close()
 
-	client, server := createClientAndServer(t, ip, newProvider(t, pID), priv)
+	client, server := createClientAndServer(t, ip, newAddrInfo(t, pID), priv)
 	defer server.Close()
 
 	provideMany(t, client, ctx, []cid.Cid{testCid1, testCid2})
@@ -188,7 +186,7 @@ func TestProvideRoundtripWithRemove(t *testing.T) {
 	defer engine.Shutdown()
 	require.NoError(t, err)
 
-	ip, err := reframelistener.New(ctx, engine, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	ip, err := drouting.New(ctx, engine, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	errorClient, errorServer := createClientAndServer(t, ip, nil, nil)
@@ -198,11 +196,11 @@ func TestProvideRoundtripWithRemove(t *testing.T) {
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
 
-	_, err = errorClient.Provide(ctx, []cid.Cid{testCid1}, time.Hour)
+	_, err = errorClient.ProvideBitswap(ctx, []cid.Cid{testCid1}, time.Hour)
 	require.Error(t, err, "should get sync error on unsigned provide request.")
 	errorServer.Close()
 
-	client, server := createClientAndServer(t, ip, newProvider(t, pID), priv)
+	client, server := createClientAndServer(t, ip, newAddrInfo(t, pID), priv)
 	defer server.Close()
 
 	provideMany(t, client, ctx, []cid.Cid{testCid1, testCid2, testCid3})
@@ -242,17 +240,17 @@ func TestAdvertiseTwoChunksWithOneCidInEach(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	ip, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	ip, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, ip, prov, priv)
@@ -274,7 +272,7 @@ func TestAdvertiseUsingAddrsFromParameters(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -287,7 +285,7 @@ func TestAdvertiseUsingAddrsFromParameters(t *testing.T) {
 	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&peer.AddrInfo{ID: pID, Addrs: []multiaddr.Multiaddr{randomMultiaddr}}), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&peer.AddrInfo{ID: pID, Addrs: []multiaddr.Multiaddr{randomMultiaddr}}), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	ip, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, pID.String(), []string{"/ip4/0.0.0.0/tcp/1001"}, datastore.NewMapDatastore(), testNonceGen)
+	ip, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, pID.String(), []string{"/ip4/0.0.0.0/tcp/1001"}, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, ip, prov, priv)
@@ -306,7 +304,7 @@ func TestProvideRegistersCidInDatastore(t *testing.T) {
 	ctx := context.Background()
 	defer ctx.Done()
 	testCid1 := newCid("test1")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -314,7 +312,7 @@ func TestProvideRegistersCidInDatastore(t *testing.T) {
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -322,13 +320,13 @@ func TestProvideRegistersCidInDatastore(t *testing.T) {
 
 	provide(t, c, ctx, testCid1)
 
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid1, false))
+	require.True(t, drouting.CidExist(ctx, listener, testCid1, false))
 
 	// verifying that the CID has a current timestamp
-	tt, err := reframelistener.GetCidTimestampFromDatastore(ctx, listener, testCid1)
+	tt, err := drouting.GetCidTimestampFromDatastore(ctx, listener, testCid1)
 	require.NoError(t, err)
 	require.True(t, time.Since(tt) < time.Second)
-	require.Equal(t, []cid.Cid{testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.Equal(t, []cid.Cid{testCid1}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestCidsAreOrderedByArrivalInExpiryQueue(t *testing.T) {
@@ -343,7 +341,7 @@ func TestCidsAreOrderedByArrivalInExpiryQueue(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -351,7 +349,7 @@ func TestCidsAreOrderedByArrivalInExpiryQueue(t *testing.T) {
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -360,10 +358,10 @@ func TestCidsAreOrderedByArrivalInExpiryQueue(t *testing.T) {
 	provide(t, c, ctx, testCid1)
 	provide(t, c, ctx, testCid2)
 	provide(t, c, ctx, testCid3)
-	require.Equal(t, []cid.Cid{testCid3, testCid2, testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.Equal(t, []cid.Cid{testCid3, testCid2, testCid1}, drouting.GetExpiryQueue(ctx, listener))
 
 	provide(t, c, ctx, testCid2)
-	require.Equal(t, []cid.Cid{testCid2, testCid3, testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.Equal(t, []cid.Cid{testCid2, testCid3, testCid1}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestFullChunkAdvertisedAndRegisteredInDatastore(t *testing.T) {
@@ -379,16 +377,16 @@ func TestFullChunkAdvertisedAndRegisteredInDatastore(t *testing.T) {
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
 
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -396,11 +394,11 @@ func TestFullChunkAdvertisedAndRegisteredInDatastore(t *testing.T) {
 
 	provideMany(t, c, ctx, []cid.Cid{testCid1, testCid2, testCid3})
 
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid1, true))
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid2, true))
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid3, false))
-	require.True(t, reframelistener.ChunkExists(ctx, listener, []cid.Cid{testCid1, testCid2}, testNonceGen))
-	require.Equal(t, []cid.Cid{testCid3, testCid2, testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.True(t, drouting.CidExist(ctx, listener, testCid1, true))
+	require.True(t, drouting.CidExist(ctx, listener, testCid2, true))
+	require.True(t, drouting.CidExist(ctx, listener, testCid3, false))
+	require.True(t, drouting.ChunkExists(ctx, listener, []cid.Cid{testCid1, testCid2}, testNonceGen))
+	require.Equal(t, []cid.Cid{testCid3, testCid2, testCid1}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestRemovedChunkIsRemovedFromIndexes(t *testing.T) {
@@ -415,17 +413,17 @@ func TestRemovedChunkIsRemovedFromIndexes(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -435,11 +433,11 @@ func TestRemovedChunkIsRemovedFromIndexes(t *testing.T) {
 	time.Sleep(ttl)
 	provide(t, c, ctx, testCid3)
 
-	require.True(t, reframelistener.ChunkNotExist(ctx, listener, []cid.Cid{testCid1, testCid2}, testNonceGen))
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid3, false))
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid1))
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid2))
-	require.Equal(t, []cid.Cid{testCid3}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.True(t, drouting.ChunkNotExist(ctx, listener, []cid.Cid{testCid1, testCid2}, testNonceGen))
+	require.True(t, drouting.CidExist(ctx, listener, testCid3, false))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid1))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid2))
+	require.Equal(t, []cid.Cid{testCid3}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestAdvertiseOneChunkWithTwoCidsInIt(t *testing.T) {
@@ -454,16 +452,16 @@ func TestAdvertiseOneChunkWithTwoCidsInIt(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -483,16 +481,16 @@ func TestDoNotReAdvertiseRepeatedCids(t *testing.T) {
 	defer ctx.Done()
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -517,19 +515,19 @@ func TestAdvertiseExpiredCidsIfProvidedAgain(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -555,18 +553,18 @@ func TestRemoveExpiredCidAndReadvertiseChunk(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())))
 	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Any(), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -579,12 +577,12 @@ func TestRemoveExpiredCidAndReadvertiseChunk(t *testing.T) {
 	provide(t, c, ctx, testCid3)
 
 	// verifying ds and indexes
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid2, true))
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid3, false))
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid1))
-	require.True(t, reframelistener.ChunkExists(ctx, listener, []cid.Cid{testCid2}, testNonceGen))
-	require.True(t, reframelistener.ChunkNotExist(ctx, listener, []cid.Cid{testCid1, testCid2}, testNonceGen))
-	require.Equal(t, []cid.Cid{testCid3, testCid2}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.True(t, drouting.CidExist(ctx, listener, testCid2, true))
+	require.True(t, drouting.CidExist(ctx, listener, testCid3, false))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid1))
+	require.True(t, drouting.ChunkExists(ctx, listener, []cid.Cid{testCid2}, testNonceGen))
+	require.True(t, drouting.ChunkNotExist(ctx, listener, []cid.Cid{testCid1, testCid2}, testNonceGen))
+	require.Equal(t, []cid.Cid{testCid3, testCid2}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestExpireMultipleChunks(t *testing.T) {
@@ -600,21 +598,21 @@ func TestExpireMultipleChunks(t *testing.T) {
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
 	testCid4 := newCid("test4")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid3.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid3.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid3.String()}, testNonceGen())))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -636,17 +634,17 @@ func TestDoNotReadvertiseChunkIfAllCidsExpired(t *testing.T) {
 	defer ctx.Done()
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())))
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -657,10 +655,10 @@ func TestDoNotReadvertiseChunkIfAllCidsExpired(t *testing.T) {
 	provide(t, c, ctx, testCid2)
 
 	// verifying ds and indexes
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid2, false))
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid1))
-	require.True(t, reframelistener.ChunkNotExist(ctx, listener, []cid.Cid{testCid1}, testNonceGen))
-	require.Equal(t, []cid.Cid{testCid2}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.True(t, drouting.CidExist(ctx, listener, testCid2, false))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid1))
+	require.True(t, drouting.ChunkNotExist(ctx, listener, []cid.Cid{testCid1}, testNonceGen))
+	require.Equal(t, []cid.Cid{testCid2}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestDoNotReadvertiseTheSameCids(t *testing.T) {
@@ -675,16 +673,16 @@ func TestDoNotReadvertiseTheSameCids(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
-	ip, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	ip, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, ip, prov, priv)
@@ -705,19 +703,19 @@ func TestDoNotLoadRemovedChunksOnInitialisation(t *testing.T) {
 	defer ctx.Done()
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())))
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener1, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener1, prov, priv)
@@ -728,10 +726,10 @@ func TestDoNotLoadRemovedChunksOnInitialisation(t *testing.T) {
 
 	s.Close()
 
-	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener2, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
-	require.True(t, reframelistener.ChunkNotExist(ctx, listener2, []cid.Cid{testCid1}, testNonceGen))
+	require.True(t, drouting.ChunkNotExist(ctx, listener2, []cid.Cid{testCid1}, testNonceGen))
 }
 
 func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
@@ -746,19 +744,19 @@ func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
 	testCid1 := newCid("test1")
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener1, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener1, prov, priv)
@@ -769,10 +767,10 @@ func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	provide(t, c, ctx, testCid3)
 
-	t1Before, err := reframelistener.GetCidTimestampFromDatastore(ctx, listener1, testCid1)
+	t1Before, err := drouting.GetCidTimestampFromDatastore(ctx, listener1, testCid1)
 	require.NoError(t, err)
 
-	t2Before, err := reframelistener.GetCidTimestampFromDatastore(ctx, listener1, testCid2)
+	t2Before, err := drouting.GetCidTimestampFromDatastore(ctx, listener1, testCid2)
 	require.NoError(t, err)
 
 	// cid2 timestamp should be after cid1 timestamp as it has been provided later
@@ -780,15 +778,15 @@ func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
 
 	s.Close()
 
-	reframelistener.WrappedDatastore(listener1).Delete(ctx, datastore.NewKey("tc/"+testCid1.String()))
+	drouting.WrappedDatastore(listener1).Delete(ctx, datastore.NewKey("tc/"+testCid1.String()))
 
-	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener2, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
-	t1After, err := reframelistener.GetCidTimestampFromCache(ctx, listener2, testCid1)
+	t1After, err := drouting.GetCidTimestampFromCache(ctx, listener2, testCid1)
 	require.NoError(t, err)
 
-	t2After, err := reframelistener.GetCidTimestampFromCache(ctx, listener2, testCid2)
+	t2After, err := drouting.GetCidTimestampFromCache(ctx, listener2, testCid2)
 	require.NoError(t, err)
 
 	require.NotEqual(t, t1After, t2After)
@@ -816,10 +814,10 @@ func TestSameCidNotDuplicatedInTheCurrentChunkIfProvidedTwice(t *testing.T) {
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), nil)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), nil)
 	require.NoError(t, err)
 
-	c, s := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	c, s := createClientAndServer(t, listener, newAddrInfo(t, pID), priv)
 	defer s.Close()
 
 	provide(t, c, ctx, testCid1)
@@ -842,7 +840,7 @@ func TestShouldStoreSnapshotInDatastore(t *testing.T) {
 	testCid3 := newCid("test3")
 	testCid4 := newCid("test4")
 	testCid5 := newCid("test5")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -851,7 +849,7 @@ func TestShouldStoreSnapshotInDatastore(t *testing.T) {
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener, prov, priv)
@@ -861,12 +859,12 @@ func TestShouldStoreSnapshotInDatastore(t *testing.T) {
 	provide(t, client, ctx, testCid1)
 	provide(t, client, ctx, testCid2)
 
-	require.True(t, reframelistener.HasSnapshot(ctx, listener))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid1))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid2))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener, testCid3))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener, testCid4))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener, testCid5))
+	require.True(t, drouting.HasSnapshot(ctx, listener))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid1))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid2))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener, testCid3))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener, testCid4))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener, testCid5))
 }
 
 func TestShouldNotStoreSnapshotInDatastore(t *testing.T) {
@@ -883,7 +881,7 @@ func TestShouldNotStoreSnapshotInDatastore(t *testing.T) {
 	testCid3 := newCid("test3")
 	testCid4 := newCid("test4")
 	testCid5 := newCid("test5")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -892,7 +890,7 @@ func TestShouldNotStoreSnapshotInDatastore(t *testing.T) {
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener, prov, priv)
@@ -900,12 +898,12 @@ func TestShouldNotStoreSnapshotInDatastore(t *testing.T) {
 
 	provideMany(t, client, ctx, []cid.Cid{testCid1, testCid2, testCid3, testCid4, testCid5})
 
-	require.False(t, reframelistener.HasSnapshot(ctx, listener))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid1))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid2))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid3))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid4))
-	require.True(t, reframelistener.HasCidTimestamp(ctx, listener, testCid5))
+	require.False(t, drouting.HasSnapshot(ctx, listener))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid1))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid2))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid3))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid4))
+	require.True(t, drouting.HasCidTimestamp(ctx, listener, testCid5))
 }
 
 func TestShouldCleanUpTimestampMappingsFromDatastore(t *testing.T) {
@@ -922,7 +920,7 @@ func TestShouldCleanUpTimestampMappingsFromDatastore(t *testing.T) {
 	testCid3 := newCid("test3")
 	testCid4 := newCid("test4")
 	testCid5 := newCid("test5")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -932,7 +930,7 @@ func TestShouldCleanUpTimestampMappingsFromDatastore(t *testing.T) {
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener1, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener1, prov, priv)
@@ -943,15 +941,15 @@ func TestShouldCleanUpTimestampMappingsFromDatastore(t *testing.T) {
 
 	server.Close()
 
-	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener2, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
-	require.True(t, reframelistener.HasSnapshot(ctx, listener2))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener2, testCid1))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener2, testCid2))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener2, testCid3))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener2, testCid4))
-	require.False(t, reframelistener.HasCidTimestamp(ctx, listener2, testCid5))
+	require.True(t, drouting.HasSnapshot(ctx, listener2))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener2, testCid1))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener2, testCid2))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener2, testCid3))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener2, testCid4))
+	require.False(t, drouting.HasCidTimestamp(ctx, listener2, testCid5))
 }
 
 func TestShouldCorrectlyMergeSnapshotAndCidTimestamps(t *testing.T) {
@@ -968,7 +966,7 @@ func TestShouldCorrectlyMergeSnapshotAndCidTimestamps(t *testing.T) {
 	testCid3 := newCid("test3")
 	testCid4 := newCid("test4")
 	testCid5 := newCid("test5")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -978,7 +976,7 @@ func TestShouldCorrectlyMergeSnapshotAndCidTimestamps(t *testing.T) {
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
-	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener1, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener1, prov, priv)
@@ -996,10 +994,10 @@ func TestShouldCorrectlyMergeSnapshotAndCidTimestamps(t *testing.T) {
 
 	server.Close()
 
-	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener2, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
-	require.Equal(t, []cid.Cid{testCid2, testCid5, testCid4, testCid1, testCid3}, reframelistener.GetExpiryQueue(ctx, listener2))
+	require.Equal(t, []cid.Cid{testCid2, testCid5, testCid4, testCid1, testCid3}, drouting.GetExpiryQueue(ctx, listener2))
 }
 
 func TestInitialiseFromDatastoreWithoutSnapshot(t *testing.T) {
@@ -1027,7 +1025,7 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 	for i := 0; i < len(testCids); i++ {
 		testCids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
@@ -1045,13 +1043,13 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 			cidStrs = append(cidStrs, c.String())
 		}
 
-		mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID(cidStrs, testNonceGen())), gomock.Eq(defaultMetadata))
+		mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID(cidStrs, testNonceGen())), gomock.Eq(defaultMetadata))
 	}
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
 	ds := datastore.NewMapDatastore()
 
-	listener1, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen, reframelistener.WithPageSize(pageSize))
+	listener1, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen, drouting.WithPageSize(pageSize))
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener1, prov, priv)
@@ -1065,7 +1063,7 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 
 	server.Close()
 
-	listener2, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen, reframelistener.WithPageSize(pageSize))
+	listener2, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen, drouting.WithPageSize(pageSize))
 	require.NoError(t, err)
 
 	// verify that:
@@ -1075,13 +1073,13 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 	for i := 0; i < len(testCids); i += chunkSize {
 		if i+chunkSize < len(testCids) {
 			for j := i; j < len(testCids); j++ {
-				require.True(t, reframelistener.CidExist(ctx, listener2, testCids[j], false))
+				require.True(t, drouting.CidExist(ctx, listener2, testCids[j], false))
 			}
 			break
 		}
-		require.True(t, reframelistener.ChunkExists(ctx, listener2, testCids[i:i+chunkSize], testNonceGen))
+		require.True(t, drouting.ChunkExists(ctx, listener2, testCids[i:i+chunkSize], testNonceGen))
 		for j := 0; j < chunkSize; j++ {
-			require.True(t, reframelistener.CidExist(ctx, listener2, testCids[i+j], true))
+			require.True(t, drouting.CidExist(ctx, listener2, testCids[i+j], true))
 		}
 	}
 
@@ -1091,7 +1089,7 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 		reverseTestCids[i] = testCids[len(testCids)-i-1]
 	}
 
-	require.Equal(t, reverseTestCids, reframelistener.GetExpiryQueue(ctx, listener2))
+	require.Equal(t, reverseTestCids, drouting.GetExpiryQueue(ctx, listener2))
 }
 
 func TestCleanUpExpiredCidsThatDontHaveChunk(t *testing.T) {
@@ -1106,18 +1104,18 @@ func TestCleanUpExpiredCidsThatDontHaveChunk(t *testing.T) {
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
 	testCid100 := newCid("test100")
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
-	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(&prov.Peer), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Eq(prov), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 	mockEng.EXPECT().NotifyRemove(gomock.Any(), gomock.Eq(pID), gomock.Eq(generateContextID([]string{testCid1.String(), testCid2.String()}, testNonceGen())))
 
 	ds := datastore.NewMapDatastore()
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	c, s := createClientAndServer(t, listener, prov, priv)
@@ -1129,10 +1127,10 @@ func TestCleanUpExpiredCidsThatDontHaveChunk(t *testing.T) {
 
 	provide(t, c, ctx, testCid100)
 
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid3))
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid2))
-	require.True(t, reframelistener.CidNotExist(ctx, listener, testCid1))
-	require.Equal(t, []cid.Cid{testCid100}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid3))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid2))
+	require.True(t, drouting.CidNotExist(ctx, listener, testCid1))
+	require.Equal(t, []cid.Cid{testCid100}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestCidsWithoutChunkAreRegisteredInDsAndIndexes(t *testing.T) {
@@ -1151,16 +1149,16 @@ func TestCidsWithoutChunkAreRegisteredInDsAndIndexes(t *testing.T) {
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), nil)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), nil)
 	require.NoError(t, err)
 
-	c, s := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	c, s := createClientAndServer(t, listener, newAddrInfo(t, pID), priv)
 	defer s.Close()
 
 	provide(t, c, ctx, testCid1)
 
-	require.True(t, reframelistener.CidExist(ctx, listener, testCid1, false))
-	require.Equal(t, []cid.Cid{testCid1}, reframelistener.GetExpiryQueue(ctx, listener))
+	require.True(t, drouting.CidExist(ctx, listener, testCid1, false))
+	require.Equal(t, []cid.Cid{testCid1}, drouting.GetExpiryQueue(ctx, listener))
 }
 
 func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
@@ -1183,7 +1181,7 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 
 	ds := datastore.NewMapDatastore()
 
-	listener, err := reframelistener.New(ctx,
+	listener, err := drouting.New(ctx,
 		engine,
 		ttl,
 		chunkSize,
@@ -1192,7 +1190,7 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 		nil,
 		ds,
 		testNonceGen,
-		reframelistener.WithSnapshotMaxChunkSize(1))
+		drouting.WithSnapshotMaxChunkSize(1))
 
 	require.NoError(t, err)
 
@@ -1201,15 +1199,15 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 
-	client, server := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	client, server := createClientAndServer(t, listener, newAddrInfo(t, pID), priv)
 	defer server.Close()
 
 	provideMany(t, client, ctx, cids)
 
-	require.Equal(t, cidsNumber, reframelistener.SnapshotsQty(ctx, listener))
+	require.Equal(t, cidsNumber, drouting.SnapshotsQty(ctx, listener))
 
 	// create a new listener and verify that it has initialised correctly
-	listener, err = reframelistener.New(ctx,
+	listener, err = drouting.New(ctx,
 		engine,
 		ttl,
 		chunkSize,
@@ -1221,7 +1219,7 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 
 	require.NoError(t, err)
 
-	queue := reframelistener.GetExpiryQueue(ctx, listener)
+	queue := drouting.GetExpiryQueue(ctx, listener)
 	sort.Slice(queue, func(i, j int) bool {
 		return queue[i].String() < queue[j].String()
 	})
@@ -1248,7 +1246,7 @@ func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
 
 	ds := datastore.NewMapDatastore()
 
-	listener, err := reframelistener.New(ctx,
+	listener, err := drouting.New(ctx,
 		engine,
 		ttl,
 		chunkSize,
@@ -1257,7 +1255,7 @@ func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
 		nil,
 		ds,
 		testNonceGen,
-		reframelistener.WithSnapshotMaxChunkSize(1))
+		drouting.WithSnapshotMaxChunkSize(1))
 
 	require.NoError(t, err)
 
@@ -1266,14 +1264,14 @@ func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 
-	client, server := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	client, server := createClientAndServer(t, listener, newAddrInfo(t, pID), priv)
 	defer server.Close()
 
 	provideMany(t, client, ctx, cids)
-	require.Equal(t, cidsNumber, reframelistener.SnapshotsQty(ctx, listener))
+	require.Equal(t, cidsNumber, drouting.SnapshotsQty(ctx, listener))
 	time.Sleep(ttl)
 	provideMany(t, client, ctx, cids[0:2])
-	require.Equal(t, 2, reframelistener.SnapshotsQty(ctx, listener))
+	require.Equal(t, 2, drouting.SnapshotsQty(ctx, listener))
 }
 
 func TestShouldRecogniseLegacySnapshot(t *testing.T) {
@@ -1295,7 +1293,7 @@ func TestShouldRecogniseLegacySnapshot(t *testing.T) {
 
 	ds := datastore.NewMapDatastore()
 
-	listener, err := reframelistener.New(ctx,
+	listener, err := drouting.New(ctx,
 		engine,
 		ttl,
 		chunkSize,
@@ -1304,26 +1302,26 @@ func TestShouldRecogniseLegacySnapshot(t *testing.T) {
 		nil,
 		ds,
 		testNonceGen,
-		reframelistener.WithSnapshotMaxChunkSize(1))
+		drouting.WithSnapshotMaxChunkSize(1))
 
 	require.NoError(t, err)
 
-	client, server := createClientAndServer(t, listener, newProvider(t, pID), priv)
+	client, server := createClientAndServer(t, listener, newAddrInfo(t, pID), priv)
 	defer server.Close()
 
 	provide(t, client, ctx, newCid("test"))
 
-	snapshot, err := reframelistener.WrappedDatastore(listener).Get(ctx, datastore.NewKey("ts/0"))
+	snapshot, err := drouting.WrappedDatastore(listener).Get(ctx, datastore.NewKey("ts/0"))
 	require.NoError(t, err)
 
-	err = reframelistener.WrappedDatastore(listener).Put(ctx, datastore.NewKey("ts"), snapshot)
+	err = drouting.WrappedDatastore(listener).Put(ctx, datastore.NewKey("ts"), snapshot)
 	require.NoError(t, err)
 
-	err = reframelistener.WrappedDatastore(listener).Delete(ctx, datastore.NewKey("ts/0"))
+	err = drouting.WrappedDatastore(listener).Delete(ctx, datastore.NewKey("ts/0"))
 	require.NoError(t, err)
 
 	// create a new listener and verify that it has initialised correctly
-	listener, err = reframelistener.New(ctx,
+	listener, err = drouting.New(ctx,
 		engine,
 		ttl,
 		chunkSize,
@@ -1335,16 +1333,16 @@ func TestShouldRecogniseLegacySnapshot(t *testing.T) {
 
 	require.NoError(t, err)
 
-	queue := reframelistener.GetExpiryQueue(ctx, listener)
+	queue := drouting.GetExpiryQueue(ctx, listener)
 	require.Equal(t, []cid.Cid{newCid("test")}, queue)
 }
 
-func provide(t *testing.T, cc *client.Client, ctx context.Context, c cid.Cid) time.Duration {
+func provide(t *testing.T, cc contentrouter.Client, ctx context.Context, c cid.Cid) time.Duration {
 	return provideMany(t, cc, ctx, []cid.Cid{c})
 }
 
-func provideMany(t *testing.T, cc *client.Client, ctx context.Context, cids []cid.Cid) time.Duration {
-	rc, err := cc.Provide(ctx, cids, 2*time.Hour)
+func provideMany(t *testing.T, cc contentrouter.Client, ctx context.Context, cids []cid.Cid) time.Duration {
+	rc, err := cc.ProvideBitswap(ctx, cids, 2*time.Hour)
 	require.NoError(t, err)
 	return rc
 }
@@ -1364,15 +1362,20 @@ func newCid(s string) cid.Cid {
 	return cid.NewCidV1(cid.Raw, testMH1)
 }
 
-func createClientAndServer(t *testing.T, service server.DelegatedRoutingService, p *client.Provider, identity crypto.PrivKey) (*client.Client, *httptest.Server) {
+func createClientAndServer(t *testing.T, router server.ContentRouter, p *peer.AddrInfo, identity crypto.PrivKey) (contentrouter.Client, *httptest.Server) {
 	// start a server
-	s := httptest.NewServer(server.DelegatedRoutingAsyncHandler(service))
+	s := httptest.NewServer(server.Handler(router))
 
 	// start a client
-	q, err := proto.New_DelegatedRouting_Client(s.URL, proto.DelegatedRouting_Client_WithHTTPClient(s.Client()))
-	require.NoError(t, err)
-	c, err := client.NewClient(q, p, identity)
-	require.NoError(t, err)
+	var c contentrouter.Client
+	var err error
+	if p != nil {
+		c, err = client.New(s.URL, client.WithIdentity(identity), client.WithProviderInfo(p.ID, p.Addrs))
+		require.NoError(t, err)
+	} else {
+		c, err = client.New(s.URL, client.WithIdentity(identity))
+		require.NoError(t, err)
+	}
 
 	return c, s
 }

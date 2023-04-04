@@ -1,6 +1,6 @@
 //go:build !race
 
-package reframe_test
+package delegatedrouting_test
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	leveldb "github.com/ipfs/go-ds-leveldb"
+	drouting "github.com/ipni/index-provider/delegatedrouting"
 	"github.com/ipni/index-provider/engine"
 	mock_provider "github.com/ipni/index-provider/mock"
-	reframelistener "github.com/ipni/index-provider/reframe"
 	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p"
 	"github.com/stretchr/testify/require"
@@ -36,14 +36,14 @@ func TestHandleConcurrentRequests(t *testing.T) {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 
-	prov := newProvider(t, pID)
+	prov := newAddrInfo(t, pID)
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
 
-	listener, err := reframelistener.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen)
 	require.NoError(t, err)
 
 	client, server := createClientAndServer(t, listener, prov, priv)
@@ -65,7 +65,7 @@ func TestHandleConcurrentRequests(t *testing.T) {
 	}
 
 	for _, c := range cids {
-		require.True(t, reframelistener.CidExist(ctx, listener, c, false))
+		require.True(t, drouting.CidExist(ctx, listener, c, false))
 	}
 }
 
@@ -96,7 +96,7 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 	}()
 	require.NoError(t, err)
 
-	ip, err := reframelistener.New(ctx, engine, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
+	ip, err := drouting.New(ctx, engine, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)
 
 	cids := make([]cid.Cid, cidsNumber)
@@ -104,7 +104,7 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 
-	client, server := createClientAndServer(t, ip, newProvider(t, pID), priv)
+	client, server := createClientAndServer(t, ip, newAddrInfo(t, pID), priv)
 	defer server.Close()
 
 	start := time.Now()

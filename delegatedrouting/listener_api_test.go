@@ -1,4 +1,4 @@
-package reframe
+package delegatedrouting
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"github.com/ipfs/go-datastore"
 )
 
-func ChunkExists(ctx context.Context, listener *ReframeListener, cids []cid.Cid, nonceGen func() []byte) bool {
+func ChunkExists(ctx context.Context, listener *Listener, cids []cid.Cid, nonceGen func() []byte) bool {
 	cidsMap := cidsListToMap(cids)
 	ctxID := listener.chunker.generateContextID(cidsMap)
 	ctxIDStr := contextIDToStr(ctxID)
@@ -45,25 +45,25 @@ func ChunkExists(ctx context.Context, listener *ReframeListener, cids []cid.Cid,
 	return !chunkFromDatastore.Removed
 }
 
-func HasSnapshot(ctx context.Context, listener *ReframeListener) bool {
+func HasSnapshot(ctx context.Context, listener *Listener) bool {
 	return SnapshotsQty(ctx, listener) > 0
 }
 
-func SnapshotsQty(ctx context.Context, listener *ReframeListener) int {
+func SnapshotsQty(ctx context.Context, listener *Listener) int {
 	keys, _ := listener.dsWrapper.getSnapshotChunkKeys(ctx)
 	return len(keys)
 }
 
-func HasCidTimestamp(ctx context.Context, listener *ReframeListener, c cid.Cid) bool {
+func HasCidTimestamp(ctx context.Context, listener *Listener, c cid.Cid) bool {
 	has, err := listener.dsWrapper.ds.Has(ctx, timestampByCidKey(c))
 	return has && err == nil
 }
 
-func WrappedDatastore(listener *ReframeListener) datastore.Datastore {
+func WrappedDatastore(listener *Listener) datastore.Datastore {
 	return listener.dsWrapper.ds
 }
 
-func ChunkNotExist(ctx context.Context, listener *ReframeListener, cids []cid.Cid, nonceGen func() []byte) bool {
+func ChunkNotExist(ctx context.Context, listener *Listener, cids []cid.Cid, nonceGen func() []byte) bool {
 	ctxID := listener.chunker.generateContextID(cidsListToMap(cids))
 	ctxIDStr := contextIDToStr(ctxID)
 	cidsRegistered := false
@@ -87,20 +87,20 @@ func ChunkNotExist(ctx context.Context, listener *ReframeListener, cids []cid.Ci
 
 }
 
-func CidExist(ctx context.Context, listener *ReframeListener, c cid.Cid, requireChunk bool) bool {
+func CidExist(ctx context.Context, listener *Listener, c cid.Cid, requireChunk bool) bool {
 	elem := listener.cidQueue.getNodeByCid(c)
 	return elem != nil && (!requireChunk || elem.Value.(*cidNode).chunk != nil)
 }
 
-func CidNotExist(ctx context.Context, listener *ReframeListener, c cid.Cid) bool {
+func CidNotExist(ctx context.Context, listener *Listener, c cid.Cid) bool {
 	return listener.cidQueue.getNodeByCid(c) == nil
 }
 
-func GetCidTimestampFromDatastore(ctx context.Context, listener *ReframeListener, c cid.Cid) (time.Time, error) {
+func GetCidTimestampFromDatastore(ctx context.Context, listener *Listener, c cid.Cid) (time.Time, error) {
 	return listener.dsWrapper.getCidTimestamp(ctx, c)
 }
 
-func GetCidTimestampFromCache(ctx context.Context, listener *ReframeListener, c cid.Cid) (time.Time, error) {
+func GetCidTimestampFromCache(ctx context.Context, listener *Listener, c cid.Cid) (time.Time, error) {
 	node := listener.cidQueue.getNodeByCid(c)
 	if node == nil {
 		return time.Unix(0, 0), fmt.Errorf("Timestamp not found")
@@ -108,15 +108,15 @@ func GetCidTimestampFromCache(ctx context.Context, listener *ReframeListener, c 
 	return node.Value.(*cidNode).Timestamp, nil
 }
 
-func GetChunk(ctx context.Context, listener *ReframeListener, contextID string) *cidsChunk {
+func GetChunk(ctx context.Context, listener *Listener, contextID string) *cidsChunk {
 	return listener.chunker.getChunkByContextID(contextID)
 }
 
-func GetCurrentChunk(ctx context.Context, listener *ReframeListener) *cidsChunk {
+func GetCurrentChunk(ctx context.Context, listener *Listener) *cidsChunk {
 	return listener.chunker.currentChunk
 }
 
-func GetExpiryQueue(ctx context.Context, listener *ReframeListener) []cid.Cid {
+func GetExpiryQueue(ctx context.Context, listener *Listener) []cid.Cid {
 	cids := make([]cid.Cid, listener.cidQueue.nodesLl.Len())
 	node := listener.cidQueue.nodesLl.Front()
 	cnt := 0

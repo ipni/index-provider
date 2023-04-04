@@ -8,17 +8,17 @@ import (
 )
 
 const (
-	defaultReframeReadTimeout  = Duration(10 * time.Minute)
-	defaultReframeWriteTimeout = Duration(10 * time.Minute)
-	defaultReframeCidTtl       = Duration(24 * time.Hour)
-	defaultReframeChunkSize    = 1_000
-	defaultReframeSnapshotSize = 10_000
-	defaultPageSize            = 5_000
+	defaultDelegatedRoutingReadTimeout  = Duration(10 * time.Minute)
+	defaultDelegatedRoutingWriteTimeout = Duration(10 * time.Minute)
+	defaultDelegatedRoutingCidTtl       = Duration(24 * time.Hour)
+	defaultDelegatedRoutingChunkSize    = 1_000
+	defaultDelegatedRoutingSnapshotSize = 10_000
+	defaultPageSize                     = 5_000
 )
 
-// Reframe tracks the configuration of reframe serber. If specified, index provider will expose a reframe server that will
+// DelegatedRouting tracks the configuration of delegated routing server. If specified, index provider will expose a delegated routing server that will
 // allow an IPFS node to advertise their CIDs through the delegated routing protocol.
-type Reframe struct {
+type DelegatedRouting struct {
 	ListenMultiaddr string
 	ReadTimeout     Duration
 	WriteTimeout    Duration
@@ -30,52 +30,52 @@ type Reframe struct {
 	// SnapshotSize is the maximum number of records in the Provide payload after which it is considered a snapshot.
 	// Snapshots don't have individual timestamps recorded into the datastore. Instead, timestamps are recorded as a binary blob after processing is done.
 	SnapshotSize int
-	// ProviderID is a Peer ID of the IPFS node that the reframe server is expecting advertisements from
+	// ProviderID is a Peer ID of the IPFS node that the delegated routing server is expecting advertisements from
 	ProviderID string
-	// DsPageSize is a size of the database page that is going to be used on reframe server initialisation.
+	// DsPageSize is a size of the database page that is going to be used on delegated routing server initialisation.
 	DsPageSize int
-	// Addrs is a list of multiaddresses of the IPFS node that the reframe server is expecting advertisements from
+	// Addrs is a list of multiaddresses of the IPFS node that the delegated routing server is expecting advertisements from
 	Addrs []string
 }
 
-// NewReframe instantiates a new Reframe config with default values.
-func NewReframe() Reframe {
-	return Reframe{
+// NewDelegatedRouting instantiates a new delegated routing config with default values.
+func NewDelegatedRouting() DelegatedRouting {
+	return DelegatedRouting{
 		// we would like this functionality to be off by default
 		ProviderID:      "",
 		ListenMultiaddr: "",
-		ReadTimeout:     defaultReframeReadTimeout,
-		WriteTimeout:    defaultReframeWriteTimeout,
-		CidTtl:          defaultReframeCidTtl,
-		ChunkSize:       defaultReframeChunkSize,
-		SnapshotSize:    defaultReframeSnapshotSize,
+		ReadTimeout:     defaultDelegatedRoutingReadTimeout,
+		WriteTimeout:    defaultDelegatedRoutingWriteTimeout,
+		CidTtl:          defaultDelegatedRoutingCidTtl,
+		ChunkSize:       defaultDelegatedRoutingChunkSize,
+		SnapshotSize:    defaultDelegatedRoutingSnapshotSize,
 		DsPageSize:      defaultPageSize,
 	}
 }
 
 // PopulateDefaults replaces zero-values in the config with default values.
-func (c *Reframe) PopulateDefaults() {
+func (c *DelegatedRouting) PopulateDefaults() {
 	if c.ReadTimeout == 0 {
-		c.ReadTimeout = defaultReframeReadTimeout
+		c.ReadTimeout = defaultDelegatedRoutingReadTimeout
 	}
 	if c.WriteTimeout == 0 {
-		c.WriteTimeout = defaultReframeWriteTimeout
+		c.WriteTimeout = defaultDelegatedRoutingWriteTimeout
 	}
 	if c.CidTtl == 0 {
-		c.CidTtl = defaultReframeCidTtl
+		c.CidTtl = defaultDelegatedRoutingCidTtl
 	}
 	if c.ChunkSize == 0 {
-		c.ChunkSize = defaultReframeChunkSize
+		c.ChunkSize = defaultDelegatedRoutingChunkSize
 	}
 	if c.SnapshotSize == 0 {
-		c.SnapshotSize = defaultReframeSnapshotSize
+		c.SnapshotSize = defaultDelegatedRoutingSnapshotSize
 	}
 	if c.DsPageSize == 0 {
 		c.DsPageSize = defaultPageSize
 	}
 }
 
-func (as *Reframe) ListenNetAddr() (string, error) {
+func (as *DelegatedRouting) ListenNetAddr() (string, error) {
 	maddr, err := multiaddr.NewMultiaddr(as.ListenMultiaddr)
 	if err != nil {
 		return "", err
