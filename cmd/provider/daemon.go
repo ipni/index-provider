@@ -22,7 +22,7 @@ import (
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/engine/policy"
 	adminserver "github.com/ipni/index-provider/server/admin/http"
-	reframeserver "github.com/ipni/index-provider/server/reframe/http"
+	droutingserver "github.com/ipni/index-provider/server/delegatedrouting/server"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/libp2p/go-libp2p"
 	"github.com/mitchellh/go-homedir"
@@ -187,7 +187,7 @@ func daemonCommand(cctx *cli.Context) error {
 		adminErrChan <- adminSvr.Start()
 	}()
 
-	reframeErrChan := make(chan error, 1)
+	droutingErrChan := make(chan error, 1)
 	// If there are bootstrap peers and bootstrapping is enabled, then try to
 	// connect to the minimum set of peers.
 	if len(cfg.Bootstrap.Peers) != 0 && cfg.Bootstrap.MinimumPeers != 0 {
@@ -206,36 +206,36 @@ func daemonCommand(cctx *cli.Context) error {
 		defer bootstrapper.Close()
 	}
 
-	// setting up reframe server
-	var reframeSrv *reframeserver.Server
-	if len(cfg.Reframe.ListenMultiaddr) != 0 {
-		reframeAddr, err := cfg.Reframe.ListenNetAddr()
+	// setting up delegated routing server
+	var droutingSrv *droutingserver.Server
+	if len(cfg.DelegatedRouting.ListenMultiaddr) != 0 {
+		droutingAddr, err := cfg.DelegatedRouting.ListenNetAddr()
 		if err != nil {
 			return err
 		}
 
-		reframeSrv, err = reframeserver.New(
-			time.Duration(cfg.Reframe.CidTtl),
-			cfg.Reframe.ChunkSize,
-			cfg.Reframe.SnapshotSize,
-			cfg.Reframe.DsPageSize,
-			cfg.Reframe.ProviderID,
-			cfg.Reframe.Addrs,
+		droutingSrv, err = droutingserver.New(
+			time.Duration(cfg.DelegatedRouting.CidTtl),
+			cfg.DelegatedRouting.ChunkSize,
+			cfg.DelegatedRouting.SnapshotSize,
+			cfg.DelegatedRouting.DsPageSize,
+			cfg.DelegatedRouting.ProviderID,
+			cfg.DelegatedRouting.Addrs,
 			eng,
 			ds,
-			reframeserver.WithListenAddr(reframeAddr),
-			reframeserver.WithReadTimeout(time.Duration(cfg.Reframe.ReadTimeout)),
-			reframeserver.WithWriteTimeout(time.Duration(cfg.Reframe.WriteTimeout)),
+			droutingserver.WithListenAddr(droutingAddr),
+			droutingserver.WithReadTimeout(time.Duration(cfg.DelegatedRouting.ReadTimeout)),
+			droutingserver.WithWriteTimeout(time.Duration(cfg.DelegatedRouting.WriteTimeout)),
 		)
 
 		if err != nil {
 			return err
 		}
-		log.Infow("reframe server initialized", "address", cfg.Reframe.ListenMultiaddr)
+		log.Infow("delegated routing server initialized", "address", cfg.DelegatedRouting.ListenMultiaddr)
 
-		fmt.Fprintf(cctx.App.ErrWriter, "Starting reframe server on %s ...", cfg.Reframe.ListenMultiaddr)
+		fmt.Fprintf(cctx.App.ErrWriter, "Starting delegated routing server on %s ...", cfg.DelegatedRouting.ListenMultiaddr)
 		go func() {
-			reframeErrChan <- reframeSrv.Start()
+			droutingErrChan <- droutingSrv.Start()
 		}()
 	}
 
@@ -246,8 +246,8 @@ func daemonCommand(cctx *cli.Context) error {
 	case err = <-adminErrChan:
 		log.Errorw("Failed to start admin server", "err", err)
 		finalErr = ErrDaemonStart
-	case err = <-reframeErrChan:
-		log.Errorw("Failed to start reframe server", "err", err)
+	case err = <-droutingErrChan:
+		log.Errorw("Failed to start delegated routing server", "err", err)
 		finalErr = ErrDaemonStart
 	}
 
@@ -281,9 +281,9 @@ func daemonCommand(cctx *cli.Context) error {
 		log.Errorw("Error shutting down admin server: %s", err)
 		finalErr = ErrDaemonStop
 	}
-	if reframeSrv != nil {
-		if err = reframeSrv.Shutdown(shutdownCtx); err != nil {
-			log.Errorw("Error shutting down reframe server.", "err", err)
+	if droutingSrv != nil {
+		if err = droutingSrv.Shutdown(shutdownCtx); err != nil {
+			log.Errorw("Error shutting down delegated routing server.", "err", err)
 			finalErr = ErrDaemonStop
 		}
 	}

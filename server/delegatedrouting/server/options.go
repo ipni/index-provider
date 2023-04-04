@@ -1,4 +1,4 @@
-package reframeserver
+package server
 
 import "time"
 
@@ -28,7 +28,7 @@ func newOptions(o ...Option) (*options, error) {
 	return opts, nil
 }
 
-// WithListenAddr sets the net address on which the reframe HTTP server is exposed.
+// WithListenAddr sets the net address on which the delegated routing HTTP server is exposed.
 func WithListenAddr(addr string) Option {
 	return func(o *options) error {
 		o.listenAddr = addr
