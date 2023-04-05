@@ -288,6 +288,18 @@ func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.Bitswa
 			log.Infof("Processed %d out of %d CIDs. startTime=%v", i, len(cids), startTime)
 		}
 	}
+
+	// if there are any cids left in the current chunk - sealing and publishing it. This is required so that the last chunk don't get stuck until
+	// the next re-provide request happens
+	if len(listener.chunker.currentChunk.Cids) > 0 {
+		err := listener.chunker.sealChunk(ctx, func(cc *cidsChunk) error {
+			return listener.notifyPutAndPersist(ctx, cc)
+		})
+		if err != nil {
+			log.Errorw("Error sealing and publishing the last chunk.", "err", err)
+		}
+	}
+
 	removedSomething, err := listener.removeExpiredCids(ctx)
 	if err != nil {
 		log.Warnw("Error removing expired cids.", "err", err)

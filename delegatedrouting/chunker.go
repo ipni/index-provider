@@ -68,16 +68,23 @@ func (ch *chunker) addCidToCurrentChunk(ctx context.Context, c cid.Cid, chunkFul
 
 	// if the current chunk is full - publish it and create a new one
 	if len(ch.currentChunk.Cids) >= ch.chunkSizeFunc() {
-		ch.currentChunk.ContextID = ch.generateContextID(ch.currentChunk.Cids)
-		err := chunkFullFunc(ch.currentChunk)
-		if err != nil {
-			return err
-		}
-
-		ch.currentChunk = ch.newCidsChunk()
+		ch.sealChunk(ctx, chunkFullFunc)
 	}
 
 	ch.currentChunk.Cids[c] = struct{}{}
+
+	return nil
+}
+
+// sealChunk seals the current chunk, publishes it via the chunkFullFunc and creates a new one
+func (ch *chunker) sealChunk(ctx context.Context, chunkFullFunc func(*cidsChunk) error) error {
+	ch.currentChunk.ContextID = ch.generateContextID(ch.currentChunk.Cids)
+	err := chunkFullFunc(ch.currentChunk)
+	if err != nil {
+		return err
+	}
+
+	ch.currentChunk = ch.newCidsChunk()
 
 	return nil
 }
