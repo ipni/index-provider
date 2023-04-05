@@ -41,7 +41,17 @@ func New(cidTtl time.Duration,
 		return nil, fmt.Errorf("delegated routing initialisation failed: %s", err)
 	}
 
-	rListener, err := drouting.New(context.Background(), e, cidTtl, chunkSize, snapshotSize, providerID, addrs, ds, nil, drouting.WithPageSize(pageSize))
+	rListener, err := drouting.New(context.Background(),
+		e,
+		cidTtl,
+		chunkSize,
+		snapshotSize,
+		providerID,
+		addrs,
+		ds,
+		nil,
+		drouting.WithPageSize(pageSize),
+		drouting.WithAdFlushFrequency(opts.adFlushFrequency))
 	if err != nil {
 		return nil, fmt.Errorf("delegated routing initialisation failed: %s", err)
 	}

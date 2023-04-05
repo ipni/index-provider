@@ -52,6 +52,8 @@ type Listener struct {
 	configuredProviderInfo *peer.AddrInfo
 	stats                  *statsReporter
 	lock                   sync.Mutex
+	adFlushFrequency       time.Duration
+	contextCancelFunc      context.CancelFunc
 }
 
 type MultihashLister struct {
@@ -94,6 +96,8 @@ func New(ctx context.Context, engine provider.Interface,
 
 	options := ApplyOptions(opts...)
 
+	cctx, cancelFunc := context.WithCancel(ctx)
+
 	listener := &Listener{
 		engine:                 engine,
 		cidTtl:                 cidTtl,
@@ -104,6 +108,8 @@ func New(ctx context.Context, engine provider.Interface,
 		configuredProviderInfo: nil,
 		chunker:                newChunker(func() int { return chunkSize }, nonceGen),
 		cidQueue:               newCidQueue(),
+		adFlushFrequency:       options.AdFlushFrequency,
+		contextCancelFunc:      cancelFunc,
 	}
 
 	listener.stats = newStatsReporter(
@@ -185,11 +191,15 @@ func New(ctx context.Context, engine provider.Interface,
 
 	listener.stats.start()
 
+	// start flush worker
+	go listener.flushWorker(cctx)
+
 	return listener, nil
 }
 
 func (listener *Listener) Shutdown() {
 	listener.stats.shutdown()
+	listener.contextCancelFunc()
 }
 
 func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid) ([]types.ProviderResponse, error) {
@@ -352,12 +362,12 @@ func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
 			chunksRemoved++
 		}
 
-		newChunk := listener.chunker.newCidsChunk()
+		replacementChunk := &cidsChunk{Cids: make(map[cid.Cid]struct{}, listener.chunkSize), Removed: false}
 
 		for c := range chunkToRemove.Cids {
 			// if cid hasn't expired - adding it to the replacement chunk
 			if _, ok := cidsToRemove[c]; !ok {
-				newChunk.Cids[c] = struct{}{}
+				replacementChunk.Cids[c] = struct{}{}
 				continue
 			}
 
@@ -368,10 +378,10 @@ func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
 			cidsRemoved++
 		}
 		// only generating a new chunk if it has some cids left in it
-		if len(newChunk.Cids) > 0 {
-			newChunk.ContextID = listener.chunker.generateContextID(newChunk.Cids)
-			newCtxIdStr := contextIDToStr(newChunk.ContextID)
-			err = listener.notifyPutAndPersist(ctx, newChunk)
+		if len(replacementChunk.Cids) > 0 {
+			replacementChunk.ContextID = listener.chunker.generateContextID(replacementChunk.Cids)
+			newCtxIdStr := contextIDToStr(replacementChunk.ContextID)
+			err = listener.notifyPutAndPersist(ctx, replacementChunk)
 			if err != nil {
 				log.Warnw("Error creating replacement chunk. Continuing.", "contextID", newCtxIdStr, "err", err)
 				// it's ok to continue - remaining CIDs are going to be picked up on the next snapshot
@@ -484,6 +494,42 @@ func (listener *Listener) addrs() []multiaddr.Multiaddr {
 
 func contextIDToStr(contextID []byte) string {
 	return base64.StdEncoding.EncodeToString(contextID)
+}
+
+func (listener *Listener) flushWorker(ctx context.Context) {
+	var t *time.Timer
+
+	flushFunc := func() {
+		// we don't want flush to happen while re-provide is running
+		listener.lock.Lock()
+		defer listener.lock.Unlock()
+		// flush only if the current chunk has some cids in it and the time since the current chunk has been created is greater than the flush frequency
+		if len(listener.chunker.currentChunk.Cids) > 0 &&
+			time.Since(listener.chunker.currentChunkTime) > listener.adFlushFrequency {
+			err := listener.chunker.flushCurrentChunk(ctx, func(cc *cidsChunk) error {
+				return listener.notifyPutAndPersist(ctx, cc)
+			})
+			if err != nil {
+				log.Warnw("Error flushing current chunk", "err", err)
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			flushFunc()
+		}
+
+		t = time.NewTimer(listener.adFlushFrequency)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 func RetryWithBackoff(f func() error, initialInterval time.Duration, times int) error {

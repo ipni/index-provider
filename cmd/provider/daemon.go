@@ -226,6 +226,7 @@ func daemonCommand(cctx *cli.Context) error {
 			droutingserver.WithListenAddr(droutingAddr),
 			droutingserver.WithReadTimeout(time.Duration(cfg.DelegatedRouting.ReadTimeout)),
 			droutingserver.WithWriteTimeout(time.Duration(cfg.DelegatedRouting.WriteTimeout)),
+			droutingserver.WithAdFlushFrequency(time.Duration(cfg.DelegatedRouting.AdFlushFrequency)),
 		)
 
 		if err != nil {

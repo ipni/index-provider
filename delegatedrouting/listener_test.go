@@ -1337,6 +1337,34 @@ func TestShouldRecogniseLegacySnapshot(t *testing.T) {
 	require.Equal(t, []cid.Cid{newCid("test")}, queue)
 }
 
+func TestAdsFlush(t *testing.T) {
+	ttl := 1 * time.Hour
+	chunkSize := 2
+	snapshotSize := 1000
+	adFlusFreq := time.Second
+	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
+
+	ctx := context.Background()
+	defer ctx.Done()
+	testCid1 := newCid("test1")
+
+	mc := gomock.NewController(t)
+	defer mc.Finish()
+	mockEng := mock_provider.NewMockInterface(mc)
+
+	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Any(), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+
+	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen, drouting.WithAdFlushFrequency(adFlusFreq))
+	require.NoError(t, err)
+
+	c, s := createClientAndServer(t, listener, newAddrInfo(t, pID), priv)
+	defer s.Close()
+
+	provide(t, c, ctx, testCid1)
+	time.Sleep(adFlusFreq)
+}
+
 func provide(t *testing.T, cc contentrouter.Client, ctx context.Context, c cid.Cid) time.Duration {
 	return provideMany(t, cc, ctx, []cid.Cid{c})
 }

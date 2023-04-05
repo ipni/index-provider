@@ -7,9 +7,10 @@ type (
 	Option func(*options) error
 
 	options struct {
-		listenAddr   string
-		readTimeout  time.Duration
-		writeTimeout time.Duration
+		listenAddr       string
+		readTimeout      time.Duration
+		writeTimeout     time.Duration
+		adFlushFrequency time.Duration
 	}
 )
 
@@ -50,6 +51,14 @@ func WithReadTimeout(t time.Duration) Option {
 func WithWriteTimeout(t time.Duration) Option {
 	return func(o *options) error {
 		o.writeTimeout = t
+		return nil
+	}
+}
+
+// WithAdFlushFrequency sets the frequency at which the current chunk is publihsed even if it's not full
+func WithAdFlushFrequency(t time.Duration) Option {
+	return func(o *options) error {
+		o.adFlushFrequency = t
 		return nil
 	}
 }
