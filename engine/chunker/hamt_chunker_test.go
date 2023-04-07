@@ -2,7 +2,6 @@ package chunker_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	hamt "github.com/ipld/go-ipld-adl-hamt"
@@ -10,9 +9,9 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
+	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +73,6 @@ func TestNewHamtChunker_ValidatesHamtConfig(t *testing.T) {
 			subject, err := chunker.NewHamtChunker(&ls, test.giveHashAlg, test.giveBitWidth, test.giveBucketSize)
 			if test.wantErr {
 				require.Error(t, err)
-
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, subject)
@@ -87,8 +85,7 @@ func TestHamtChunker_Chunk(t *testing.T) {
 	ctx := context.TODO()
 	ls := cidlink.DefaultLinkSystem()
 	chunkHasExpectedMhs := func(t *testing.T, subject chunker.EntriesChunker) {
-		rng := rand.New(rand.NewSource(1413))
-		mhs := testutil.RandomMultihashes(t, rng, 100)
+		mhs := test.RandomMultihashes(100)
 		l, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhs))
 		require.NoError(t, err)
 

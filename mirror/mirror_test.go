@@ -2,7 +2,6 @@ package mirror_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -12,9 +11,9 @@ import (
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
+	"github.com/ipni/go-libipni/test"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/mirror"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -34,11 +33,10 @@ func newTestContext(t *testing.T) context.Context {
 
 func TestMirror_PutAdIsMirrored(t *testing.T) {
 	ctx := newTestContext(t)
-	rng := rand.New(rand.NewSource(testRandomSeed))
-	wantMhs := testutil.RandomMultihashes(t, rng, 42)
+	wantMhs := test.RandomMultihashes(42)
 	wantCtxID := []byte("fish")
 	wantMetadata := metadata.Default.New(metadata.Bitswap{}, &metadata.GraphsyncFilecoinV1{
-		PieceCID:     testutil.RandomCids(t, rng, 1)[0],
+		PieceCID:     test.RandomCids(1)[0],
 		VerifiedDeal: true,
 	})
 
@@ -66,7 +64,6 @@ func TestMirror_PutAdIsMirrored(t *testing.T) {
 
 func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 	ctx := newTestContext(t)
-	rng := rand.New(rand.NewSource(testRandomSeed))
 	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
@@ -74,9 +71,9 @@ func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
 
 	// Publish a bunch of ads on the original provider
-	ad1 := te.putAdOnSource(t, ctx, []byte("ad1"), testutil.RandomMultihashes(t, rng, 3), md)
-	ad2 := te.putAdOnSource(t, ctx, []byte("ad2"), testutil.RandomMultihashes(t, rng, 4), md)
-	ad3 := te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 5), md)
+	ad1 := te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(3), md)
+	ad2 := te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(4), md)
+	ad3 := te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(5), md)
 	ad4 := te.removeAdOnSource(t, ctx, []byte("ad1"))
 
 	// Start a mirror for the original provider with reduced tick time for faster test turnaround.
@@ -103,7 +100,6 @@ func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 
 func TestMirror_FormsExpectedAdChain(t *testing.T) {
 	ctx := newTestContext(t)
-	rng := rand.New(rand.NewSource(testRandomSeed))
 	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
@@ -111,9 +107,9 @@ func TestMirror_FormsExpectedAdChain(t *testing.T) {
 	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
 
 	// Publish a bunch of ads on the original provider
-	_ = te.putAdOnSource(t, ctx, []byte("ad1"), testutil.RandomMultihashes(t, rng, 3), md)
-	_ = te.putAdOnSource(t, ctx, []byte("ad2"), testutil.RandomMultihashes(t, rng, 4), md)
-	_ = te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 5), md)
+	_ = te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(3), md)
+	_ = te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(4), md)
+	_ = te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(5), md)
 	originalHeadAdCid := te.removeAdOnSource(t, ctx, []byte("ad1"))
 
 	// Start a mirror for the original provider with reduced tick time for faster test turnaround.
@@ -182,10 +178,12 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 			mirrorOptions: []mirror.Option{mirror.WithEntryChunkRemapper(1000), mirror.WithAlwaysReSignAds(true)},
 		},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ctx := newTestContext(t)
-			rng := rand.New(rand.NewSource(testRandomSeed))
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			//ctx := newTestContext(t)
+			ctx, cancel := context.WithTimeout(context.Background(), testContextTimeout)
+			defer cancel()
+
 			md := metadata.Default.New(metadata.Bitswap{})
 
 			te := &testEnv{}
@@ -193,16 +191,16 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 			te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
 
 			// Publish a bunch of ads on the original provider
-			_ = te.putAdOnSource(t, ctx, []byte("ad1"), testutil.RandomMultihashes(t, rng, 1), md)
-			_ = te.putAdOnSource(t, ctx, []byte("ad2"), testutil.RandomMultihashes(t, rng, 400), md)
+			_ = te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(1), md)
+			_ = te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(400), md)
 			_ = te.removeAdOnSource(t, ctx, []byte("ad1"))
-			_ = te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 1), md)
-			_ = te.putAdOnSource(t, ctx, []byte("ad4"), testutil.RandomMultihashes(t, rng, 2), md)
+			_ = te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(1), md)
+			_ = te.putAdOnSource(t, ctx, []byte("ad4"), test.RandomMultihashes(2), md)
 			_ = te.removeAdOnSource(t, ctx, []byte("ad2"))
-			originalHeadAdCid := te.putAdOnSource(t, ctx, []byte("ad5"), testutil.RandomMultihashes(t, rng, 7), md)
+			originalHeadAdCid := te.putAdOnSource(t, ctx, []byte("ad5"), test.RandomMultihashes(7), md)
 
-			test.mirrorOptions = append(test.mirrorOptions, mirror.WithSyncInterval(time.Second))
-			te.startMirror(t, ctx, test.mirrorOptions...)
+			testCase.mirrorOptions = append(testCase.mirrorOptions, mirror.WithSyncInterval(time.Second))
+			te.startMirror(t, ctx, testCase.mirrorOptions...)
 
 			// Await until the entire chain is mirrored; this is done by checking if the head mirrored ad
 			// is a removal.
@@ -228,15 +226,14 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 
 func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 	ctx := newTestContext(t)
-	rng := rand.New(rand.NewSource(testRandomSeed))
 	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
 	// Start source and publish 3 ads.
 	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
-	originalACid := te.putAdOnSource(t, ctx, []byte("ad1"), testutil.RandomMultihashes(t, rng, 1), md)
-	originalBCid := te.putAdOnSource(t, ctx, []byte("ad2"), testutil.RandomMultihashes(t, rng, 2), md)
-	orignalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 3), md)
+	originalACid := te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(1), md)
+	originalBCid := te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(2), md)
+	orignalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(3), md)
 
 	// Start mirror with maximum initial depth of 2.
 	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second), mirror.WithInitialAdRecursionLimit(selector.RecursionLimitDepth(2)))
@@ -284,16 +281,15 @@ func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 
 func TestMirror_MirrorsAdsIdenticallyWhenConfiguredTo(t *testing.T) {
 	ctx := newTestContext(t)
-	rng := rand.New(rand.NewSource(testRandomSeed))
 	md := metadata.Default.New(metadata.Bitswap{})
 
 	te := &testEnv{}
 	// Start source and publish 3 ads.
 	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
-	_ = te.putAdOnSource(t, ctx, []byte("ad1"), testutil.RandomMultihashes(t, rng, 1), md)
-	_ = te.putAdOnSource(t, ctx, []byte("ad2"), testutil.RandomMultihashes(t, rng, 2), md)
+	_ = te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(1), md)
+	_ = te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(2), md)
 	_ = te.removeAdOnSource(t, ctx, []byte("ad1"))
-	originalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), testutil.RandomMultihashes(t, rng, 3), md)
+	originalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(3), md)
 
 	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second), mirror.WithAlwaysReSignAds(false))
 

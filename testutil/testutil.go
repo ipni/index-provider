@@ -2,9 +2,7 @@ package testutil
 
 import (
 	"context"
-	crand "crypto/rand"
 	"io"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,52 +21,11 @@ import (
 	carv2 "github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"
 	"github.com/ipld/go-ipld-prime"
-	"github.com/ipni/go-libipni/ingest/schema"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
-
-func NewID(t *testing.T) peer.ID {
-	_, pub, err := crypto.GenerateEd25519Key(crand.Reader)
-	require.NoError(t, err)
-
-	id, err := peer.IDFromPublicKey(pub)
-	require.NoError(t, err)
-
-	return id
-}
-
-func RandomCids(t testing.TB, rng *rand.Rand, n int) []cid.Cid {
-	prefix := schema.Linkproto.Prefix
-
-	cids := make([]cid.Cid, n)
-	for i := 0; i < n; i++ {
-		b := make([]byte, 10*n)
-		rng.Read(b)
-		c, err := prefix.Sum(b)
-		require.NoError(t, err)
-		cids[i] = c
-	}
-	return cids
-}
-
-func RandomMultihashes(t testing.TB, rng *rand.Rand, n int) []multihash.Multihash {
-	prefix := schema.Linkproto.Prefix
-
-	mhashes := make([]multihash.Multihash, n)
-	for i := 0; i < n; i++ {
-		b := make([]byte, 10*n)
-		rng.Read(b)
-		c, err := prefix.Sum(b)
-		require.NoError(t, err)
-		mhashes[i] = c.Hash()
-	}
-	return mhashes
-}
 
 // ThisDir gets the current directory of the source file its called in
 func ThisDir(t *testing.T) string {
@@ -173,20 +130,6 @@ func WaitForAddrs(h host.Host) peer.AddrInfo {
 		addrInfo = h.Peerstore().PeerInfo(h.ID())
 	}
 	return addrInfo
-}
-
-func GenerateKeysAndIdentity(t *testing.T) (crypto.PrivKey, crypto.PubKey, peer.ID) {
-	priv, pub, err := crypto.GenerateEd25519Key(crand.Reader)
-	require.NoError(t, err)
-	pID, err := peer.IDFromPrivateKey(priv)
-	require.NoError(t, err)
-	return priv, pub, pID
-}
-
-func ContextWithTimeout(t *testing.T) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
-	return ctx
 }
 
 func MultiAddsToString(addrs []multiaddr.Multiaddr) []string {

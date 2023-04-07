@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"testing"
 	"time"
 
+	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
+	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
@@ -25,19 +26,16 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
-	"github.com/stretchr/testify/require"
-
-	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
-	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
 	"github.com/ipni/go-libipni/metadata"
+	"github.com/ipni/go-libipni/test"
 	"github.com/ipni/index-provider/cardatatransfer"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/ipni/index-provider/testutil"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCarDataTransfer(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	contextID1 := []byte("cheese")
 	rdOnlyBS1 := testutil.OpenSampleCar(t, "sample-v1-2.car")
 
@@ -52,7 +50,7 @@ func TestCarDataTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, roots2, 1)
 
-	missingCid := testutil.RandomCids(t, rng, 1)[0]
+	missingCid := test.RandomCids(1)[0]
 	missingContextID := []byte("notFound")
 
 	supplier := &fakeSupplier{blockstores: make(map[string]supplier.ClosableBlockstore)}
@@ -74,7 +72,7 @@ func TestCarDataTransfer(t *testing.T) {
 	pieceCID2 := pieceCIDFromContextID(t, contextID2)
 	missingPieceCID := pieceCIDFromContextID(t, missingContextID)
 
-	incorrectPieceCid := testutil.RandomCids(t, rng, 1)[0]
+	incorrectPieceCid := test.RandomCids(1)[0]
 
 	testCases := map[string]struct {
 		voucher                  datatransfer.TypedVoucher

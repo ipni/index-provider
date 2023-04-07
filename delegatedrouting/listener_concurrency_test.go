@@ -12,10 +12,10 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	leveldb "github.com/ipfs/go-ds-leveldb"
+	"github.com/ipni/go-libipni/test"
 	drouting "github.com/ipni/index-provider/delegatedrouting"
 	"github.com/ipni/index-provider/engine"
 	mock_provider "github.com/ipni/index-provider/mock"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ func TestHandleConcurrentRequests(t *testing.T) {
 	snapshotSize := 1000
 	concurrencyFactor := 10
 
-	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
+	pID, priv, _ := test.RandomIdentity()
 
 	ctx := context.Background()
 	defer ctx.Done()
@@ -79,7 +79,7 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 
 	h, err := libp2p.New()
 	require.NoError(t, err)
-	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
+	pID, priv, _ := test.RandomIdentity()
 	ctx := context.Background()
 
 	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
@@ -111,5 +111,4 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 	provideMany(t, client, ctx, cids)
 
 	require.True(t, time.Since(start) < timeExpectation)
-
 }

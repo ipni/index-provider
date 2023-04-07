@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -15,18 +15,21 @@ import (
 	"github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
+	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 )
 
 var testMetadata = metadata.Default.New(metadata.Bitswap{})
 
+const testTimeout = 30 * time.Second
+
 func Test_SchemaNoEntriesErr(t *testing.T) {
-	ctx := testutil.ContextWithTimeout(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -39,8 +42,8 @@ func Test_SchemaNoEntriesErr(t *testing.T) {
 }
 
 func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
-	ctx := testutil.ContextWithTimeout(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -49,7 +52,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	defer subject.Shutdown()
 
 	ctxID := []byte("added then removed content")
-	mhs := testutil.RandomCids(t, rng, 12)
+	mhs := test.RandomCids(12)
 	require.NoError(t, err)
 
 	// Register lister with removal handle
@@ -99,8 +102,8 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 }
 
 func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
-	ctx := testutil.ContextWithTimeout(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
 
 	chunkSize := 2
 	cacheCap := 1
@@ -110,18 +113,18 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	otherProviderId := testutil.NewID(t)
+	otherProviderId, _, _ := test.RandomIdentity()
 
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
 	wantAd1EntriesChainLen := ad1MhCount / chunkSize
-	ad1Mhs := testutil.RandomCids(t, rng, ad1MhCount)
+	ad1Mhs := test.RandomCids(ad1MhCount)
 	require.NoError(t, err)
 
 	ad2CtxID := []byte("second")
 	ad2MhCount := 10
 	wantAd2ChunkLen := ad2MhCount / chunkSize
-	ad2Mhs := testutil.RandomCids(t, rng, ad2MhCount)
+	ad2Mhs := test.RandomCids(ad2MhCount)
 	require.NoError(t, err)
 
 	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {

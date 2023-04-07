@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,17 +15,16 @@ import (
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipni/go-libipni/metadata"
+	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/cardatatransfer"
 	mock_provider "github.com/ipni/index-provider/mock"
 	"github.com/ipni/index-provider/supplier"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_importCarHandler(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
 	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
 	require.NoError(t, err)
@@ -60,7 +58,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleImport)
-	randCids := testutil.RandomCids(t, rng, 1)
+	randCids := test.RandomCids(1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 
@@ -172,7 +170,6 @@ func Test_importCarAlreadyAdvertised(t *testing.T) {
 }
 
 func Test_removeCarHandler(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
 	req := requireRemoveCarHttpRequestFromKey(t, wantKey)
 
@@ -186,8 +183,8 @@ func Test_removeCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleRemove)
-	wantCid := testutil.RandomCids(t, rng, 1)[0]
-	requireMockPut(t, mockEng, nil, wantKey, cs, rng)
+	wantCid := test.RandomCids(1)[0]
+	requireMockPut(t, mockEng, nil, wantKey, cs)
 
 	mockEng.
 		EXPECT().
@@ -208,7 +205,6 @@ func Test_removeCarHandler(t *testing.T) {
 }
 
 func Test_removeCarHandlerFail(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	wantKey := []byte("lobster")
 	req := requireRemoveCarHttpRequestFromKey(t, wantKey)
 
@@ -222,7 +218,7 @@ func Test_removeCarHandlerFail(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleRemove)
-	requireMockPut(t, mockEng, nil, wantKey, cs, rng)
+	requireMockPut(t, mockEng, nil, wantKey, cs)
 
 	mockEng.
 		EXPECT().
@@ -307,10 +303,10 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 	return req
 }
 
-func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, provider *peer.AddrInfo, key []byte, cs *supplier.CarSupplier, rng *rand.Rand) {
+func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, provider *peer.AddrInfo, key []byte, cs *supplier.CarSupplier) {
 	wantTp, err := cardatatransfer.TransportFromContextID(key)
 	require.NoError(t, err)
-	wantCid := testutil.RandomCids(t, rng, 1)[0]
+	wantCid := test.RandomCids(1)[0]
 	wantMetadata := metadata.Default.New(wantTp)
 
 	mockEng.
@@ -322,7 +318,6 @@ func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, provider
 }
 
 func Test_ListCarHandler(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	wantPath := "fish"
 	wantKey := []byte("lobster")
 	wantTp, err := cardatatransfer.TransportFromContextID(wantKey)
@@ -356,7 +351,7 @@ func Test_ListCarHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, respBeforePut.Paths, 0)
 
-	randCids := testutil.RandomCids(t, rng, 1)
+	randCids := test.RandomCids(1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 
