@@ -499,7 +499,7 @@ func contextIDToStr(contextID []byte) string {
 }
 
 func (listener *Listener) flushWorker(ctx context.Context) {
-	var t *time.Timer
+	t := time.NewTicker(listener.adFlushFrequency)
 
 	flushFunc := func() {
 		// we don't want flush to happen while re-provide is running
@@ -525,7 +525,6 @@ func (listener *Listener) flushWorker(ctx context.Context) {
 			flushFunc()
 		}
 
-		t = time.NewTimer(listener.adFlushFrequency)
 		select {
 		case <-ctx.Done():
 			return

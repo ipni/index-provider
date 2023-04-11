@@ -1341,19 +1341,22 @@ func TestAdsFlush(t *testing.T) {
 	ttl := 1 * time.Hour
 	chunkSize := 2
 	snapshotSize := 1000
-	adFlusFreq := time.Second
+	adFlusFreq := 100 * time.Millisecond
 	priv, _, pID := testutil.GenerateKeysAndIdentity(t)
 
 	ctx := context.Background()
 	defer ctx.Done()
 	testCid1 := newCid("test1")
+	testCid2 := newCid("test2")
 
 	mc := gomock.NewController(t)
 	defer mc.Finish()
 	mockEng := mock_provider.NewMockInterface(mc)
 
 	mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
+	// verify that ads a flushed at the specified frequency
 	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Any(), gomock.Eq(generateContextID([]string{testCid1.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
+	mockEng.EXPECT().NotifyPut(gomock.Any(), gomock.Any(), gomock.Eq(generateContextID([]string{testCid2.String()}, testNonceGen())), gomock.Eq(defaultMetadata))
 
 	listener, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, datastore.NewMapDatastore(), testNonceGen, drouting.WithAdFlushFrequency(adFlusFreq))
 	require.NoError(t, err)
@@ -1362,7 +1365,9 @@ func TestAdsFlush(t *testing.T) {
 	defer s.Close()
 
 	provide(t, c, ctx, testCid1)
-	time.Sleep(adFlusFreq)
+	time.Sleep(2 * adFlusFreq)
+	provide(t, c, ctx, testCid2)
+	time.Sleep(2 * adFlusFreq)
 }
 
 func provide(t *testing.T, cc contentrouter.Client, ctx context.Context, c cid.Cid) time.Duration {
