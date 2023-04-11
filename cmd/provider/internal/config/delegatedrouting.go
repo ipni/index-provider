@@ -11,6 +11,7 @@ const (
 	defaultDelegatedRoutingReadTimeout  = Duration(10 * time.Minute)
 	defaultDelegatedRoutingWriteTimeout = Duration(10 * time.Minute)
 	defaultDelegatedRoutingCidTtl       = Duration(24 * time.Hour)
+	defaultAdFlushFrequency             = Duration(10 * time.Minute)
 	defaultDelegatedRoutingChunkSize    = 1_000
 	defaultDelegatedRoutingSnapshotSize = 10_000
 	defaultPageSize                     = 5_000
@@ -24,6 +25,9 @@ type DelegatedRouting struct {
 	WriteTimeout    Duration
 	// CidTtl is a lifetime of a cid after which it is considered expired
 	CidTtl Duration
+	// AdFlushFrequency defines a frequency of a flush operation that is going to be performed on the current chunk. In other words a non empty
+	// current chunk will be converted to an advertisement and published if it's older than this value. Set to 0 to disable.
+	AdFlushFrequency Duration
 	// ChunkSize is size of a chunk before it gets advertised to an indexer.
 	// In other words it's a number of CIDs per advertisement
 	ChunkSize int
@@ -42,14 +46,15 @@ type DelegatedRouting struct {
 func NewDelegatedRouting() DelegatedRouting {
 	return DelegatedRouting{
 		// we would like this functionality to be off by default
-		ProviderID:      "",
-		ListenMultiaddr: "",
-		ReadTimeout:     defaultDelegatedRoutingReadTimeout,
-		WriteTimeout:    defaultDelegatedRoutingWriteTimeout,
-		CidTtl:          defaultDelegatedRoutingCidTtl,
-		ChunkSize:       defaultDelegatedRoutingChunkSize,
-		SnapshotSize:    defaultDelegatedRoutingSnapshotSize,
-		DsPageSize:      defaultPageSize,
+		ProviderID:       "",
+		ListenMultiaddr:  "",
+		ReadTimeout:      defaultDelegatedRoutingReadTimeout,
+		WriteTimeout:     defaultDelegatedRoutingWriteTimeout,
+		CidTtl:           defaultDelegatedRoutingCidTtl,
+		ChunkSize:        defaultDelegatedRoutingChunkSize,
+		SnapshotSize:     defaultDelegatedRoutingSnapshotSize,
+		AdFlushFrequency: defaultAdFlushFrequency,
+		DsPageSize:       defaultPageSize,
 	}
 }
 
@@ -63,6 +68,9 @@ func (c *DelegatedRouting) PopulateDefaults() {
 	}
 	if c.CidTtl == 0 {
 		c.CidTtl = defaultDelegatedRoutingCidTtl
+	}
+	if c.AdFlushFrequency == 0 {
+		c.AdFlushFrequency = defaultAdFlushFrequency
 	}
 	if c.ChunkSize == 0 {
 		c.ChunkSize = defaultDelegatedRoutingChunkSize

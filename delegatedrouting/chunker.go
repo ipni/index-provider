@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"sort"
+	"time"
 
 	"github.com/ipfs/go-cid"
 )
@@ -12,6 +13,7 @@ import (
 type chunker struct {
 	chunkByContextId map[string]*cidsChunk
 	currentChunk     *cidsChunk
+	currentChunkTime time.Time
 	chunkSizeFunc    func() int
 	nonceGen         func() []byte
 }
@@ -37,7 +39,7 @@ func newChunker(chunkSizeFunc func() int, nonceGenFunc func() []byte) *chunker {
 		chunkSizeFunc:    chunkSizeFunc,
 		nonceGen:         nonceGenFunc,
 	}
-	ch.currentChunk = ch.newCidsChunk()
+	ch.setNewCurrentChunk()
 	return ch
 }
 
@@ -56,8 +58,9 @@ func (ch *chunker) removeChunk(chunk *cidsChunk) {
 	delete(ch.chunkByContextId, contextIDToStr(chunk.ContextID))
 }
 
-func (ch *chunker) newCidsChunk() *cidsChunk {
-	return &cidsChunk{Cids: make(map[cid.Cid]struct{}, ch.chunkSizeFunc()), Removed: false}
+func (ch *chunker) setNewCurrentChunk() {
+	ch.currentChunk = &cidsChunk{Cids: make(map[cid.Cid]struct{}, ch.chunkSizeFunc()), Removed: false}
+	ch.currentChunkTime = time.Now()
 }
 
 func (ch *chunker) addCidToCurrentChunk(ctx context.Context, c cid.Cid, chunkFullFunc func(*cidsChunk) error) error {
@@ -68,17 +71,25 @@ func (ch *chunker) addCidToCurrentChunk(ctx context.Context, c cid.Cid, chunkFul
 
 	// if the current chunk is full - publish it and create a new one
 	if len(ch.currentChunk.Cids) >= ch.chunkSizeFunc() {
-		ch.currentChunk.ContextID = ch.generateContextID(ch.currentChunk.Cids)
-		err := chunkFullFunc(ch.currentChunk)
+		err := ch.flushCurrentChunk(ctx, chunkFullFunc)
 		if err != nil {
 			return err
 		}
-
-		ch.currentChunk = ch.newCidsChunk()
 	}
 
 	ch.currentChunk.Cids[c] = struct{}{}
 
+	return nil
+}
+
+func (ch *chunker) flushCurrentChunk(ctx context.Context, chunkFullFunc func(*cidsChunk) error) error {
+	ch.currentChunk.ContextID = ch.generateContextID(ch.currentChunk.Cids)
+	err := chunkFullFunc(ch.currentChunk)
+	if err != nil {
+		return err
+	}
+
+	ch.setNewCurrentChunk()
 	return nil
 }
 

@@ -1,8 +1,11 @@
 package delegatedrouting
 
+import "time"
+
 const (
 	defaultSnapshotMaxChunkSize = 1_000_000
 	defaultPageSize             = 20_000
+	defaultFlushFrequency       = 10 * time.Minute
 )
 
 type Options struct {
@@ -11,6 +14,9 @@ type Options struct {
 	SnapshotMaxChunkSize int
 	// PageSize defines a maximum number of results that can be returned by a query during datastore initialisation
 	PageSize int
+	// AdFlushFrequency defines a frequency of a flush operation that is going to be performed on the current chunk. In otgher words a non empty
+	// current chunk will be converted to an ad and published.
+	AdFlushFrequency time.Duration
 }
 
 type Option func(*Options)
@@ -27,10 +33,17 @@ func WithPageSize(i int) Option {
 	}
 }
 
+func WithAdFlushFrequency(d time.Duration) Option {
+	return func(o *Options) {
+		o.AdFlushFrequency = d
+	}
+}
+
 func ApplyOptions(opt ...Option) Options {
 	opts := Options{
 		SnapshotMaxChunkSize: defaultSnapshotMaxChunkSize,
 		PageSize:             defaultPageSize,
+		AdFlushFrequency:     defaultFlushFrequency,
 	}
 	for _, o := range opt {
 		o(&opts)
