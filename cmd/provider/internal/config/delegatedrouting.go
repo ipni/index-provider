@@ -26,7 +26,7 @@ type DelegatedRouting struct {
 	// CidTtl is a lifetime of a cid after which it is considered expired
 	CidTtl Duration
 	// AdFlushFrequency defines a frequency of a flush operation that is going to be performed on the current chunk. In other words a non empty
-	// current chunk will be converted to an advertisement and published if it's older than this value.
+	// current chunk will be converted to an advertisement and published if it's older than this value. Set to 0 to disable.
 	AdFlushFrequency Duration
 	// ChunkSize is size of a chunk before it gets advertised to an indexer.
 	// In other words it's a number of CIDs per advertisement

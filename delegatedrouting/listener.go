@@ -192,7 +192,9 @@ func New(ctx context.Context, engine provider.Interface,
 	listener.stats.start()
 
 	// start flush worker
-	go listener.flushWorker(cctx)
+	if options.AdFlushFrequency > 0 {
+		go listener.flushWorker(cctx)
+	}
 
 	return listener, nil
 }
