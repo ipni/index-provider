@@ -1,28 +1,30 @@
 package xproviders_test
 
 import (
-	"fmt"
-	"math/rand"
+	"context"
 	"testing"
 	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipni/go-libipni/ingest/schema"
+	"github.com/ipni/go-libipni/test"
 	"github.com/ipni/index-provider/engine"
 	ep "github.com/ipni/index-provider/engine/xproviders"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 )
 
+const testTimeout = 30 * time.Second
+
 func TestPublish(t *testing.T) {
-	ctx := testutil.ContextWithTimeout(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
 	contextID := []byte("test-context")
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	addrsStr := []string{addrs[0].String(), addrs[1].String()}
+	metadata := []byte("thisismeta")
 	eps := make([]ep.Info, 2)
 	epIds := make([]peer.ID, len(eps))
 
@@ -32,10 +34,10 @@ func TestPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer eng.Shutdown()
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	for i := 0; i < len(eps); i++ {
-		epID, ep := randomExtendedProvider(t)
+		epID, ep := randomExtendedProvider()
 		eps[i] = ep
 		epIds[i] = epID
 	}
@@ -57,7 +59,7 @@ func TestPublish(t *testing.T) {
 	require.NotEqual(t, cid.Undef, c)
 
 	require.Equal(t, providerID, advPeerID)
-	require.Equal(t, testutil.MultiAddsToString(addrs), adv.Addresses)
+	require.Equal(t, addrsStr, adv.Addresses)
 	require.Equal(t, contextID, adv.ContextID)
 	require.Equal(t, schema.NoEntries, adv.Entries)
 	require.Equal(t, false, adv.IsRm)
@@ -77,7 +79,7 @@ func TestPublish(t *testing.T) {
 			require.Equal(t, ep2.Addrs, p.Addresses)
 			require.Equal(t, ep2.Metadata, p.Metadata)
 		case providerID.String():
-			require.Equal(t, testutil.MultiAddsToString(addrs), p.Addresses)
+			require.Equal(t, addrsStr, p.Addresses)
 			require.Equal(t, metadata, p.Metadata)
 		default:
 			panic("unknown provider")
@@ -86,13 +88,13 @@ func TestPublish(t *testing.T) {
 }
 
 func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.T) {
-	ctx := testutil.ContextWithTimeout(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 	contextID := []byte("test-context")
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrsStr := []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"}
-	addrs := testutil.StringsToMultiaddrs(t, addrsStr)
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+
+	addrs := test.RandomMultiaddrs(2)
+	addrsStr := []string{addrs[0].String(), addrs[1].String()}
+	metadata := []byte("thisismeta")
 
 	eng, err := engine.New()
 	require.NoError(t, err)
@@ -100,7 +102,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 	require.NoError(t, err)
 	defer eng.Shutdown()
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	override := true
 	adv, err := ep.NewAdBuilder(providerID, priv, addrs).
@@ -119,7 +121,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 	require.NotEqual(t, cid.Undef, c)
 
 	require.Equal(t, providerID, advPeerID)
-	require.Equal(t, testutil.MultiAddsToString(addrs), adv.Addresses)
+	require.Equal(t, addrsStr, adv.Addresses)
 	require.Equal(t, contextID, adv.ContextID)
 	require.Equal(t, schema.NoEntries, adv.Entries)
 	require.Equal(t, false, adv.IsRm)
@@ -135,12 +137,10 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 }
 
 func TestExtendedProvidersShouldNotAllowEmptyAddresses(t *testing.T) {
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	metadata := []byte("thisismeta")
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(ep.NewInfo(providerID, priv, metadata, []multiaddr.Multiaddr{})).
@@ -152,12 +152,10 @@ func TestExtendedProvidersShouldNotAllowEmptyAddresses(t *testing.T) {
 }
 
 func TestExtendedProvidersShouldAllowEmptyMetadata(t *testing.T) {
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	metadata := []byte("thisismeta")
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(ep.NewInfo(providerID, priv, []byte{}, addrs)).
@@ -169,12 +167,10 @@ func TestExtendedProvidersShouldAllowEmptyMetadata(t *testing.T) {
 }
 
 func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	metadata := []byte("thisismeta")
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(ep.NewInfo("invalid", priv, []byte{}, addrs)).
@@ -186,12 +182,10 @@ func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
 }
 
 func TestZeroExtendedProvidersShouldStillCreateExtendedProvidersField(t *testing.T) {
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	metadata := []byte("thisismeta")
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	ad, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithOverride(true).
@@ -204,12 +198,12 @@ func TestZeroExtendedProvidersShouldStillCreateExtendedProvidersField(t *testing
 }
 
 func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) {
-	ctx := testutil.ContextWithTimeout(t)
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 	contextID := []byte("test-context")
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	addrsStr := []string{addrs[0].String(), addrs[1].String()}
+	metadata := []byte("thisismeta")
 
 	eng, err := engine.New()
 	require.NoError(t, err)
@@ -217,7 +211,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 	require.NoError(t, err)
 	defer eng.Shutdown()
 
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	override := true
 	adv, err := ep.NewAdBuilder(providerID, priv, addrs).
@@ -235,7 +229,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 	require.NotEqual(t, cid.Undef, c)
 
 	require.Equal(t, providerID, advPeerID)
-	require.Equal(t, testutil.MultiAddsToString(addrs), adv.Addresses)
+	require.Equal(t, addrsStr, adv.Addresses)
 	require.Equal(t, contextID, adv.ContextID)
 	require.Equal(t, schema.NoEntries, adv.Entries)
 	require.Equal(t, false, adv.IsRm)
@@ -246,18 +240,16 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 }
 
 func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	addrs := testutil.StringsToMultiaddrs(t, []string{"/ip4/0.0.0.0/tcp/3090", "/ip4/0.0.0.0/tcp/3091"})
-	metadata := make([]byte, 10)
-	rng.Read(metadata)
+	addrs := test.RandomMultiaddrs(2)
+	metadata := []byte("thisismeta")
 	eps := make([]ep.Info, 2)
 	epIds := make([]peer.ID, len(eps))
 	for i := 0; i < len(eps); i++ {
-		epID, ep := randomExtendedProvider(t)
+		epID, ep := randomExtendedProvider()
 		eps[i] = ep
 		epIds[i] = epID
 	}
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
+	providerID, priv, _ := test.RandomIdentity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(eps...).
@@ -268,19 +260,9 @@ func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
 	require.Error(t, err, "override is true for empty context")
 }
 
-func randomExtendedProvider(t *testing.T) (peer.ID, ep.Info) {
-	rng := rand.New(rand.NewSource(time.Now().Unix()))
-	priv, _, providerID := testutil.GenerateKeysAndIdentity(t)
-	metadata := make([]byte, 20)
-	_, err := rng.Read(metadata)
-	require.NoError(t, err)
-	addrs := make([]multiaddr.Multiaddr, 2)
-	for i := 0; i < len(addrs); i++ {
-		s := fmt.Sprintf("/ip4/%d.%d.%d.%d/tcp/%d", rng.Int()%255, rng.Int()%255, rng.Int()%255, rng.Int()%255, rng.Int()%10000+1024)
-		ma, err := multiaddr.NewMultiaddr(s)
-		require.NoError(t, err)
-		addrs[i] = ma
-	}
-
+func randomExtendedProvider() (peer.ID, ep.Info) {
+	providerID, priv, _ := test.RandomIdentity()
+	metadata := []byte("thisismeta")
+	addrs := test.RandomMultiaddrs(2)
 	return providerID, ep.NewInfo(providerID, priv, metadata, addrs)
 }

@@ -206,9 +206,11 @@ func (te *testEnv) requireEntriesMirrored(t *testing.T, ctx context.Context, con
 }
 
 func (te *testEnv) syncFromMirrorRecursively(ctx context.Context, c cid.Cid) error {
-	if exists, err := te.mirrorSyncLsStore.Has(ctx, cidlink.Link{Cid: c}.Binary()); err != nil {
+	exists, err := te.mirrorSyncLsStore.Has(ctx, cidlink.Link{Cid: c}.Binary())
+	if err != nil {
 		return err
-	} else if exists {
+	}
+	if exists {
 		return nil
 	}
 	if te.mirrorSyncer == nil {

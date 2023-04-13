@@ -2,15 +2,14 @@ package chunker_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
@@ -21,14 +20,12 @@ func BenchmarkCachedChunker(b *testing.B) {
 	const mhCount = 1000
 	const byteSize = capacity * mhCount * 256 / 8 // multicodec.Sha2_256
 
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	var mhis [][]multihash.Multihash
 	for i := 0; i < capacity; i++ {
-		mhi := testutil.RandomMultihashes(b, rng, mhCount)
-		mhis = append(mhis, mhi)
+		mhis = append(mhis, test.RandomMultihashes(mhCount))
 	}
 
 	b.Run("ChainedEntryChunk/ChunkSize_1", benchmarkCachedChunker(ctx, byteSize, capacity, mhis, chunker.NewChainChunkerFunc(1)))
@@ -71,7 +68,6 @@ func BenchmarkRestoreCache_ChainChunker(b *testing.B) {
 	const mhCount = 500
 	const byteSize = capacity * mhCount * 256 / 8 // multicodec.Sha2_256
 
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
@@ -80,7 +76,7 @@ func BenchmarkRestoreCache_ChainChunker(b *testing.B) {
 	subject, err := chunker.NewCachedEntriesChunker(ctx, store, capacity, chunker.NewChainChunkerFunc(chunkSize), false)
 	require.NoError(b, err)
 	for i := 0; i < capacity; i++ {
-		mhi := testutil.RandomMultihashes(b, rng, mhCount)
+		mhi := test.RandomMultihashes(mhCount)
 		chunk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhi))
 		require.NoError(b, err)
 		require.NotNil(b, chunk)

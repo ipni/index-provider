@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"math"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -18,26 +17,25 @@ import (
 	ipldcodec "github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipni/go-libipni/ingest/schema"
+	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/index-provider/testutil"
 	"github.com/multiformats/go-multicodec"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCachedEntriesChunker_Chain_OverlappingLinkCounter(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	capacity := 10
 	chunkSize := 10
-	subject, err := chunker.NewCachedEntriesChunker(context.Background(), datastore.NewMapDatastore(), capacity, chunker.NewChainChunkerFunc(chunkSize), false)
+	subject, err := chunker.NewCachedEntriesChunker(ctx, datastore.NewMapDatastore(), capacity, chunker.NewChainChunkerFunc(chunkSize), false)
 	require.NoError(t, err)
 	defer subject.Close()
 
 	// Cache a link with 2 full chunks
-	c1Mhs := testutil.RandomMultihashes(t, rng, 20)
+	c1Mhs := test.RandomMultihashes(20)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
 	c1Chain := listEntriesChain(t, subject, c1Lnk)
@@ -46,7 +44,7 @@ func TestCachedEntriesChunker_Chain_OverlappingLinkCounter(t *testing.T) {
 
 	for i := 1; i < capacity*2; i++ {
 		// Generate a chunk worth of CIDs
-		newMhs := testutil.RandomMultihashes(t, rng, 10*rng.Intn(4)+1)
+		newMhs := test.RandomMultihashes(i * 2)
 		// Append to the previously generated CIDs
 		newMhs = append(c1Mhs, newMhs...)
 		wantChainLen := math.Ceil(float64(len(newMhs)) / float64(chunkSize))
@@ -108,7 +106,6 @@ func TestCachedEntriesChunker(t *testing.T) {
 }
 
 func testCachedEntriesChunker_CapAndLen(t *testing.T, capacity int, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	subject, err := chunker.NewCachedEntriesChunker(context.Background(), datastore.NewMapDatastore(), capacity, c, false)
@@ -119,7 +116,7 @@ func testCachedEntriesChunker_CapAndLen(t *testing.T, capacity int, c chunker.Ne
 
 	var chunks []ipld.Link
 	for i := 1; i < capacity*2; i++ {
-		mhs := testutil.RandomMultihashes(t, rng, rand.Intn(50)+5)
+		mhs := test.RandomMultihashes(5 * i)
 		chunk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhs))
 		require.NoError(t, err)
 		requireChunkIsCached(t, subject, chunk)
@@ -147,8 +144,7 @@ func testNewCachedEntriesChunker_FailsWhenContextIsCancelled(t *testing.T, capac
 	// Prepare subject by caching something so that restore has data to recover
 	subject, err := chunker.NewCachedEntriesChunker(ctx, ds, capacity, c, false)
 	require.NoError(t, err)
-	rng := rand.New(rand.NewSource(1413))
-	mhs := testutil.RandomMultihashes(t, rng, 45)
+	mhs := test.RandomMultihashes(45)
 	_, err = subject.Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)
 	require.NoError(t, subject.Close())
@@ -160,7 +156,6 @@ func testNewCachedEntriesChunker_FailsWhenContextIsCancelled(t *testing.T, capac
 }
 
 func testCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -170,7 +165,7 @@ func testCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T, c chunker
 	defer subject.Close()
 
 	// Cache a chain of length 5 and assert it is cached.
-	c1Mhs := testutil.RandomMultihashes(t, rng, 45)
+	c1Mhs := test.RandomMultihashes(45)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
 	require.Equal(t, 1, subject.Len())
@@ -178,7 +173,7 @@ func testCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T, c chunker
 	requireChunkEntriesMatch(t, gotC1Mhs, c1Mhs)
 
 	// Cache a new, non-overlapping chain of length 2 and assert it is cached
-	c2Mhs := testutil.RandomMultihashes(t, rng, 15)
+	c2Mhs := test.RandomMultihashes(15)
 	c2Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c2Mhs))
 	require.NoError(t, err)
 	gotC2Mhs := requireDecodeAllMultihashes(t, c2Lnk, subject.LinkSystem())
@@ -190,7 +185,6 @@ func testCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T, c chunker
 }
 
 func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, capacity int, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -200,7 +194,7 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 	defer subject.Close()
 
 	// Chunk and cache a multihash iterator.
-	c1Mhs := testutil.RandomMultihashes(t, rng, 50)
+	c1Mhs := test.RandomMultihashes(50)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
 
@@ -209,7 +203,7 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 	requireChunkEntriesMatch(t, gotC1Mhs, c1Mhs)
 
 	// Chunk another iterator.
-	c2Mhs := testutil.RandomMultihashes(t, rng, 12)
+	c2Mhs := test.RandomMultihashes(12)
 	c2Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c2Mhs))
 	require.NoError(t, err)
 
@@ -218,7 +212,7 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 	requireChunkEntriesMatch(t, gotC2Mhs, c2Mhs)
 
 	// Chunk and cache another multihash iterators with overlapping section.
-	c3Mhs := testutil.RandomMultihashes(t, rng, 13)
+	c3Mhs := test.RandomMultihashes(13)
 	require.NoError(t, err)
 	c3Mhs = append(c2Mhs, c3Mhs...)
 	c3Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c3Mhs))
@@ -249,7 +243,6 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 }
 
 func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -263,7 +256,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	//  2. Its entries match the original CIDs
 	//  3. The length of chain is 1, i.e. the chunk has no next since chunkSize = 10
 	//  4. The cache length is 1.
-	c1Mhs := testutil.RandomMultihashes(t, rng, 10)
+	c1Mhs := test.RandomMultihashes(10)
 	require.NoError(t, err)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
@@ -281,7 +274,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	//  3. The first entry in chain has all the newly generated CIDs
 	//  4. The second entry in chain is identical to c1.
 	//  5. The length of cache is still 1.
-	extraMhs := testutil.RandomMultihashes(t, rng, 10)
+	extraMhs := test.RandomMultihashes(10)
 	require.NoError(t, err)
 	c2Mhs := append(c1Mhs, extraMhs...)
 	c2Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c2Mhs))
@@ -304,7 +297,6 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 }
 
 func testCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T, capacity int, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -314,7 +306,7 @@ func testCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T, c
 	defer subject.Close()
 
 	// Chunk some data first which we won't corrupt to test partial corruption.
-	wantMhs1 := testutil.RandomMultihashes(t, rng, 10)
+	wantMhs1 := test.RandomMultihashes(10)
 	require.NoError(t, err)
 	chunkLink1, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs1))
 	require.NoError(t, err)
@@ -325,7 +317,7 @@ func testCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T, c
 	require.Equal(t, 1, subject.Len())
 
 	// Chunk some more data which we will corrupt.
-	wantMhs2 := testutil.RandomMultihashes(t, rng, 10)
+	wantMhs2 := test.RandomMultihashes(10)
 	require.NoError(t, err)
 	chunkLink2, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs2))
 	require.NoError(t, err)
@@ -370,7 +362,6 @@ func testCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T, c
 }
 
 func testCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.T, capacity int, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -380,7 +371,7 @@ func testCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.
 	defer subject.Close()
 
 	// Chunk some data
-	wantMhs1 := testutil.RandomMultihashes(t, rng, 10)
+	wantMhs1 := test.RandomMultihashes(10)
 	require.NoError(t, err)
 	chunkLink1, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs1))
 	require.NoError(t, err)
@@ -408,7 +399,6 @@ func testCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.
 }
 
 func testCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T, capacity int, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -418,7 +408,7 @@ func testCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T, capacity int
 	defer subject.Close()
 
 	// Chunk some data
-	wantMhs1 := testutil.RandomMultihashes(t, rng, 10)
+	wantMhs1 := test.RandomMultihashes(10)
 	require.NoError(t, err)
 	chunkLink1, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs1))
 	require.NoError(t, err)
@@ -441,7 +431,6 @@ func testCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T, capacity int
 }
 
 func testCachedEntriesChunker_OldFormatIsHandledGracefully(t *testing.T, capacity int, c chunker.NewChunkerFunc) {
-	rng := rand.New(rand.NewSource(1413))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -451,7 +440,7 @@ func testCachedEntriesChunker_OldFormatIsHandledGracefully(t *testing.T, capacit
 	defer subject.Close()
 
 	// Chunk and cache a multihash iterator.
-	root, err := subject.Chunk(ctx, provider.SliceMultihashIterator(testutil.RandomMultihashes(t, rng, 50)))
+	root, err := subject.Chunk(ctx, provider.SliceMultihashIterator(test.RandomMultihashes(50)))
 	require.NoError(t, err)
 
 	// Close off the test subject
