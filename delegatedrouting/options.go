@@ -9,13 +9,16 @@ const (
 )
 
 type Options struct {
-	// SnapshotMaxChunkSize defines a size of a chunk that CID snapshot is going to be split into before stored in the datastore.
-	// Needed as leveldb can't handle binary payloads above a certain threshold
+	// SnapshotMaxChunkSize defines a size of a chunk that CID snapshot is
+	// going to be split into before stored in the datastore. Needed as leveldb
+	// can't handle binary payloads above a certain threshold
 	SnapshotMaxChunkSize int
-	// PageSize defines a maximum number of results that can be returned by a query during datastore initialisation
+	// PageSize defines a maximum number of results that can be returned by a
+	// query during datastore initialisation
 	PageSize int
-	// AdFlushFrequency defines a frequency of a flush operation that is going to be performed on the current chunk. In otgher words a non empty
-	// current chunk will be converted to an ad and published.
+	// AdFlushFrequency defines a frequency of a flush operation that is going
+	// to be performed on the current chunk. In other words a non empty current
+	// chunk will be converted to an ad and published.
 	AdFlushFrequency time.Duration
 }
 

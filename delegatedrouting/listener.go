@@ -41,10 +41,10 @@ type Listener struct {
 	cidTtl       time.Duration
 	chunkSize    int
 	snapshotSize int
-	// Listener maintains in memory indexes for fast key value lookups
-	// as well as a rolling double-linked list of CIDs ordered by their timestamp.
-	// Once a CID gets advertised, the respective linked list node gets moved to the
+	// Listener maintains in memory indexes for fast key value lookups as well as a rolling double-linked list of CIDs
+	// ordered by their timestamp. Once a CID gets advertised, the respective linked list node gets moved to the
 	// beginning of the list. To identify CIDs to expire, Listener would walk the list tail to head.
+	//
 	// TODO: offload cid chunks to disk to save RAM
 	chunker                *chunker
 	cidQueue               *cidQueue
@@ -68,9 +68,11 @@ func (lister *MultihashLister) MultihashLister(ctx context.Context, p peer.ID, c
 		return nil, err
 	}
 
-	mhs := make([]multihash.Multihash, 0, len(cids))
+	mhs := make([]multihash.Multihash, len(cids))
+	var i int
 	for c := range cids {
-		mhs = append(mhs, c.Hash())
+		mhs[i] = c.Hash()
+		i++
 	}
 
 	sort.SliceStable(mhs, func(i, j int) bool {
@@ -143,11 +145,12 @@ func New(ctx context.Context, engine provider.Interface,
 	err := listener.dsWrapper.initialiseFromTheDatastore(ctx, func(n *cidNode) {
 		listener.cidQueue.recordCidNode(n)
 	}, func(chunk *cidsChunk) {
-		// We don't need to add chunk to the in memory index as old chunks must have been already processed by the engine
+		// Do not need to add chunk to the in-memory index as old chunks have been already processed by the engine
 		now := time.Now()
 		// some timestamps might be missing in the case if the latest snapshot hasn't been persisted due to an error
-		// while some chunks containing those CIDs haven been persisted and sent out. In that case - backfilling the missing CIDs with the current timestamp.
-		// That is safe to do. Even if those CIDs have expired, they will still expire from the index-provider just at a later date.
+		// while some chunks containing those CIDs haven been persisted and sent out. In that case - backfilling the
+		// missing CIDs with the current timestamp. That is safe to do. Even if those CIDs have expired, they will still
+		// expire from the index-provider just at a later date.
 		for c := range chunk.Cids {
 			if listener.cidQueue.getNodeByCid(c) != nil {
 				continue
@@ -360,9 +363,8 @@ func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
 				delete(cidsToRemove, c)
 			}
 			continue
-		} else {
-			chunksRemoved++
 		}
+		chunksRemoved++
 
 		replacementChunk := &cidsChunk{Cids: make(map[cid.Cid]struct{}, listener.chunkSize), Removed: false}
 
@@ -499,13 +501,16 @@ func contextIDToStr(contextID []byte) string {
 }
 
 func (listener *Listener) flushWorker(ctx context.Context) {
-	t := time.NewTicker(listener.adFlushFrequency)
+	if ctx.Err() != nil {
+		return
+	}
 
 	flushFunc := func() {
 		// we don't want flush to happen while re-provide is running
 		listener.lock.Lock()
 		defer listener.lock.Unlock()
-		// flush only if the current chunk has some cids in it and the time since the current chunk has been created is greater than the flush frequency
+		// flush only if the current chunk has some cids in it and the time since the current chunk has been created is
+		// greater than the flush frequency
 		if len(listener.chunker.currentChunk.Cids) > 0 &&
 			time.Since(listener.chunker.currentChunkTime) > listener.adFlushFrequency {
 			err := listener.chunker.flushCurrentChunk(ctx, func(cc *cidsChunk) error {
@@ -517,14 +522,11 @@ func (listener *Listener) flushWorker(ctx context.Context) {
 		}
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			flushFunc()
-		}
+	t := time.NewTicker(listener.adFlushFrequency)
+	defer t.Stop()
 
+	for {
+		flushFunc()
 		select {
 		case <-ctx.Done():
 			return
