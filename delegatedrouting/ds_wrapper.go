@@ -44,13 +44,12 @@ func (dsw *dsWrapper) initialiseFromTheDatastore(ctx context.Context, cidImporte
 
 func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkImporter func(c *cidsChunk)) error {
 	offset := 0
-	removedChunks := 0
 	totalCids := 0
 	start := time.Now()
 	// reading all cid chunks from the datastore and adding them up to the in-memory indexes
 	for {
 		pageNum := offset / dsw.pageSize
-		log.Infof("Reading chunk page %d from the datastore. totalChunks=%d, removedChunks=%d, totalCids=%d", pageNum, pageNum*dsw.pageSize, removedChunks, totalCids)
+		log.Infof("Reading chunk page %d from the datastore. totalChunks=%d, totalCids=%d", pageNum, pageNum*dsw.pageSize, totalCids)
 
 		q := dsq.Query{
 			Prefix: chunkByContextIdIndexPrefix,
@@ -72,11 +71,6 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 			chunk, err := deserialiseChunk(r.Value)
 			if err != nil {
 				return fmt.Errorf("error deserialising record from the datastore: %w", err)
-			}
-			// not importing removed chunks. They can be lazy loaded when needed.
-			if chunk.Removed {
-				removedChunks++
-				continue
 			}
 			totalCids += len(chunk.Cids)
 			chunkImporter(chunk)
@@ -269,6 +263,10 @@ func (dsw *dsWrapper) recordChunkByContextID(ctx context.Context, chunk *cidsChu
 		return err
 	}
 	return dsw.ds.Put(ctx, chunkByContextIDKey(chunk.ContextID), b.Bytes())
+}
+
+func (dsw *dsWrapper) deleteChunk(ctx context.Context, chunk *cidsChunk) error {
+	return dsw.ds.Delete(ctx, chunkByContextIDKey(chunk.ContextID))
 }
 
 func (dsw *dsWrapper) getChunkByContextID(ctx context.Context, contextID []byte) (*cidsChunk, error) {

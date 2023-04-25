@@ -21,7 +21,6 @@ type chunker struct {
 type cidsChunk struct {
 	ContextID []byte
 	Cids      map[cid.Cid]struct{}
-	Removed   bool
 }
 
 func defaultNonceGen() []byte {
@@ -59,7 +58,7 @@ func (ch *chunker) removeChunk(chunk *cidsChunk) {
 }
 
 func (ch *chunker) setNewCurrentChunk() {
-	ch.currentChunk = &cidsChunk{Cids: make(map[cid.Cid]struct{}, ch.chunkSizeFunc()), Removed: false}
+	ch.currentChunk = &cidsChunk{Cids: make(map[cid.Cid]struct{}, ch.chunkSizeFunc())}
 	ch.currentChunkTime = time.Now()
 }
 

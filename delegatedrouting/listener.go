@@ -366,7 +366,7 @@ func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
 		}
 		chunksRemoved++
 
-		replacementChunk := &cidsChunk{Cids: make(map[cid.Cid]struct{}, listener.chunkSize), Removed: false}
+		replacementChunk := &cidsChunk{Cids: make(map[cid.Cid]struct{}, listener.chunkSize)}
 
 		for c := range chunkToRemove.Cids {
 			// if cid hasn't expired - adding it to the replacement chunk
@@ -433,15 +433,8 @@ func (listener *Listener) notifyRemoveAndPersist(ctx context.Context, chunk *cid
 	// remove the chunk from the in-memory index
 	listener.chunker.removeChunk(chunk)
 
-	// mark the chunk as removed in the datastore. Removed chunks won't be re-loaded on the next initialisation
-	chunk.Removed = true
-	err = listener.dsWrapper.recordChunkByContextID(ctx, chunk)
-	if err != nil {
-		chunk.Removed = false
-		return err
-	}
-
-	return nil
+	// delete chunk from the datastore
+	return listener.dsWrapper.deleteChunk(ctx, chunk)
 }
 
 func (listener *Listener) notifyPutAndPersist(ctx context.Context, chunk *cidsChunk) error {
