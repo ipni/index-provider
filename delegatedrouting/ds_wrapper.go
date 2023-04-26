@@ -55,6 +55,7 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 			Prefix: chunkByContextIdIndexPrefix,
 			Offset: offset,
 			Limit:  dsw.pageSize,
+			Orders: []dsq.Order{dsq.OrderByKey{}},
 		}
 		ccResults, err := dsw.ds.Query(ctx, q)
 		if err != nil {
