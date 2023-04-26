@@ -73,6 +73,12 @@ func (dsw *dsWrapper) initialiseChunksFromDatastore(ctx context.Context, chunkIm
 			if err != nil {
 				return fmt.Errorf("error deserialising record from the datastore: %w", err)
 			}
+
+			// not importing removed chunks. Left here for backward compatibility purposes
+			if chunk.Removed {
+				continue
+			}
+
 			totalCids += len(chunk.Cids)
 			chunkImporter(chunk)
 		}

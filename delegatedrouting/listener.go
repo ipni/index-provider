@@ -373,7 +373,7 @@ func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
 		}
 		chunksRemoved++
 
-		replacementChunk := &cidsChunk{Cids: make(map[cid.Cid]struct{}, listener.chunkSize)}
+		replacementChunk := &cidsChunk{Cids: make(map[cid.Cid]struct{}, listener.chunkSize), Removed: false}
 
 		for c := range chunkToRemove.Cids {
 			// if cid hasn't expired - adding it to the replacement chunk

@@ -60,7 +60,7 @@ func (ch *chunker) removeChunk(chunk *cidsChunk) {
 }
 
 func (ch *chunker) setNewCurrentChunk() {
-	ch.currentChunk = &cidsChunk{Cids: make(map[cid.Cid]struct{}, ch.chunkSizeFunc())}
+	ch.currentChunk = &cidsChunk{Cids: make(map[cid.Cid]struct{}, ch.chunkSizeFunc()), Removed: false}
 	ch.currentChunkTime = time.Now()
 }
 
