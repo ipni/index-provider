@@ -42,7 +42,7 @@ func ChunkExists(ctx context.Context, listener *Listener, cids []cid.Cid, nonceG
 		return false
 	}
 
-	return !chunkFromDatastore.Removed
+	return true
 }
 
 func HasSnapshot(ctx context.Context, listener *Listener) bool {
@@ -79,12 +79,9 @@ func ChunkNotExist(ctx context.Context, listener *Listener, cids []cid.Cid, nonc
 		return false
 	}
 
-	chunkFromDatastore, err := listener.dsWrapper.getChunkByContextID(ctx, ctxID)
-	if err != nil {
-		return false
-	}
-	return chunkFromDatastore.Removed && listener.chunker.getChunkByContextID(ctxIDStr) == nil
+	_, err := listener.dsWrapper.getChunkByContextID(ctx, ctxID)
 
+	return err == datastore.ErrNotFound && listener.chunker.getChunkByContextID(ctxIDStr) == nil
 }
 
 func CidExist(ctx context.Context, listener *Listener, c cid.Cid, requireChunk bool) bool {

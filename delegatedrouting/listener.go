@@ -147,14 +147,21 @@ func New(ctx context.Context, engine provider.Interface,
 	}, func(chunk *cidsChunk) {
 		// Do not need to add chunk to the in-memory index as old chunks have been already processed by the engine
 		now := time.Now()
-		// some timestamps might be missing in the case if the latest snapshot hasn't been persisted due to an error
-		// while some chunks containing those CIDs haven been persisted and sent out. In that case - backfilling the
-		// missing CIDs with the current timestamp. That is safe to do. Even if those CIDs have expired, they will still
-		// expire from the index-provider just at a later date.
 		for c := range chunk.Cids {
-			if listener.cidQueue.getNodeByCid(c) != nil {
+			// if the cid has already been registered - assign the chunk to it
+			if elem := listener.cidQueue.getNodeByCid(c); elem != nil {
+				node := elem.Value.(*cidNode)
+				if node.chunk != nil {
+					log.Warnf("Chunk for CID %s has already been assigned. This should never happen", c.String())
+				}
+				node.chunk = chunk
 				continue
 			}
+			// if the cid hasn't been registered then backfill it with the curent timestamp.
+			// some timestamps might be missing in the case if the latest snapshot hasn't been persisted due to an error
+			// while some chunks containing those CIDs haven been persisted and sent out. In that case - backfilling the
+			// missing CIDs with the current timestamp. That is safe to do. Even if those CIDs have expired, they will still
+			// expire from the index-provider just at a later date.
 			listener.cidQueue.recordCidNode(&cidNode{C: c, Timestamp: now, chunk: chunk})
 		}
 
@@ -433,15 +440,8 @@ func (listener *Listener) notifyRemoveAndPersist(ctx context.Context, chunk *cid
 	// remove the chunk from the in-memory index
 	listener.chunker.removeChunk(chunk)
 
-	// mark the chunk as removed in the datastore. Removed chunks won't be re-loaded on the next initialisation
-	chunk.Removed = true
-	err = listener.dsWrapper.recordChunkByContextID(ctx, chunk)
-	if err != nil {
-		chunk.Removed = false
-		return err
-	}
-
-	return nil
+	// delete chunk from the datastore
+	return listener.dsWrapper.deleteChunk(ctx, chunk)
 }
 
 func (listener *Listener) notifyPutAndPersist(ctx context.Context, chunk *cidsChunk) error {
