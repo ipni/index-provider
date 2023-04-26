@@ -21,6 +21,8 @@ type chunker struct {
 type cidsChunk struct {
 	ContextID []byte
 	Cids      map[cid.Cid]struct{}
+	// unused field left for backward compatibility purposes
+	Removed bool
 }
 
 func defaultNonceGen() []byte {
