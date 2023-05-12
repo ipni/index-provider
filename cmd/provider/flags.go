@@ -50,20 +50,6 @@ var addrFlag = &cli.StringSliceFlag{
 	Required: true,
 }
 
-var findFlags = []cli.Flag{
-	indexerFlag,
-	&cli.StringSliceFlag{
-		Name:     "mh",
-		Usage:    "Specify multihash to use as indexer key, multiple OK",
-		Required: false,
-	},
-	&cli.StringSliceFlag{
-		Name:     "cid",
-		Usage:    "Specify CID to use as indexer key, multiple OK",
-		Required: false,
-	},
-}
-
 var indexFlags = []cli.Flag{
 	indexerFlag,
 	addrFlag,
@@ -83,11 +69,6 @@ var indexFlags = []cli.Flag{
 		Required: true,
 	},
 	metadataFlag,
-}
-
-var registerFlags = []cli.Flag{
-	indexerFlag,
-	addrFlag,
 }
 
 var importCarFlags = []cli.Flag{
@@ -166,17 +147,5 @@ var (
 		Usage:       "Specifies whether zero-length blocks in CAR should be consideted as EOF.",
 		Value:       false, // Default to disabled, consistent with go-car/v2 defaults.
 		Destination: &carZeroLengthAsEOFFlagValue,
-	}
-)
-
-var (
-	adEntriesRecurLimitFlagValue int64
-	adEntriesRecurLimitFlag      = &cli.Int64Flag{
-		Name:        "ad-entries-recursion-limit",
-		Aliases:     []string{"aerl"},
-		Usage:       "The maximum recursion depth when fetching advertisement entries chain.",
-		Value:       100,
-		DefaultText: "100 (set to '0' for unlimited)",
-		Destination: &adEntriesRecurLimitFlagValue,
 	}
 )
