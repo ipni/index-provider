@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/test"
 	"github.com/ipni/index-provider/engine"
@@ -179,6 +180,22 @@ func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
 		WithMetadata(metadata).
 		BuildAndSign()
 	require.Error(t, err, "invalid extended provider peer id")
+}
+
+func TestExtendedProvidersShouldAllowEntries(t *testing.T) {
+	addrs := test.RandomMultiaddrs(1)
+	providerID, priv, _ := test.RandomIdentity()
+	entries := test.RandomCids(1)[0]
+
+	ad, err := ep.NewAdBuilder(providerID, priv, addrs).
+		WithEntries(entries).
+		BuildAndSign()
+	require.NoError(t, err)
+
+	_, err = ad.VerifySignature()
+	require.NoError(t, err)
+
+	require.Equal(t, cidlink.Link{Cid: entries}, ad.Entries)
 }
 
 func TestZeroExtendedProvidersShouldStillCreateExtendedProvidersField(t *testing.T) {

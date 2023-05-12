@@ -30,6 +30,8 @@ type AdBuilder struct {
 	override bool
 	// lastAdID contains optional last ad cid which is cid.Undef by default
 	lastAdID cid.Cid
+	// entries is the CID of the entries the ad applies to
+	entries cid.Cid
 }
 
 // Info contains information about extended provider.
@@ -86,6 +88,12 @@ func (pub *AdBuilder) WithLastAdID(lastAdID cid.Cid) *AdBuilder {
 	return pub
 }
 
+// WithEntries sets the CID of the entries for the ad
+func (pub *AdBuilder) WithEntries(entries cid.Cid) *AdBuilder {
+	pub.entries = entries
+	return pub
+}
+
 // BuildAndSign verifies and  signs a new extended provider ad. After that it can be published using engine. Identity of the main provider will be appended to the
 // extended provider list automatically.
 func (pub *AdBuilder) BuildAndSign() (*schema.Advertisement, error) {
@@ -93,9 +101,14 @@ func (pub *AdBuilder) BuildAndSign() (*schema.Advertisement, error) {
 		return nil, errors.New("override is true for empty context")
 	}
 
+	entries := schema.NoEntries
+	if pub.entries != cid.Undef {
+		entries = cidlink.Link{Cid: pub.entries}
+	}
+
 	adv := schema.Advertisement{
 		Provider:  pub.providerID,
-		Entries:   schema.NoEntries,
+		Entries:   entries,
 		Addresses: pub.addrs,
 		ContextID: pub.contextID,
 		Metadata:  pub.metadata,
