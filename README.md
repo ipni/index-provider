@@ -23,12 +23,12 @@ A list of features include:
     * Programmatic advertisement for content via index provider [Engine](engine) with built-in
       chunking functionality
     * Announcement of changes to the advertised content over GossipSub
-      using [`go-legs`](https://github.com/filecoin-project/go-legs)
+      using [`go-libipni/announce`](https://pkg.go.dev/github.com/ipni/go-libipni/announce)
     * `MultihashLister` integration point for fully customizable look up of advertised multihashes.
     * Utilities to advertise multihashes directly [from CAR files](supplier/car_supplier.go)
       or [detached CARv2 index](index_mh_iter.go) files.
-    * Index advertisement [`metadata`](metadata) schema for retrieval
-      over [graphsync](metadata/metadata.go) and [bitswap](metadata/bitswap.go)
+    * Index advertisement [`go-libipni/metadata`](https://pkg.go.dev/github.com/ipni/go-libipni/metadata) schema for retrieval
+      over [graphsync](https://pkg.go.dev/github.com/ipni/go-libipni/metadata#GraphsyncFilecoinV1) and [bitswap](https://pkg.go.dev/github.com/ipni/go-libipni/metadata#Bitswap)
 
 ## Current status :construction:
 
@@ -36,11 +36,8 @@ This implementation is under active development.
 
 ## Background
 
-The protocol implemented by this repository is the index provider portion of a larger indexing
-protocol
-documented [here](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
-. The indexer node implementation can be found
-at [`storetheindex`](https://github.com/ipni/storetheindex) and [`go-libipni`](https://github.com/ipni/go-libipni).
+The protocol implemented by this repository is the index provider portion of a larger indexing protocol documented [here](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
+. The indexer node implementation can be found at [`storetheindex`](https://github.com/ipni/storetheindex) and [`go-libipni`](https://github.com/ipni/go-libipni).
 
 For more details on the ingestion protocol itself
 see [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
@@ -50,7 +47,7 @@ see [Providing data to a network indexer](https://github.com/ipni/storetheindex/
 
 Prerequisite:
 
-- [Go 1.16+](https://golang.org/doc/install)
+- [Go 1.19+](https://golang.org/doc/install)
 
 To use the provider as a Go library, execute:
 
@@ -237,35 +234,7 @@ and advertise its content to the indexer nodes by executing:
 provider import car -l http://localhost:3102 -i <path-to-car-file>
 ```
 
-For full usage, execute `provider`. Usage:
-
-````shell
-NAME:
-   provider - Indexer Reference Provider Implementation
-
-USAGE:
-   provider [global options] command [command options] [arguments...]
-
-VERSION:
-   v0.2.7
-
-COMMANDS:
-   daemon             Starts a reference provider
-   find               Query an indexer for indexed content
-   index              Push a single content index into an indexer
-   init               Initialize reference provider config file and identity
-   connect            Connects to an indexer through its multiaddr
-   import, i          Imports sources of multihashes to the index provider.
-   register           Register provider information with an indexer that trusts the provider
-   remove, rm         Removes previously advertised multihashes by the provider.
-   verify-ingest, vi  Verifies ingestion of multihashes to an indexer node from a CAR file or a CARv2 Index
-   list               Lists advertisements
-   help, h            Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --help, -h     show help (default: false)
-   --version, -v  print the version (default: false)
-````
+For usage description, execute `provider --help`
 
 ## Storage Consumption
 
@@ -312,14 +281,12 @@ advertisement. The cache expansion is logged in `INFO` level at `provider/engine
 
 ## Related Resources
 
-* [Indexer Ingestion Interface](https://www.notion.so/protocollabs/Indexer-Ingestion-Interface-4a120c698b31417385204ec401137cb1)
 * [Indexer Ingestion IPLD Schema](https://github.com/ipni/go-libipni/blob/main/ingest/schema/schema.ipldsch)
 * [Indexer Node Design](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
 * [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
 * [`storetheindex`](https://github.com/ipni/storetheindex): indexer node implementation
 * [`storetheindex` documentation](https://github.com/ipni/storetheindex/blob/main/doc/)
-* [`go-indexer-core`](https://github.com/filecoin-project/go-indexer-core): Core index key-value
-  store
+* [`go-indexer-core`](https://github.com/filecoin-project/go-indexer-core): Core index key-value store
 
 ## License
 
