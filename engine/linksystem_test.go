@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -24,6 +25,8 @@ import (
 )
 
 var testMetadata = metadata.Default.New(metadata.Bitswap{})
+
+const testTimeout = 30 * time.Second
 
 func Test_SchemaNoEntriesErr(t *testing.T) {
 	ctx := testutil.ContextWithTimeout(t)
