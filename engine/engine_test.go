@@ -672,6 +672,57 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	newPID := testutil.NewID(t)
 	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: newPID}, []byte("has"), metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
+
+}
+
+func TestEngine_RegenrateEntryChunksFromOldDatastore(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// copying testdata into the test dir
+	testutil.CopyDir(t, filepath.Join(testutil.ThisDir(t), "../testdata/datastore.ds"), tempDir)
+
+	ds, _ := leveldb.NewDatastore(tempDir, nil)
+	defer ds.Close()
+
+	// setting up engine with the configuration that was used to generate the datastore
+	ma1, _ := multiaddr.NewMultiaddr("/ip6/::1/tcp/62698")
+	ma2, _ := multiaddr.NewMultiaddr("/ip4/192.168.1.161/tcp/62695")
+	ma3, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/62695")
+	pID, _ := peer.Decode("QmPxKFBM2A7VZURXZhZLCpEnhMFtZ7WSZwFLneFEiYneES")
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
+	subject, err := engine.New(engine.WithDatastore(ds), engine.WithProvider(peer.AddrInfo{ID: pID, Addrs: []multiaddr.Multiaddr{ma1, ma2, ma3}}))
+	require.NoError(t, err)
+	err = subject.Start(ctx)
+	require.NoError(t, err)
+	defer subject.Shutdown()
+
+	// Existing root advertisement
+	existingRoot, _ := cid.Parse("baguqeeraix5q35zho3z2x5hqsa2iga3372qj4txsr4ooc2zvbyownka57gzq")
+
+	// Gettig the first advertisement with entries
+	ad, _ := subject.GetAdv(ctx, existingRoot)
+	ad, _ = subject.GetAdv(ctx, ad.PreviousID.(cidlink.Link).Cid)
+
+	mhs := make([]multihash.Multihash, 0)
+	// register multihash lister that is going to return the extracted multihashes
+	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
+		return provider.SliceMultihashIterator(mhs), nil
+	})
+
+	// read cached entries and extract multihashes
+	entryChunks := requireLoadEntryChunkFromEngine(t, subject, ad.Entries)
+	for _, ch := range entryChunks {
+		mhs = append(mhs, ch.Entries...)
+	}
+
+	// verify that link system can generate entries from old index
+	err = subject.Datastore().Delete(ctx, datastore.NewKey(ad.Entries.(cidlink.Link).Cid.String()))
+	require.NoError(t, err)
+	err = subject.Datastore().Delete(ctx, datastore.NewKey("/cache/links/"+ad.Entries.(cidlink.Link).Cid.String()))
+	require.NoError(t, err)
+	requireLoadEntryChunkFromEngine(t, subject, ad.Entries)
 }
 
 func verifyAd(t *testing.T, ctx context.Context, subject *engine.Engine, expected, actual *schema.Advertisement) {
