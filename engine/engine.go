@@ -689,6 +689,10 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndConte
 	if err != nil {
 		return nil, err
 	}
+	// in case if provider is empty (which should never happen), assume the default one
+	if pAndC.Provider == nil {
+		pAndC.Provider = []byte(e.options.provider.ID)
+	}
 	return &pAndC, nil
 }
 
