@@ -673,7 +673,7 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndConte
 	val, err := e.ds.Get(ctx, e.cidToKeyKey(c))
 	if err == nil {
 		// if the mapping has been found in the legacy index - return the default provider identity
-		return &providerAndContext{Provider: []byte(e.options.provider.ID), ContextID: val}, nil
+		return &providerAndContext{Provider: []byte(e.provider.ID), ContextID: val}, nil
 	}
 	if !errors.Is(err, datastore.ErrNotFound) {
 		return nil, err
