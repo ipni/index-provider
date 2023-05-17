@@ -664,11 +664,14 @@ type providerAndContext struct {
 	ContextID []byte `json:"c"`
 }
 
+// getCidKeyMap returns the provider and contextID for a given cid. Provider and Context ID are guaranteed to be
+// not nil. In the case if legacy index exists, the default provider identity is assumed.
 func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndContext, error) {
 	// first see whether the mapping exists in the legacy index
 	val, err := e.ds.Get(ctx, e.cidToKeyKey(c))
 	if err == nil {
-		return &providerAndContext{ContextID: val}, nil
+		// if the mapping has been found in the legacy index - return the default provider identity
+		return &providerAndContext{Provider: []byte(e.provider.ID), ContextID: val}, nil
 	}
 	if err != datastore.ErrNotFound {
 		return nil, err
@@ -683,6 +686,10 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndConte
 	err = json.Unmarshal(val, &pAndC)
 	if err != nil {
 		return nil, err
+	}
+	// in case if provider is empty (which should never happen), assume the default one
+	if len(pAndC.Provider) == 0 {
+		pAndC.Provider = []byte(e.provider.ID)
 	}
 	return &pAndC, nil
 }
