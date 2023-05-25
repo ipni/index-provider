@@ -1,21 +1,16 @@
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
-TAG ?= $(shell git fetch --tags && git describe --tags --abbrev=0 | sed 's/v//')
-COMMIT ?= $(shell git rev-parse --short HEAD)
-CLEAN ?= $(shell git diff --quiet --exit-code || echo '-SNAPSHOT')
-VERSION = $(TAG)$(CLEAN)-$(COMMIT)
-
 .PHONY: all
 all: vet test build
 
 .PHONY: build
 build:
-	go build -ldflags="-X 'main.version=$(VERSION)'" ./cmd/provider 
+	go build ./cmd/provider 
 
 .PHONY: docker
 docker: clean
-	docker build . --force-rm -f Dockerfile -t index-provider:$(VERSION)
+	docker build . --force-rm -f Dockerfile -t index-provider:$(shell git rev-parse --short HEAD)
 
 .PHONY: install
 install:
