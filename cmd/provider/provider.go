@@ -7,10 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ipni/index-provider"
 	"github.com/urfave/cli/v2"
 )
-
-var version = "unknown"
 
 func main() {
 	os.Exit(run())
@@ -35,6 +34,17 @@ func run() int {
 		// Allow any further SIGTERM or SIGING to kill the process
 		signal.Stop(interrupt)
 	}()
+
+	var rev string
+	if provider.Modified {
+		rev = "SNAPSHOT"
+	} else {
+		rev = provider.Revision
+		if len(rev) > 7 {
+			rev = rev[:7]
+		}
+	}
+	version := provider.Release + "-" + rev
 
 	app := &cli.App{
 		Name:    "provider",
