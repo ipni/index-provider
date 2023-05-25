@@ -293,7 +293,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	ls.SetReadStorage(store)
 	ls.SetWriteStorage(store)
 
-	sync, err := dtsync.NewSync(subHost, ds, ls, nil)
+	sync, err := dtsync.NewSync(subHost, ds, ls, nil, 0, 0)
 	require.NoError(t, err)
 	syncer := sync.NewSyncer(subject.Host().ID(), topic, rate.NewLimiter(100, 10))
 	gotHead, err := syncer.GetHead(ctx)
