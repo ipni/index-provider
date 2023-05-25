@@ -577,15 +577,15 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 	}
 
 	// Check for cid.Undef for the previous link. If this is the case, then
-	// this means there is a "cid too short" error in IPLD links serialization.
-	if prevAdvID != cid.Undef {
+	// this means there are no previous advertisements.
+	if prevAdvID == cid.Undef {
 		log.Info("Latest advertisement CID was undefined - no previous advertisement")
-		prev := ipld.Link(cidlink.Link{Cid: prevAdvID})
-		adv.PreviousID = prev
+	} else {
+		adv.PreviousID = ipld.Link(cidlink.Link{Cid: prevAdvID})
 	}
 
 	// Sign the advertisement.
-	if err := adv.Sign(e.key); err != nil {
+	if err = adv.Sign(e.key); err != nil {
 		return cid.Undef, err
 	}
 	return e.Publish(ctx, adv)
