@@ -65,7 +65,7 @@ func (te *testEnv) startMirror(t *testing.T, ctx context.Context, opts ...mirror
 	te.mirrorSyncLs.SetReadStorage(te.mirrorSyncLsStore)
 	te.mirrorSyncLs.SetWriteStorage(te.mirrorSyncLsStore)
 
-	te.mirrorSync, err = dtsync.NewSync(te.mirrorSyncHost, dssync.MutexWrap(datastore.NewMapDatastore()), te.mirrorSyncLs, nil)
+	te.mirrorSync, err = dtsync.NewSync(te.mirrorSyncHost, dssync.MutexWrap(datastore.NewMapDatastore()), te.mirrorSyncLs, nil, 0, 0)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, te.mirrorSync.Close()) })
 	te.mirrorSyncer = te.mirrorSync.NewSyncer(te.mirrorHost.ID(), te.mirror.GetTopicName(), nil)
