@@ -117,6 +117,116 @@ Delegated Routing server is off by default. To enable it, add the following conf
 }
 ```
 
+#### Configuring Kubo and index-provider to use IPNI
+
+Kubo supports HTTP delegated routing as of v0.20.0. The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to 
+IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
+This section is not Alma Mater for all-things Kubo. It rather exists to give one inspiration of how to configure their node to use IPNI. 
+Please refer to the [Kubo docs](https://docs.ipfs.tech/install/command-line/) for more thorough info. A few things to keep in mind:
+
+* `index-provider`'s delegated routing server should be run at all times as a "sidecar" to the Kubo node. `index-provider` can be safely restarted, however
+if it's down, no new CIDs will be flowing from Kubo to IPNI;
+* `index-provider` doesn't support Reframe anymore. Please upgrade to Kubo v0.20.+ with HTTP Delegated Routing support;
+* Kubo advertises it's data in _snapshots_. That means that all CIDs under its management get _reprovided_ into the configured routers every 12/24 hours (configurable).
+That mechanism takes its roots from the way DHT works. `index-provider` can track what CIDs have been removed / added in between two consecuitive snapshots and convert
+that information into IPNI advertisements. Depending on the size of the node, during reproviding process one might see a lot of chatter between all processes involved.
+In between reprovides, Kubo still sends new individual CIDs to the configured routers;
+* Kubo needs `index-provider` only to publish its CIDs to IPNI. Kubo can do IPNI lookups natively without a sidecar involved (see the Kubo docs on `auto` routers);
+* `index-provider` must be reachable from the Internet. IPNI will try to establish conneciton into it to fetch Advertisement chains. If that can't be done - CIDs will not appear in IPNI. 
+It's important to configure your firewall accordingly. Take a note of the `ProviderServer` port from the `index-provider` configuration and open it up on the firewall.
+
+Configure `index-provider` to expose delegated rouring server:
+```
+"DelegatedRouting": {
+  "ListenMultiaddr": "/ip4/0.0.0.0/tcp/50617",
+  "ProviderID": "PEER ID OF YOUR IPFS NODE",
+  "Addrs": // List of multiaddresses that you'd like to be advertised to IPNI. If not specified, Swarm addresses of the Kubo node will be used.
+}
+```
+
+Configure Kubo to publish into both DHT and IPNI:
+```
+"Routing": {
+    "Methods": {
+      "find-peers": {
+        "RouterName": "WanDHT"
+      },
+      "find-providers": {
+        "RouterName": "ParallelHelper"
+      },
+      "get-ipns": {
+        "RouterName": "WanDHT"
+      },
+      "provide": {
+        "RouterName": "ParallelHelper"
+      },
+      "put-ipns": {
+        "RouterName": "WanDHT"
+      }
+    },
+    "Routers": {
+      "IndexProvider": {
+        "Parameters": {
+          "Endpoint": "http://127.0.0.1:50617",
+          "MaxProvideBatchSize": 10000,
+          "MaxProvideConcurrency": 1
+        },
+        "Type": "http"
+      },
+      "ParallelHelper": {
+        "Parameters": {
+          "Routers": [
+            {
+              "IgnoreErrors": true,
+              "RouterName": "IndexProvider",
+              "Timeout": "30m"
+            },
+            {
+              "IgnoreErrors": true,
+              "RouterName": "WanDHT",
+              "Timeout": "30m"
+            }
+          ]
+        },
+        "Type": "parallel"
+      },
+      "WanDHT": {
+        "Parameters": {
+          "AcceleratedDHTClient": false,
+          "Mode": "auto",
+          "PublicIPNetwork": true
+        },
+        "Type": "dht"
+      }
+    },
+    "Type": "custom"
+  },
+```
+
+With the configuration above, Kubo will advertise its CIDs to both DHT and IPNI and will also use both DHT and IPNI for `find-providers` lookups.
+Additionally enable the following flag in the Kubo config to turn on batch reprovides on (especially for larger nodes). 
+ ```
+"Experimental": { 
+  "AcceleratedDHTClient": true,
+},
+```
+
+Try adding a new file to your Kubo node and you should see `index-provider` logs start rolling instantly. If that doesn't happen, then most likely Kubo has been configured incorrectly.
+
+`index-provider` publishes announcements about new advertisements on a libp2p pub/sub topic. This topic is listened by IPNI systems like `cid.contact`. Once a new announcement is seen, 
+IPNI would reach out to `index-provider` to download advertisement chains and index the content. It's important to keep in mind:
+* There might be a delay before IPNI picks up an announcement from the libp2p pub/sub depending on the network, number of hops and etc;
+* There might be a delay before IPNI reaches out to `index-provider` depending on the overall business of the system;
+* If no comminication has been received from IPNI within a reasonable amount of time then most likely `index-provider` is not reachable from the Internet. You can verify whether
+it's reachable by using `index-provider` CLI. For example `provider ls ad --provider-addr-info=/ip4/76.21.23.45/tcp/24001/p2p/12D3KooWPNbEgjdBNeaCGpsgCrPRETe4uBZf1ShFXSdN18ys` (replace with the correct 
+multiaddress and peer id of your `index-provider`). Remember to run this command not from the same computer where `index-provider` is. 
+
+A few more useful configuration options to look at:
+* `ChunkSize` - `index-provider` publishes advertisements with X cids in each. An advertisement needs to get enough CIDs beofre it gets published. Reduce `ChunkSize` 
+parameter to get the data out quicker. The default is 1000;
+* `AdFlushFrequency` - `index-provider` can publish Advertisements before they get full. That is driven by `AdFlushFrequency`. In other words, an advertisement will be published
+either when it has reached `ChunkSize` or after `AdFlushFrequency`. Set it to lower values in order to get the data out quicker. The default is 10m.
+
 ### Embedding index provider integration
 
 The [root go module](go.mod) offers a set of reusable libraries that can be used to embed index
