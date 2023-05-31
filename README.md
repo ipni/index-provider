@@ -119,12 +119,12 @@ Delegated Routing server is off by default. To enable it, add the following conf
 
 #### Configuring Kubo to advertise content onto IPNI
 
-Kubo supports HTTP delegated routing as of v0.20.0. The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to 
+Kubo supports HTTP delegated routing as of [v0.18.0](https://github.com/ipfs/kubo/releases/tag/v0.18.0). The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to 
 IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
 This section serves as an inspiration for configuring your node to use IPNI, but for comprehensive information, refer to the [Kubo documentation](https://docs.ipfs.tech/install/command-line/). Here are some important points to consider:
 
 * The `index-provider` delegated routing server should be running continuously as a "sidecar" to the Kubo node. While `index-provider` can be restarted safely, if it goes down, no new CIDs will flow from Kubo to IPNI.
-* The latest version of Kubo (v0.20.+) with HTTP delegated routing support should be used as `index-provider` no longer supports Reframe.
+* The latest version of Kubo (v0.18.+) with HTTP delegated routing support should be used as `index-provider` no longer supports Reframe.
 * Kubo advertises its data in snapshots, which means that all CIDs managed by Kubo are reprovided to the configured routers every 12/24 hours (configurable). This mechanism is similar to how the Distributed Hash Table (DHT) works. During the reproviding process, there may be significant communication between the involved processes. In between reprovides, Kubo also sends new individual CIDs to the configured routers.
 * Kubo requires `index-provider` only for publishing its CIDs to IPNI. Kubo can perform IPNI lookups natively without the need for a sidecar (refer to Kubo docs on `auto` routers).
 * `index-provider` must be publicly reachable. IPNI will try to establish connection into it to fetch Advertisement chains. If that can't be done CIDs will not appear in IPNI. 
