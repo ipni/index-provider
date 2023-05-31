@@ -123,14 +123,10 @@ Kubo supports HTTP delegated routing as of v0.20.0. The following section contai
 IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
 This section serves as an inspiration for configuring your node to use IPNI, but for comprehensive information, refer to the [Kubo documentation](https://docs.ipfs.tech/install/command-line/). Here are some important points to consider:
 
-* `index-provider`'s delegated routing server should be run at all times as a "sidecar" to the Kubo node. `index-provider` can be safely restarted, however
-if it's down, no new CIDs will be flowing from Kubo to IPNI;
-* `index-provider` doesn't support Reframe anymore. Please upgrade to Kubo v0.20.+ with HTTP Delegated Routing support;
-* Kubo advertises it's data in _snapshots_. That means that all CIDs under its management get _reprovided_ into the configured routers every 12/24 hours (configurable).
-That mechanism takes its roots from the way DHT works. `index-provider` can track what CIDs have been removed / added in between two consecuitive snapshots and convert
-that information into IPNI advertisements. Depending on the size of the node, during reproviding process one might see a lot of chatter between all processes involved.
-In between reprovides, Kubo still sends new individual CIDs to the configured routers;
-* Kubo needs `index-provider` only to publish its CIDs to IPNI. Kubo can do IPNI lookups natively without a sidecar involved (see the Kubo docs on `auto` routers);
+* The `index-provider` delegated routing server should be running continuously as a "sidecar" to the Kubo node. While `index-provider` can be restarted safely, if it goes down, no new CIDs will flow from Kubo to IPNI.
+* The latest version of Kubo (v0.20.+) with HTTP delegated routing support should be used as `index-provider` no longer supports Reframe.
+* Kubo advertises its data in snapshots, which means that all CIDs managed by Kubo are reprovided to the configured routers every 12/24 hours (configurable). This mechanism is similar to how the Distributed Hash Table (DHT) works. During the reproviding process, there may be significant communication between the involved processes. In between reprovides, Kubo also sends new individual CIDs to the configured routers.
+* Kubo requires `index-provider` only for publishing its CIDs to IPNI. Kubo can perform IPNI lookups natively without the need for a sidecar (refer to Kubo docs on `auto` routers).
 * `index-provider` must be publicly reachable. IPNI will try to establish connection into it to fetch Advertisement chains. If that can't be done CIDs will not appear in IPNI. 
 Ensure that your firewall is configured to allow incoming connections on the `ProviderServer` port specified in the `index-provider` configuration.
 
