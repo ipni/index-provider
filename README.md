@@ -121,8 +121,7 @@ Delegated Routing server is off by default. To enable it, add the following conf
 
 Kubo supports HTTP delegated routing as of v0.20.0. The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to 
 IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
-This section is not Alma Mater for all-things Kubo. It rather exists to give one inspiration of how to configure their node to use IPNI. 
-Please refer to the [Kubo docs](https://docs.ipfs.tech/install/command-line/) for more thorough info. A few things to keep in mind:
+This section serves as an inspiration for configuring your node to use IPNI, but for comprehensive information, refer to the [Kubo documentation](https://docs.ipfs.tech/install/command-line/). Here are some important points to consider:
 
 * `index-provider`'s delegated routing server should be run at all times as a "sidecar" to the Kubo node. `index-provider` can be safely restarted, however
 if it's down, no new CIDs will be flowing from Kubo to IPNI;
