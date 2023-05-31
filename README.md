@@ -132,7 +132,7 @@ That mechanism takes its roots from the way DHT works. `index-provider` can trac
 that information into IPNI advertisements. Depending on the size of the node, during reproviding process one might see a lot of chatter between all processes involved.
 In between reprovides, Kubo still sends new individual CIDs to the configured routers;
 * Kubo needs `index-provider` only to publish its CIDs to IPNI. Kubo can do IPNI lookups natively without a sidecar involved (see the Kubo docs on `auto` routers);
-* `index-provider` must be reachable from the Internet. IPNI will try to establish conneciton into it to fetch Advertisement chains. If that can't be done - CIDs will not appear in IPNI. 
+* `index-provider` must be publicly reachable. IPNI will try to establish connection into it to fetch Advertisement chains. If that can't be done CIDs will not appear in IPNI. 
 It's important to configure your firewall accordingly. Take a note of the `ProviderServer` port from the `index-provider` configuration and open it up on the firewall.
 
 To configure `index-provider` to expose the delegated routing server, use the following configuration:
