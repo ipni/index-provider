@@ -221,7 +221,8 @@ IPNI would reach out to `index-provider` to download advertisement chains and in
 it's reachable by using `index-provider` CLI. For example `provider ls ad --provider-addr-info=/ip4/76.21.23.45/tcp/24001/p2p/12D3KooWPNbEgjdBNeaCGpsgCrPRETe4uBZf1ShFXSdN18ys` (replace with the correct 
 multiaddress and peer id of your `index-provider`). Remember to run this command not from the same computer where `index-provider` is. 
 
-A few more useful configuration options to look at:
+Here are a few additional configuration options to consider:
+
 * `ChunkSize` - `index-provider` publishes advertisements with X cids in each. An advertisement needs to get enough CIDs beofre it gets published. Reduce `ChunkSize` 
 parameter to get the data out quicker. The default is 1000;
 * `AdFlushFrequency` - `index-provider` can publish Advertisements before they get full. That is driven by `AdFlushFrequency`. In other words, an advertisement will be published
