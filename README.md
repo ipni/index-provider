@@ -203,8 +203,7 @@ Configure Kubo to publish into both DHT and IPNI:
   },
 ```
 
-With the configuration above, Kubo will advertise its CIDs to both DHT and IPNI and will also use both DHT and IPNI for `find-providers` lookups.
-Additionally enable the following flag in the Kubo config to turn on batch reprovides on (especially for larger nodes). 
+With the above configuration, Kubo will advertise its CIDs to both DHT and IPNI and will use both DHT and IPNI for `find-providers` lookups. Additionally, enable the following flag in the Kubo config to enable batch re-provides (especially for larger nodes):
  ```json
 "Experimental": { 
   "AcceleratedDHTClient": true,
