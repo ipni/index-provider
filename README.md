@@ -210,7 +210,7 @@ With the above configuration, Kubo will advertise its CIDs to both DHT and IPNI 
 },
 ```
 
-Try adding a new file to your Kubo node and you should see `index-provider` logs start rolling instantly. If that doesn't happen, then most likely Kubo has been configured incorrectly.
+After adding a new file to your Kubo node, you should see `index-provider` logs starting to appear immediately. If that doesn't happen, it's likely that Kubo has been configured incorrectly.
 
 `index-provider` publishes announcements about new advertisements on a libp2p pub/sub topic. This topic is listened by IPNI systems like `cid.contact`. Once a new announcement is seen, 
 IPNI would reach out to `index-provider` to download advertisement chains and index the content. It's important to keep in mind:
