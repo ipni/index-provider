@@ -223,8 +223,7 @@ multiaddress and peer id of your `index-provider`). Remember to run this command
 
 Here are a few additional configuration options to consider:
 
-* `ChunkSize` - `index-provider` publishes advertisements with X cids in each. An advertisement needs to get enough CIDs beofre it gets published. Reduce `ChunkSize` 
-parameter to get the data out quicker. The default is 1000;
+* `ChunkSize`: `index-provider` publishes advertisements with a certain number of CIDs in each chunk. An advertisement needs to accumulate enough CIDs before it gets published. You can reduce the `ChunkSize` parameter to publish data more quickly. The default value is 1000.
 * `AdFlushFrequency` - `index-provider` can publish Advertisements before they get full. That is driven by `AdFlushFrequency`. In other words, an advertisement will be published
 either when it has reached `ChunkSize` or after `AdFlushFrequency`. Set it to lower values in order to get the data out quicker. The default is 10m.
 
