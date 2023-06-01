@@ -139,7 +139,7 @@ To configure `index-provider` to expose the delegated routing server, use the fo
 "DelegatedRouting": {
   "ListenMultiaddr": "/ip4/0.0.0.0/tcp/50617",
   "ProviderID": "PEER ID OF YOUR IPFS NODE",
-  "Addrs": [] // List of multiaddresses that you'd like to be advertised to IPNI
+  "Addrs": [] // List of multiaddresses that you'd like to be advertised to IPNI. Announce addrs are going to be advertised up if not specified.
 }
 ```
 
