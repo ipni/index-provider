@@ -102,7 +102,7 @@ provider import car -l http://localhost:3102 -i <path-to-car-file>
 
 Both CARv1 and CARv2 formats are supported. Index is regenerated on the fly if one is not present.
 
-#### Exposing delegated routing server from provider (experimental)
+#### Exposing delegated routing server from provider (Experimental)
 
 Provider can export a Delegated Routing server. Delegated Routing allows IPFS nodes to advertise their contents to indexers alongside DHT. 
 Delegated Routing server is off by default. To enable it, add the following configuration block to the provider config file.
@@ -117,12 +117,15 @@ Delegated Routing server is off by default. To enable it, add the following conf
 }
 ```
 
-#### Configuring Kubo to advertise content onto IPNI
+#### Configuring Kubo to advertise content onto IPNI (Experimental)
+
+**Disclaimer: PUT /routing/v1 is currently not officially supported in Kubo. Please use it at your own risk. See [IPIP-378](https://github.com/ipfs/specs/pull/378) for the latest updates.**
 
 Kubo supports HTTP delegated routing as of [v0.18.0](https://github.com/ipfs/kubo/releases/tag/v0.18.0). The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to 
 IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
 This section serves as an inspiration for configuring your node to use IPNI, but for comprehensive information, refer to the [Kubo documentation](https://docs.ipfs.tech/install/command-line/). Here are some important points to consider:
 
+* `PUT /routing/v1` is currently not officially supported in Kubo. HTTP Delegated Routing supports only reads at the moment, not writes. Please use it at your own risk;
 * The `index-provider` delegated routing server should be running continuously as a "sidecar" to the Kubo node. While `index-provider` can be restarted safely, if it goes down, no new CIDs will flow from Kubo to IPNI.
 * The latest version of Kubo (v0.18.+) with HTTP delegated routing support should be used as `index-provider` no longer supports Reframe.
 * Kubo advertises its data in snapshots, which means that all CIDs managed by Kubo are reprovided to the configured routers every 12/24 hours (configurable). This mechanism is similar to how the Distributed Hash Table (DHT) works. During the reproviding process, there may be significant communication between the involved processes. In between reprovides, Kubo also sends new individual CIDs to the configured routers.
@@ -136,7 +139,7 @@ To configure `index-provider` to expose the delegated routing server, use the fo
 "DelegatedRouting": {
   "ListenMultiaddr": "/ip4/0.0.0.0/tcp/50617",
   "ProviderID": "PEER ID OF YOUR IPFS NODE",
-  "Addrs": // List of multiaddresses that you'd like to be advertised to IPNI. If not specified, Swarm addresses of the Kubo node will be used.
+  "Addrs": [] // List of multiaddresses that you'd like to be advertised to IPNI. Announce addrs are going to be advertised if not specified.
 }
 ```
 
