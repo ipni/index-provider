@@ -24,6 +24,53 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
+/**
+index-provider integrates with Kubo by utilising HTTP Delegated Routing API. The API currently supports only GETs requests.
+See [IPIP-378](https://github.com/ipfs/specs/pull/378) for the latest updates on PUTs.
+
+index-provider listens to annnouncement from Kubo that are handled by the ProvideBitswap method.
+Provide announcements can come either for individual CIDs, for example when a new file gets added to Kubo or for Snapshots.
+Snapshot - is a collection of all CIDs that the Kubo node has. Snapshots get reprovided every 12/24 hours or on demand when
+one invokes "ipfs bitswap reprovide".
+
+The main job of index-provider is to convert CIDs coming from Kubo into Advertisements and announce them to IPNI using Engine.
+index-provider makes sure that all new CIDs are processed sequentuially by protecting ProvideBitswap with Listener.lock.
+When new CIDs come in, index-provider adds them to the "current chunk" up until it gets full. There can be only one current chunk at any point of time.
+The chunk size is driven by Listener.chunkSize parameter. Once the current chunk is full, index-provider generates a ContextID for it (sha256 over the chunk's CIDs),
+advertises the chunk'ss CIDs to IPNI and creates a new empty current chunk. This process happens over and over again. The logic for handling chunks
+is located in chunker.go.
+
+Convertion between chunks and Advertisements is done via a custom MultihashLister that is registered with the Engine. When the Engine
+asks for a ContextID, MultihashLister will try to find a chunk with that ContextID in in-memory map with a fallabcl to the underlying datastore.
+After the chunk has been requested at least once it gets evicted from RAM.
+
+There can be significant time gaps between ProvideBitswap calls, for example when Kubo doesn't have any new data. That can result into
+long time before the current chunk gets full. To prevent the current chunk from being stuck, index-provider periodically flushes it - adds whatever CIDs
+are in it into the new Advertisement and replaces it with a new current chunk.  Flush frequency is driven by the Listener.adFlushFrequency parameter.
+
+Kubo doesn't give any context on which CIDs have been removed. A CID is considered to be removed if it disappears between
+two consequitive Snapshots. To remove a CID index-provider needs to find the Advertisement where that CID has been announced, send IsRM
+Advertisement for that ContextID and re-advertise the remaining CIDs with a new ContextID. To determine which CIDs have been removed
+index-provider maintains an ordered queue of CIDs by their expiry time (cid_queue.go). When a CID is seen in ProvideBitswap call - it
+gets pushed to the end of the queue. In the end of each ProvideBitswap invocation index-provider checks whether any CIDs have expired by looking at the head of the queue
+and generates IsRm advertisements for them. This is handled in Listener.removeExpiredCids method. CID "time to live" is driven by Listener.cidTtl parameter.
+
+index-provider offers persistence too. It is handled in ds_wrapper.go. index-provider persists two different datasets: 1. Chunks and 2. CIDs with their expiry times.
+Chunks are persisted as a map by their ContextID. CIDs are persisted as "snapshots" - that was done because persisting each CID individually resulted into
+significant database load for large nodes. CID snapshot is a binary blob of all CIDs with their expiry times. CIDs snapshot gets persisted only when Kubo reprovides
+its snapshot (i.e. once in 12/24 hours). Kubo doesn't give any context on whether BitswapWriteProvideRequest is a snapshot or not. To determine that index-provider
+uses Listener.snapshotSize parameter. CIDs snapshots can get big in size to the point that they can't be stored under a single key. To tackle that index-provider slices
+each snapshot up which is driven by dsWrapper.snapshotChunkMaxSize parameter. Once a new CIDs snapshot gets persisted, the old one gets removed. Chunks for IsRm Advertisements
+are removed from the database too as soon as the Advertisement has been successfully published to the Engine.
+
+On start, index-provider initialises itself from the datastore. First it reads CIDs snapshot and puts all CIDs into the expiry queue. Then index-provider
+reads all chunks in pages that is driven by dsWrapper.pageSize parameter. index-provider scans through all CIDs from each chunk and adds them to the expiry queue too if they are
+not there already. CIDs might be missing from the expiry queue if the latest snapshot hasn't been persisted due to an error for example. The initialisation logic is handled in
+Listener.New.
+
+index-provider periodically reports its operational stats from Listener.stats (number of Advertisements sent, number of CIDs under management and etc.).
+*/
+
 var log = logging.Logger("delegatedrouting/listener")
 var bitswapMetadata = metadata.Default.New(metadata.Bitswap{})
 
