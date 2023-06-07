@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel"
 )
 
-var meter = global.MeterProvider().Meter("index-provider")
+var meter = otel.GetMeterProvider().Meter("index-provider")
