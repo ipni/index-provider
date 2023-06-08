@@ -30,6 +30,8 @@ import (
 	"github.com/ipni/index-provider/metrics"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 var log = logging.Logger("provider/mirror")
@@ -160,7 +162,7 @@ func (m *Mirror) Start() error {
 					// TODO add an option on what to do if the mirroring of an ad failed?
 					// TODO codify the errors and use the error code as an additional attribute in metrics.
 				}
-				metrics.Mirror.ProcessDuration.Record(ctx, elapsed.Milliseconds(), attr)
+				metrics.Mirror.ProcessDuration.Record(ctx, elapsed.Milliseconds(), metric.WithAttributeSet(attribute.NewSet(attr)))
 			}
 
 			syncedCount := len(syncedAdCids)
@@ -414,6 +416,6 @@ func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) 
 	if err != nil {
 		attr = metrics.Attributes.StatusFailure
 	}
-	metrics.Mirror.SyncDuration.Record(ctx, elapsedSync.Milliseconds(), attr)
+	metrics.Mirror.SyncDuration.Record(ctx, elapsedSync.Milliseconds(), metric.WithAttributeSet(attribute.NewSet(attr)))
 	return syncedAdCids, err
 }

@@ -8,15 +8,15 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/sdk/metric"
 )
 
 var log = logging.Logger("provider/metrics")
 
 type Server struct {
-	exporter   otelprom.Exporter
+	exporter   *otelprom.Exporter
 	httpserver http.Server
 	listen     net.Listener
 }
@@ -28,12 +28,13 @@ func NewServer(listenAddr string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	exporter := otelprom.New()
-	provider := metric.NewMeterProvider(metric.WithReader(exporter))
-	global.SetMeterProvider(provider)
-	if err := prometheus.Register(exporter.Collector); err != nil {
+	// Create Prometheus Exporter and register its Collector.
+	exporter, err := otelprom.New()
+	if err != nil {
 		return nil, err
 	}
+	provider := metric.NewMeterProvider(metric.WithReader(exporter))
+	otel.SetMeterProvider(provider)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{

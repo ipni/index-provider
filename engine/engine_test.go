@@ -35,7 +35,6 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/time/rate"
 )
 
 func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
@@ -295,7 +294,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 
 	sync, err := dtsync.NewSync(subHost, ds, ls, nil, 0, 0)
 	require.NoError(t, err)
-	syncer := sync.NewSyncer(subject.Host().ID(), topic, rate.NewLimiter(100, 10))
+	syncer := sync.NewSyncer(subject.Host().ID(), topic)
 	gotHead, err := syncer.GetHead(ctx)
 	require.NoError(t, err)
 	require.Equal(t, gotLatestAdCid, gotHead)
