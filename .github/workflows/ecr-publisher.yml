@@ -24,7 +24,7 @@ jobs:
       PUBLIC_ECR_REGISTRY: public.ecr.aws/storetheindex
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Determine Container Tag
         run: |
           IMAGE_TAG="${GITHUB_REF#refs/tags/v}"
