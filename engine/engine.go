@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sync"
 
@@ -119,7 +120,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.publisher, err = e.newPublisher()
 	if err != nil {
-		log.Errorw("Failed to instantiate dagsync publisher", "err", err, "kind", e.pubKind)
+		log.Errorw("Failed to instantiate publisher", "err", err, "kind", e.pubKind)
 		return err
 	}
 
@@ -149,7 +150,13 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
 	case HttpPublisher:
-		httpPub, err := httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key)
+		var httpPub *httpsync.Publisher
+		var err error
+		if e.pubHttpWithoutServer {
+			httpPub, err = httpsync.NewPublisherWithoutServer(e.pubHttpListenAddr, e.pubHttpHandlerPath, e.lsys, e.key)
+		} else {
+			httpPub, err = httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http publisher: %w", err)
 		}
@@ -177,12 +184,12 @@ func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopic
 
 	// If there are announce URLs, then creage an announce sender to send
 	// direct HTTP announce messages to these URLs.
-	if len(directAnnounceURLs) != 0 {
-		var peerID peer.ID
-		if p2pHost != nil {
-			peerID = p2pHost.ID()
+	if len(e.announceURLs) != 0 {
+		id, err := peer.IDFromPrivateKey(e.key)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get peer ID from private key: %w", err)
 		}
-		httpSender, err := httpsender.New(directAnnounceURLs, peerID)
+		httpSender, err := httpsender.New(e.announceURLs, id)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http announce sender: %w", err)
 		}
@@ -270,10 +277,14 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 	// Only announce the advertisement CID if publisher is configured.
 	if e.publisher != nil {
 		log := log.With("adCid", c)
-		if len(e.announceURLs) == 0 {
+		if len(e.announceURLs) == 0 && e.h != nil {
 			log.Info("Announcing advertisement in pubsub channel")
-		} else {
+		} else if len(e.announceURLs) != 0 && e.h == nil {
+			log.Info("Announcing advertisement via http")
+		} else if len(e.announceURLs) != 0 && e.h != nil {
 			log.Info("Announcing advertisement in pubsub channel and via http")
+		} else {
+			return cid.Undef, fmt.Errorf("unexpected publisher state, no announceURLs or libp2p host")
 		}
 
 		e.publisher.SetRoot(c)
@@ -455,6 +466,24 @@ func (e *Engine) Shutdown() error {
 		errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
 	}
 	return errs
+}
+
+// GetPublisherHttpFunc gets the http.HandlerFunc that can be used to serve
+// advertisements over HTTP. The returned handler is only valid if the
+// PublisherKind is HttpPublisher and the HttpPublisherWithoutServer option is
+// set.
+func (e *Engine) GetPublisherHttpFunc() (http.HandlerFunc, error) {
+	if e.publisher == nil {
+		return nil, errors.New("no publisher configured")
+	}
+	if !e.pubHttpWithoutServer {
+		return nil, errors.New("HttpPublisherWithoutServer option not set")
+	}
+	if hp, ok := e.publisher.(*httpsync.Publisher); !ok {
+		return nil, errors.New("publisher is not an http publisher")
+	} else {
+		return hp.ServeHTTP, nil
+	}
 }
 
 // GetAdv gets the advertisement associated to the given cid c. The context is
