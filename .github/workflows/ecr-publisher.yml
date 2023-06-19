@@ -34,7 +34,7 @@ jobs:
           echo "Using image tag: ${IMAGE_TAG}"
           echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
       - name: AWS Login
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-2
           role-to-assume: "arn:aws:iam::407967248065:role/common/github_actions"
