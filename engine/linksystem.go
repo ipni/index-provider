@@ -93,6 +93,12 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			// as same entries from different providers would result into the same chunks
 			key, err := e.getCidKeyMap(ctx, c)
 			if err != nil {
+				if errors.Is(err, datastore.ErrNotFound) {
+					log.Error("No mapping of between CID and contextID to provider identity found. Treating ad as skippable.")
+					// We have to return ipld.ErrNotExists because the version of storetheindex Boost is using depends
+					// on the old HTTP publisher that only treats this error as 404.
+					return nil, ipld.ErrNotExists{}
+				}
 				log.Errorf("Error fetching relationship between CID and contextID: %s", err)
 				return nil, err
 			}
