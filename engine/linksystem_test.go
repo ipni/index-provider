@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -98,7 +97,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 
 	// Assert chunks from advertisement that added content are not found
 	_, err = subject.LinkSystem().Load(lCtx, adAdd.Entries, schema.EntryChunkPrototype)
-	require.Equal(t, datastore.ErrNotFound, err)
+	require.Equal(t, ipld.ErrNotExists{}, err)
 }
 
 func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
