@@ -239,7 +239,19 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 			log.Info("Announcing advertisement in pubsub channel and via http")
 		}
 
-		err = e.publisher.UpdateRoot(ctx, c)
+		// The publishers have their own senders of announcements. Further, there is a bespoke sender in the engine
+		// to allow explicit announcements via HTTP. The catch is that their behaviour is inconsistent:
+		// * engine takes pubHttpAnnounceAddrs option to allow configuring which addrs should be announced.
+		//   But those addrs are only used by the bespoke sender, _not_ the HTTP sender inside publishers.
+		//
+		// To work around this issue, check if announce addrs are set, and publisher kind is HTTP, and
+		// if so announce with explicit addresses configured.
+		if len(e.pubHttpAnnounceAddrs) > 0 && e.pubKind == HttpPublisher {
+			err = e.publisher.UpdateRootWithAddrs(ctx, c, e.pubHttpAnnounceAddrs)
+		} else {
+			err = e.publisher.UpdateRoot(ctx, c)
+		}
+
 		if err != nil {
 			log.Errorw("Failed to announce advertisement", "err", err)
 			// Do not consider a failure to announce an error, since publishing
