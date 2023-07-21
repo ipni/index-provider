@@ -217,16 +217,24 @@ func (e *Engine) announce(ctx context.Context, c cid.Cid) {
 	msg := message.Message{
 		Cid: c,
 	}
-
 	if e.pubKind == HttpPublisher {
 		msg.SetAddrs(e.pubHttpAnnounceAddrs)
 	} else {
 		msg.SetAddrs(e.h.Addrs())
-		msg.ExtraData = e.pubExtraGossipData
 	}
 
 	for _, sender := range e.senders {
-		if err := sender.Send(ctx, msg); err != nil {
+		var err error
+		// If sending announcement via gossip pubsub, set extra gossip data.
+		// Othersize, just send message.
+		if p2pSender, ok := sender.(*p2psender.Sender); ok {
+			pubsubMsg := msg
+			pubsubMsg.ExtraData = e.pubExtraGossipData
+			err = p2pSender.Send(ctx, pubsubMsg)
+		} else {
+			err = sender.Send(ctx, msg)
+		}
+		if err != nil {
 			log.Errorw("Failed to announce advertisement", "err", err)
 			if errors.Is(err, context.Canceled) {
 				return
