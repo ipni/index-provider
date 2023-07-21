@@ -148,8 +148,8 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 
 	var senders []announce.Sender
 
-	// If there are announce URLs, then creage an announce sender to send
-	// direct HTTP announce messages to these URLs.
+	// If there are announce URLs, then create an announce sender to send
+	// direct HTTP announce messages to these destination indexer URLs.
 	if len(e.announceURLs) != 0 {
 		httpSender, err := httpsender.New(e.announceURLs, e.h.ID())
 		if err != nil {
@@ -239,14 +239,14 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 			log.Info("Announcing advertisement in pubsub channel and via http")
 		}
 
-		// The publishers have their own senders of announcements. Further, there is a bespoke sender in the engine
-		// to allow explicit announcements via HTTP. The catch is that their behaviour is inconsistent:
-		// * engine takes pubHttpAnnounceAddrs option to allow configuring which addrs should be announced.
-		//   But those addrs are only used by the bespoke sender, _not_ the HTTP sender inside publishers.
-		//
-		// To work around this issue, check if announce addrs are set, and publisher kind is HTTP, and
-		// if so announce with explicit addresses configured.
+		// Calling the publisher's UpdateRoot or UpdateRootWithAddrs updates
+		// the head CID and announces the new head CID using all of the
+		// publisher's announcement Senders.
 		if len(e.pubHttpAnnounceAddrs) > 0 && e.pubKind == HttpPublisher {
+			// If the publisher is an HTTP publisher, then it is necessary to
+			// put the indexe-provider's addresses, where the advertisements
+			// are published, into the announcement message. This tells the
+			// indexer where to retrieve the announced advertisement from.
 			err = e.publisher.UpdateRootWithAddrs(ctx, c, e.pubHttpAnnounceAddrs)
 		} else {
 			err = e.publisher.UpdateRoot(ctx, c)
@@ -299,7 +299,15 @@ func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
 }
 
 // PublishLatestHTTP publishes the latest existing advertisement to the
-// specific indexers.
+// specific indexer URLs.
+//
+// This is used by the admin server to administratively send direct
+// announcements to specific addresses.
+//
+// Instead of using the publisher's announcement sender(s) to send direct
+// announcements to the URLs configured for the engine, a new sender is created
+// to send direct announcements to the URLs specified by the announceURLs
+// argument.
 func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL) (cid.Cid, error) {
 	adCid, err := e.latestAdToPublish(ctx)
 	if err != nil {
@@ -329,6 +337,16 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 
 	// The publisher kind determines what addresses to put into the announce
 	// message.
+	//
+	// It is necessary to put the index-provider's addresses, where
+	// the advertisements are published, into the announcement message. This
+	// tells the indexer where to retrieve the announced advertisement from.
+	//
+	// Normally this would be done using the publisher's UpdateRootWithAddrs
+	// function to tell what addresses to put into the message. Here it is done
+	// directly because the publisher cannot be used since the announcements
+	// are being sent to specified URLs that the publisher is not configured to
+	// send to.
 	switch e.pubKind {
 	case NoPublisher:
 		log.Info("Remote announcements disabled")
