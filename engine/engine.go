@@ -130,11 +130,11 @@ func (e *Engine) Start(ctx context.Context) error {
 			return fmt.Errorf("could not get latest advertisement cid: %w", err)
 		}
 		if adCid != cid.Undef {
-			e.publisher.SetRoot(ctx, adCid)
+			e.publisher.SetRoot(adCid)
 		}
 
 		// If publisher created, then create announcement senders.
-		e.senders, err = createSenders(e.announceURLs, e.h, e.pubTopicName, e.pubTopic)
+		e.senders, err = createSenders(e.announceURLs, e.h, e.pubTopicName, e.pubExtraGossipData, e.pubTopic)
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	return dtPub, nil
 }
 
-func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopicName string, existingTopic *pubsub.Topic) ([]announce.Sender, error) {
+func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopicName string, extraGossipData []byte, existingTopic *pubsub.Topic) ([]announce.Sender, error) {
 	var senders []announce.Sender
 
 	// If there are announce URLs, then creage an announce sender to send
@@ -197,7 +197,9 @@ func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopic
 	// If there is a libp2p host, then create a gossip pubsub announce sender.
 	if p2pHost != nil {
 		// Create an announce sender to send over gossip pubsub.
-		p2pSender, err := p2psender.New(p2pHost, pubsubTopicName, p2psender.WithTopic(existingTopic))
+		p2pSender, err := p2psender.New(p2pHost, pubsubTopicName,
+			p2psender.WithTopic(existingTopic),
+			p2psender.WithExtraData(extraGossipData))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create p2p pubsub announce sender: %w", err)
 		}
@@ -209,37 +211,14 @@ func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopic
 
 // announce uses the engines senders to send advertisement announcement messages.
 func (e *Engine) announce(ctx context.Context, c cid.Cid) {
-	// Do nothing if nothing to announce or no means to announce it.
-	if c == cid.Undef || len(e.senders) == 0 {
-		return
-	}
-
-	msg := message.Message{
-		Cid: c,
-	}
+	var err error
 	if e.pubKind == HttpPublisher {
-		msg.SetAddrs(e.pubHttpAnnounceAddrs)
+		err = announce.Send(ctx, c, e.pubHttpAnnounceAddrs, e.senders...)
 	} else {
-		msg.SetAddrs(e.h.Addrs())
+		err = announce.Send(ctx, c, e.h.Addrs(), e.senders...)
 	}
-
-	for _, sender := range e.senders {
-		var err error
-		// If sending announcement via gossip pubsub, set extra gossip data.
-		// Othersize, just send message.
-		if p2pSender, ok := sender.(*p2psender.Sender); ok {
-			pubsubMsg := msg
-			pubsubMsg.ExtraData = e.pubExtraGossipData
-			err = p2pSender.Send(ctx, pubsubMsg)
-		} else {
-			err = sender.Send(ctx, msg)
-		}
-		if err != nil {
-			log.Errorw("Failed to announce advertisement", "err", err)
-			if errors.Is(err, context.Canceled) {
-				return
-			}
-		}
+	if err != nil {
+		log.Errorw("Failed to announce advertisement", "err", err)
 	}
 }
 
@@ -298,7 +277,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 			log.Info("Announcing advertisement in pubsub channel and via http")
 		}
 
-		e.publisher.SetRoot(ctx, c)
+		e.publisher.SetRoot(c)
 		e.announce(ctx, c)
 	}
 
@@ -334,7 +313,7 @@ func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
 	}
 	log.Infow("Publishing latest advertisement", "cid", adCid)
 
-	e.publisher.SetRoot(ctx, adCid)
+	e.publisher.SetRoot(adCid)
 	e.announce(ctx, adCid)
 
 	return adCid, nil
@@ -349,7 +328,7 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL
 		return cid.Undef, err
 	}
 
-	e.publisher.SetRoot(ctx, adCid)
+	e.publisher.SetRoot(adCid)
 	err = e.httpAnnounce(ctx, adCid, announceURLs)
 	if err != nil {
 		return adCid, err

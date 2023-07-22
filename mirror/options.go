@@ -20,7 +20,7 @@ type (
 	options struct {
 		h                           host.Host
 		ds                          datastore.Batching
-		ticker                      *time.Ticker
+		syncInterval                time.Duration
 		initAdRecurLimit            selector.RecursionLimit
 		entriesRecurLimit           selector.RecursionLimit
 		chunkerFunc                 chunker.NewChunkerFunc
@@ -45,6 +45,7 @@ func newOptions(o ...Option) (*options, error) {
 		chunkCacheCap:     1024,
 		chunkCachePurge:   false,
 		topic:             "/indexer/ingest/mainnet",
+		syncInterval:      10 * time.Minute,
 	}
 	for _, apply := range o {
 		if err := apply(&opts); err != nil {
@@ -60,10 +61,6 @@ func newOptions(o ...Option) (*options, error) {
 	if opts.ds == nil {
 		opts.ds = dssync.MutexWrap(datastore.NewMapDatastore())
 	}
-	if opts.ticker == nil {
-		opts.ticker = time.NewTicker(10 * time.Minute)
-	}
-
 	return &opts, nil
 }
 
@@ -134,7 +131,7 @@ func WithSkipRemapOnEntriesTypeMatch(s bool) Option {
 // If unset, the default time interval of 10 minutes is used.
 func WithSyncInterval(interval time.Duration) Option {
 	return func(o *options) error {
-		o.ticker = time.NewTicker(interval)
+		o.syncInterval = interval
 		return nil
 	}
 }

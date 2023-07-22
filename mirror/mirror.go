@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -23,6 +24,8 @@ import (
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/traversal/selector"
+	"github.com/ipni/go-libipni/announce"
+	"github.com/ipni/go-libipni/announce/p2psender"
 	"github.com/ipni/go-libipni/dagsync"
 	"github.com/ipni/go-libipni/dagsync/dtsync"
 	"github.com/ipni/go-libipni/ingest/schema"
@@ -49,6 +52,7 @@ type Mirror struct {
 	ls      ipld.LinkSystem
 	chunker *chunker.CachedEntriesChunker
 	cancel  context.CancelFunc
+	senders []announce.Sender
 }
 
 // New instantiates a new Mirror that mirrors ad chain from the given source provider.
@@ -89,6 +93,16 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 	if err != nil {
 		return nil, err
 	}
+	// TODO: If a mirror should send its own announcements, then pubsub senders
+	// will need a storage provider ID, set as the sender's extra data, in
+	// order to relayed through gateways. HTTP senders will new destination
+	// URLs.
+	p2pSender, err := p2psender.New(m.h, m.topic)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create p2p pubsub announce sender for mirror: %w", err)
+	}
+	m.senders = append(m.senders, p2pSender)
+
 	m.sub, err = dagsync.NewSubscriber(m.h, nil, m.ls, m.topic, nil, dagsync.DtManager(dm, gx))
 	if err != nil {
 		return nil, err
@@ -120,11 +134,14 @@ func newDataTransfer(ctx context.Context, host host.Host, ds datastore.Batching,
 func (m *Mirror) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
+
 	go func() {
+		ticker := time.NewTicker(m.syncInterval)
+		defer ticker.Stop()
 		for {
 			var t time.Time
 			select {
-			case t = <-m.ticker.C:
+			case t = <-ticker.C:
 			case <-ctx.Done():
 				return
 			}
@@ -180,7 +197,6 @@ func (m *Mirror) Start() error {
 }
 
 func (m *Mirror) Shutdown() error {
-	m.ticker.Stop()
 	if m.cancel != nil {
 		m.cancel()
 	}
@@ -279,7 +295,8 @@ func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
 		return err
 	}
 
-	if err := m.pub.UpdateRoot(ctx, mirroredAdCid); err != nil {
+	m.pub.SetRoot(mirroredAdCid)
+	if err = announce.Send(ctx, mirroredAdCid, m.h.Addrs(), m.senders...); err != nil {
 		return err
 	}
 	log.Infow("Mirrored successfully", "originalAdCid", adCid, "mirroredAdCid", mirroredAdCid)
