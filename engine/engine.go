@@ -148,33 +148,28 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	case NoPublisher:
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
-	case DataTransferPublisher, HttpPublisher:
-	default:
-		return nil, fmt.Errorf("unknown publisher kind: %s", e.pubKind)
-	}
-
-	if e.pubKind == HttpPublisher {
+	case HttpPublisher:
 		httpPub, err := httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http publisher: %w", err)
 		}
 		return httpPub, nil
-	}
-
-	if e.pubDT != nil {
-		dtPub, err := dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
+	case DataTransferPublisher:
+		if e.pubDT != nil {
+			dtPub, err := dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
+			if err != nil {
+				return nil, fmt.Errorf("cannot create data-transfer publisher with existing dt manager: %w", err)
+			}
+			return dtPub, nil
+		}
+		ds := dsn.Wrap(e.ds, datastore.NewKey("/dagsync/dtsync/pub"))
+		dtPub, err := dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create data-transfer publisher: %w", err)
 		}
 		return dtPub, nil
 	}
-
-	ds := dsn.Wrap(e.ds, datastore.NewKey("/dagsync/dtsync/pub"))
-	dtPub, err := dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
-	if err != nil {
-		return nil, fmt.Errorf("cannot create data-transfer publisher: %w", err)
-	}
-	return dtPub, nil
+	return nil, fmt.Errorf("unknown publisher kind: %s", e.pubKind)
 }
 
 func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopicName string, extraGossipData []byte, existingTopic *pubsub.Topic) ([]announce.Sender, error) {
@@ -212,9 +207,13 @@ func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopic
 // announce uses the engines senders to send advertisement announcement messages.
 func (e *Engine) announce(ctx context.Context, c cid.Cid) {
 	var err error
-	if e.pubKind == HttpPublisher {
+	switch e.pubKind {
+	case HttpPublisher:
 		err = announce.Send(ctx, c, e.pubHttpAnnounceAddrs, e.senders...)
-	} else {
+	case DataTransferPublisher:
+		// TODO: It may be necessary to specify a set of external addresses to
+		// put into the announce message, instead of using the libp2p host's
+		// addresses.
 		err = announce.Send(ctx, c, e.h.Addrs(), e.senders...)
 	}
 	if err != nil {
@@ -320,8 +319,7 @@ func (e *Engine) PublishLatest(ctx context.Context) (cid.Cid, error) {
 }
 
 // PublishLatestHTTP publishes the latest existing advertisement and sends
-// direct HTTP announcements to the specified URLs, instead of using the
-// engine's configured senders.
+// direct HTTP announcements to the specified URLs.
 func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL) (cid.Cid, error) {
 	adCid, err := e.latestAdToPublish(ctx)
 	if err != nil {
@@ -337,6 +335,9 @@ func (e *Engine) PublishLatestHTTP(ctx context.Context, announceURLs ...*url.URL
 	return adCid, nil
 }
 
+// httpAnnounce creates an HTTP sender to send an announcement to the specified
+// URLs. An HTTP sender is created because the engine may not have an HTTP
+// sender that sends to the URLs specified by announceURLs.
 func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs []*url.URL) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -357,6 +358,9 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 		log.Info("Remote announcements disabled")
 		return nil
 	case DataTransferPublisher:
+		// TODO: It may be necessary to specify a set of external addresses to
+		// put into the announce message, instead of using the libp2p host's
+		// addresses.
 		msg.SetAddrs(e.h.Addrs())
 	case HttpPublisher:
 		if len(e.pubHttpAnnounceAddrs) != 0 {
