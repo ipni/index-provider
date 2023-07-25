@@ -113,7 +113,7 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
 	// For now instantiate a new host for subscriber so that dt constructed by test client works.
 	subHost := newHost(t)
-	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
+	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic)
 	require.NoError(t, err)
 
 	serverInfo := peer.AddrInfo{
@@ -193,7 +193,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
 	// For now instantiate a new host for subscriber so that dt constructed by test client works.
 	subHost := newHost(t)
-	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic, nil)
+	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic)
 	require.NoError(t, err)
 
 	serverInfo := peer.AddrInfo{

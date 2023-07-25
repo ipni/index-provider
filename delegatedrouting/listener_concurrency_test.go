@@ -110,5 +110,5 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 	start := time.Now()
 	provideMany(t, client, ctx, cids)
 
-	require.True(t, time.Since(start) < timeExpectation)
+	require.Less(t, time.Since(start), timeExpectation)
 }
