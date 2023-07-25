@@ -103,7 +103,7 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 	}
 	m.senders = append(m.senders, p2pSender)
 
-	m.sub, err = dagsync.NewSubscriber(m.h, nil, m.ls, m.topic, nil, dagsync.DtManager(dm, gx))
+	m.sub, err = dagsync.NewSubscriber(m.h, nil, m.ls, m.topic, dagsync.DtManager(dm, gx), dagsync.RecvAnnounce())
 	if err != nil {
 		return nil, err
 	}
