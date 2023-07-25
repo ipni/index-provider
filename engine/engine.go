@@ -28,8 +28,6 @@ import (
 	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 )
@@ -135,7 +133,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 
 		// If publisher created, then create announcement senders.
-		e.senders, err = createSenders(e.announceURLs, e.h, e.pubTopicName, e.pubExtraGossipData, e.pubTopic)
+		e.senders, err = e.createSenders()
 		if err != nil {
 			return err
 		}
@@ -179,7 +177,7 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	return nil, fmt.Errorf("unknown publisher kind: %s", e.pubKind)
 }
 
-func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopicName string, extraGossipData []byte, existingTopic *pubsub.Topic) ([]announce.Sender, error) {
+func (e *Engine) createSenders() ([]announce.Sender, error) {
 	var senders []announce.Sender
 
 	// If there are announce URLs, then creage an announce sender to send
@@ -197,11 +195,11 @@ func createSenders(directAnnounceURLs []*url.URL, p2pHost host.Host, pubsubTopic
 	}
 
 	// If there is a libp2p host, then create a gossip pubsub announce sender.
-	if p2pHost != nil {
+	if e.h != nil {
 		// Create an announce sender to send over gossip pubsub.
-		p2pSender, err := p2psender.New(p2pHost, pubsubTopicName,
-			p2psender.WithTopic(existingTopic),
-			p2psender.WithExtraData(extraGossipData))
+		p2pSender, err := p2psender.New(e.h, e.pubTopicName,
+			p2psender.WithTopic(e.pubTopic),
+			p2psender.WithExtraData(e.pubExtraGossipData))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create p2p pubsub announce sender: %w", err)
 		}
