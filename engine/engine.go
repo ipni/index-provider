@@ -441,7 +441,8 @@ func (e *Engine) NotifyRemove(ctx context.Context, provider peer.ID, contextID [
 	return e.publishAdvForIndex(ctx, provider, nil, contextID, metadata.Metadata{}, true)
 }
 
-// LinkSystem gets the link system used by the engine to store and retrieve advertisement data.
+// LinkSystem gets the link system used by the engine to store and retrieve
+// advertisement data.
 func (e *Engine) LinkSystem() *ipld.LinkSystem {
 	return &e.lsys
 }
@@ -479,9 +480,8 @@ func (e *Engine) GetPublisherHttpFunc() (http.HandlerFunc, error) {
 	}
 	if hp, ok := e.publisher.(*httpsync.Publisher); !ok {
 		return nil, errors.New("publisher is not an http publisher")
-	} else {
-		return hp.ServeHTTP, nil
 	}
+	return hp.ServeHTTP, nil
 }
 
 // GetAdv gets the advertisement associated to the given cid c. The context is
@@ -531,9 +531,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 		}
 	}
 
-	// If not removing, then generate the link for the list of
-	// CIDs from the contextID using the multihash lister, and store the
-	// relationship.
+	// If not removing, then generate the link for the list of CIDs from the
+	// contextID using the multihash lister, and store the relationship.
 	if !isRm {
 		log.Info("Creating advertisement")
 
@@ -691,14 +690,14 @@ func (e *Engine) keyToMetadataKey(provider peer.ID, contextID []byte) datastore.
 func (e *Engine) putKeyCidMap(ctx context.Context, provider peer.ID, contextID []byte, c cid.Cid) error {
 	// Store the map Key-Cid to know what CidLink to put in advertisement when
 	// notifying about a removal.
-
 	err := e.ds.Put(ctx, e.keyToCidKey(provider, contextID), c.Bytes())
 	if err != nil {
 		return err
 	}
 	// And the other way around when graphsync is making a request, so the
 	// lister in the linksystem knows to what contextID the CID referrs to.
-	// it's enough for us to store just a single mapping of cid to provider and context to generate chunks
+	// it's enough for us to store just a single mapping of cid to provider and
+	// context to generate chunks
 
 	pB, err := provider.Marshal()
 	if err != nil {
@@ -737,13 +736,15 @@ type providerAndContext struct {
 	ContextID []byte `json:"c"`
 }
 
-// getCidKeyMap returns the provider and contextID for a given cid. Provider and Context ID are guaranteed to be
-// not nil. In the case if legacy index exists, the default provider identity is assumed.
+// getCidKeyMap returns the provider and contextID for a given cid. Provider
+// and Context ID are guaranteed to be not nil. In the case if legacy index
+// exists, the default provider identity is assumed.
 func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndContext, error) {
 	// first see whether the mapping exists in the legacy index
 	val, err := e.ds.Get(ctx, e.cidToKeyKey(c))
 	if err == nil {
-		// if the mapping has been found in the legacy index - return the default provider identity
+		// if the mapping has been found in the legacy index - return the
+		// default provider identity.
 		return &providerAndContext{Provider: []byte(e.provider.ID), ContextID: val}, nil
 	}
 	if !errors.Is(err, datastore.ErrNotFound) {
@@ -760,7 +761,7 @@ func (e *Engine) getCidKeyMap(ctx context.Context, c cid.Cid) (*providerAndConte
 	if err != nil {
 		return nil, err
 	}
-	// in case if provider is empty (which should never happen), assume the default one
+	// if provider is empty (which should never happen), assume the default one
 	if len(pAndC.Provider) == 0 {
 		pAndC.Provider = []byte(e.provider.ID)
 	}
