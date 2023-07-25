@@ -478,7 +478,8 @@ func (e *Engine) GetPublisherHttpFunc() (http.HandlerFunc, error) {
 	if !e.pubHttpWithoutServer {
 		return nil, errors.New("HttpPublisherWithoutServer option not set")
 	}
-	if hp, ok := e.publisher.(*httpsync.Publisher); !ok {
+	hp, ok := e.publisher.(*httpsync.Publisher)
+	if !ok {
 		return nil, errors.New("publisher is not an http publisher")
 	}
 	return hp.ServeHTTP, nil
