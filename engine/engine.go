@@ -440,13 +440,18 @@ func (e *Engine) LinkSystem() *ipld.LinkSystem {
 // Shutdown shuts down the engine and discards all resources opened by the
 // engine. The engine is no longer usable after the call to this function.
 func (e *Engine) Shutdown() error {
-	var errs error
+	var err, errs error
 	if e.publisher != nil {
-		if err := e.publisher.Close(); err != nil {
+		for i := range e.senders {
+			if err = e.senders[i].Close(); err != nil {
+				errs = multierror.Append(errs, fmt.Errorf("error closing sender: %s", err))
+			}
+		}
+		if err = e.publisher.Close(); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("error closing leg publisher: %s", err))
 		}
 	}
-	if err := e.entriesChunker.Close(); err != nil {
+	if err = e.entriesChunker.Close(); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
 	}
 	return errs
