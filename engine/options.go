@@ -72,6 +72,8 @@ type (
 		// published.
 		pubHttpAnnounceAddrs []multiaddr.Multiaddr
 		pubHttpListenAddr    string
+		pubHttpWithoutServer bool
+		pubHttpHandlerPath   string
 		pubTopicName         string
 		pubTopic             *pubsub.Topic
 		pubExtraGossipData   []byte
@@ -116,7 +118,8 @@ func newOptions(o ...Option) (*options, error) {
 		opts.ds = dssync.MutexWrap(datastore.NewMapDatastore())
 	}
 
-	if opts.h == nil {
+	if (opts.key == nil || len(opts.provider.Addrs) == 0 || opts.provider.ID == "") && opts.h == nil {
+		// need a host
 		h, err := libp2p.New()
 		if err != nil {
 			return nil, err
@@ -125,8 +128,10 @@ func newOptions(o ...Option) (*options, error) {
 		opts.h = h
 	}
 
-	// Initialize private key from libp2p host
-	opts.key = opts.h.Peerstore().PrivKey(opts.h.ID())
+	if opts.key == nil {
+		// Initialize private key from libp2p host
+		opts.key = opts.h.Peerstore().PrivKey(opts.h.ID())
+	}
 	// Defensively check that host's self private key is indeed set.
 	if opts.key == nil {
 		return nil, fmt.Errorf("cannot find private key in self peerstore; libp2p host is misconfigured")
@@ -240,6 +245,24 @@ func WithHttpPublisherListenAddr(addr string) Option {
 	}
 }
 
+// WithHttpPublisherWithoutServer sets the HTTP publisher to not start a server.
+// Setting up the handler is left to the user.
+func WithHttpPublisherWithoutServer() Option {
+	return func(o *options) error {
+		o.pubHttpWithoutServer = true
+		return nil
+	}
+}
+
+// WithHttpPublisherHandlerPath should only be used with
+// WithHttpPublisherWithoutServer
+func WithHttpPublisherHandlerPath(handlerPath string) Option {
+	return func(o *options) error {
+		o.pubHttpHandlerPath = handlerPath
+		return nil
+	}
+}
+
 // WithHttpPublisherAnnounceAddr sets the address to be supplied in announce
 // messages to tell indexers where to retrieve advertisements.
 //
@@ -249,7 +272,7 @@ func WithHttpPublisherAnnounceAddr(addr string) Option {
 		if addr != "" {
 			maddr, err := multiaddr.NewMultiaddr(addr)
 			if err != nil {
-				return fmt.Errorf("here: %w", err)
+				return err
 			}
 			o.pubHttpAnnounceAddrs = append(o.pubHttpAnnounceAddrs, maddr)
 		}
@@ -361,6 +384,13 @@ func WithExtraGossipData(extraData []byte) Option {
 			o.pubExtraGossipData = make([]byte, len(extraData))
 			copy(o.pubExtraGossipData, extraData)
 		}
+		return nil
+	}
+}
+
+func WithPrivateKey(key crypto.PrivKey) Option {
+	return func(o *options) error {
+		o.key = key
 		return nil
 	}
 }
