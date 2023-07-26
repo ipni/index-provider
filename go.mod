@@ -13,8 +13,8 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v1.3.0
 	github.com/ipfs/go-libipfs v0.7.0
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/ipfs/kubo v0.20.0
-	github.com/ipld/go-car/v2 v2.10.0
+	github.com/ipfs/kubo v0.21.0
+	github.com/ipld/go-car/v2 v2.10.1
 	github.com/ipld/go-codec-dagpb v1.6.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.20.0
@@ -45,9 +45,9 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.2 // indirect
+	github.com/ipfs/boxo v0.10.2-0.20230629143123-2d3edc552442 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-ipns v0.3.0 // indirect
-	github.com/ipfs/go-unixfs v0.4.5 // indirect
 	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/onsi/ginkgo/v2 v2.11.0 // indirect
@@ -107,15 +107,15 @@ require (
 	github.com/ipfs/go-ipfs-ds-help v1.1.0 // indirect
 	github.com/ipfs/go-ipfs-exchange-interface v0.2.0 // indirect
 	github.com/ipfs/go-ipfs-pq v0.0.3 // indirect
-	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
+	github.com/ipfs/go-ipfs-util v0.0.3 // indirect
 	github.com/ipfs/go-ipld-cbor v0.0.6 // indirect
-	github.com/ipfs/go-ipld-format v0.4.0 // indirect
-	github.com/ipfs/go-ipld-legacy v0.1.1 // indirect
+	github.com/ipfs/go-ipld-format v0.5.0 // indirect
+	github.com/ipfs/go-ipld-legacy v0.2.1 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
-	github.com/ipfs/go-merkledag v0.10.0 // indirect
+	github.com/ipfs/go-merkledag v0.11.0 // indirect
 	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
 	github.com/ipfs/go-peertaskqueue v0.8.1 // indirect
-	github.com/ipfs/go-unixfsnode v1.6.0 // indirect
+	github.com/ipfs/go-unixfsnode v1.7.1 // indirect
 	github.com/ipfs/go-verifcid v0.0.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect

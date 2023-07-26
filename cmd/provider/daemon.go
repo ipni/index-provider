@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,10 +11,12 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/v2/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
+	"github.com/ipfs/go-datastore"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
 	gsnet "github.com/ipfs/go-graphsync/network"
 	logging "github.com/ipfs/go-log/v2"
+	kuboconfig "github.com/ipfs/kubo/config"
 	"github.com/ipfs/kubo/core/bootstrap"
 	"github.com/ipld/go-car/v2"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -25,6 +28,7 @@ import (
 	droutingserver "github.com/ipni/index-provider/server/delegatedrouting/server"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mitchellh/go-homedir"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
@@ -49,6 +53,8 @@ var DaemonCmd = &cli.Command{
 	Flags:  daemonFlags,
 	Action: daemonCommand,
 }
+
+var tempBootstrapPeersKey = datastore.NewKey("/local/temp_bootstrap_peers")
 
 func daemonCommand(cctx *cli.Context) error {
 	err := logging.SetLogLevel("*", cctx.String("log-level"))
@@ -198,6 +204,51 @@ func daemonCommand(cctx *cli.Context) error {
 
 		bootCfg := bootstrap.BootstrapConfigWithPeers(addrs)
 		bootCfg.MinPeerThreshold = cfg.Bootstrap.MinimumPeers
+
+		if ds == nil {
+			bootCfg.LoadBackupBootstrapPeers = func(_ context.Context) []peer.AddrInfo { return nil }
+			bootCfg.SaveBackupBootstrapPeers = func(_ context.Context, _ []peer.AddrInfo) {}
+		} else {
+			bootCfg.LoadBackupBootstrapPeers = func(ctx context.Context) []peer.AddrInfo {
+				data, err := ds.Get(ctx, tempBootstrapPeersKey)
+				if err != nil {
+					if !errors.Is(err, datastore.ErrNotFound) {
+						log.Errorw("failed to read temp bootstrap peers", "err", err)
+					}
+					return nil
+				}
+				if len(data) == 0 {
+					return nil
+				}
+				var addrs []string
+				if err = json.Unmarshal(data, &addrs); err != nil {
+					log.Errorw("failed to unmarshal temp bootstrap peers", "err", err)
+					return nil
+				}
+				peerList, err := kuboconfig.ParseBootstrapPeers(addrs)
+				if err != nil {
+					log.Errorw("failed to parse temp bootstrap peers", "err", err)
+					return nil
+				}
+				return peerList
+			}
+
+			bootCfg.SaveBackupBootstrapPeers = func(ctx context.Context, peerList []peer.AddrInfo) {
+				data, err := json.Marshal(kuboconfig.BootstrapPeerStrings(peerList))
+				if err != nil {
+					log.Errorw("failed to marshal temp bootstrap peers", "err", err)
+					return
+				}
+				if err = ds.Put(ctx, tempBootstrapPeersKey, data); err != nil {
+					log.Errorw("failed to write temp bootstrap peers", "err", err)
+					return
+				}
+				if err = ds.Sync(ctx, tempBootstrapPeersKey); err != nil {
+					log.Errorw("failed to sync datastore", "err", err)
+					return
+				}
+			}
+		}
 
 		bootstrapper, err := bootstrap.Bootstrap(peerID, h, nil, bootCfg)
 		if err != nil {
