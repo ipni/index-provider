@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ipfs/boxo/routing/http/server"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-libipfs/routing/http/server"
 	logging "github.com/ipfs/go-log/v2"
 	provider "github.com/ipni/index-provider"
 	drouting "github.com/ipni/index-provider/delegatedrouting"
