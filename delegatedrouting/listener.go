@@ -9,11 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ipfs/boxo/routing/http/server"
+	"github.com/ipfs/boxo/routing/http/types"
+	"github.com/ipfs/boxo/routing/http/types/iter"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	"github.com/ipfs/go-libipfs/routing/http/server"
-	"github.com/ipfs/go-libipfs/routing/http/types"
 	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -261,7 +262,7 @@ func (listener *Listener) Shutdown() {
 	listener.contextCancelFunc()
 }
 
-func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid) ([]types.ProviderResponse, error) {
+func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit int) (iter.ResultIter[types.ProviderResponse], error) {
 	log.Warn("Received unsupported FindProviders request")
 	return nil, errors.New("unsupported find providers request")
 }
