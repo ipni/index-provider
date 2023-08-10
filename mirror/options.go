@@ -7,7 +7,6 @@ import (
 	dssync "github.com/ipfs/go-datastore/sync"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
 	"github.com/ipld/go-ipld-prime/schema"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 	stischema "github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/libp2p/go-libp2p"
@@ -21,8 +20,8 @@ type (
 		h                           host.Host
 		ds                          datastore.Batching
 		syncInterval                time.Duration
-		initAdRecurLimit            selector.RecursionLimit
-		entriesRecurLimit           selector.RecursionLimit
+		initAdRecurLimit            int64
+		entriesRecurLimit           int64
 		chunkerFunc                 chunker.NewChunkerFunc
 		chunkCacheCap               int
 		chunkCachePurge             bool
@@ -40,12 +39,10 @@ type (
 
 func newOptions(o ...Option) (*options, error) {
 	opts := options{
-		initAdRecurLimit:  selector.RecursionLimitNone(),
-		entriesRecurLimit: selector.RecursionLimitNone(),
-		chunkCacheCap:     1024,
-		chunkCachePurge:   false,
-		topic:             "/indexer/ingest/mainnet",
-		syncInterval:      10 * time.Minute,
+		chunkCacheCap:   1024,
+		chunkCachePurge: false,
+		topic:           "/indexer/ingest/mainnet",
+		syncInterval:    10 * time.Minute,
 	}
 	for _, apply := range o {
 		if err := apply(&opts); err != nil {
@@ -136,21 +133,24 @@ func WithSyncInterval(interval time.Duration) Option {
 	}
 }
 
-// WithInitialAdRecursionLimit specifies the recursion limit for the initial sync if no previous
-// advertisements are mirrored by the mirror.
-// If unset, selector.RecursionLimitNone is used.
-func WithInitialAdRecursionLimit(l selector.RecursionLimit) Option {
+// WithInitialAdRecursionLimit specifies the recursion limit for the initial
+// sync if no previous advertisements are mirrored by the mirror.
+//
+// There is no recursion limit if unset.
+func WithInitialAdRecursionLimit(limit int64) Option {
 	return func(o *options) error {
-		o.initAdRecurLimit = l
+		o.initAdRecurLimit = limit
 		return nil
 	}
 }
 
-// WithEntriesRecursionLimit specifies the recursion limit for syncing the advertisement entries.
-// If unset, selector.RecursionLimitNone is used.
-func WithEntriesRecursionLimit(l selector.RecursionLimit) Option {
+// WithEntriesRecursionLimit specifies the recursion limit for syncing the
+// advertisement entries.
+//
+// There is no recursion limit if unset.
+func WithEntriesRecursionLimit(limit int64) Option {
 	return func(o *options) error {
-		o.entriesRecurLimit = l
+		o.entriesRecurLimit = limit
 		return nil
 	}
 }

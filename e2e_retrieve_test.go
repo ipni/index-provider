@@ -11,7 +11,6 @@ import (
 
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	retrievaltypes "github.com/filecoin-project/go-retrieval-types"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync/storeutil"
@@ -120,7 +119,7 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 		ID:    server.h.ID(),
 		Addrs: []multiaddr.Multiaddr{server.publisherAddr},
 	}
-	headCid, err := sub.Sync(ctx, serverInfo, cid.Undef, nil)
+	headCid, err := sub.SyncAdChain(ctx, serverInfo)
 	require.NoError(t, err)
 	require.Equal(t, advCid, headCid)
 
@@ -200,7 +199,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 		ID:    server.h.ID(),
 		Addrs: []multiaddr.Multiaddr{server.publisherAddr},
 	}
-	headCid, err := sub.Sync(ctx, serverInfo, cid.Undef, nil)
+	headCid, err := sub.SyncAdChain(ctx, serverInfo)
 	require.NoError(t, err)
 	require.Equal(t, advCid, headCid)
 
@@ -228,7 +227,7 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	require.NoError(t, err)
 
 	// Sync the new advertisement
-	headCid, err = sub.Sync(ctx, serverInfo, cid.Undef, nil)
+	headCid, err = sub.SyncAdChain(ctx, serverInfo)
 	require.NoError(t, err)
 	require.Equal(t, advCid2, headCid)
 

@@ -7,7 +7,6 @@ import (
 	"os"
 
 	leveldb "github.com/ipfs/go-ds-leveldb"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipni/index-provider/metrics"
 	"github.com/ipni/index-provider/mirror"
 	"github.com/libp2p/go-libp2p"
@@ -186,11 +185,11 @@ func beforeMirror(cctx *cli.Context) error {
 		Mirror.options = append(Mirror.options, mirror.WithDatastore(ds))
 	}
 	if cctx.IsSet(Mirror.flags.initAdRecurLimit.Name) {
-		limit := selector.RecursionLimitDepth(int64(Mirror.flags.initAdRecurLimit.Get(cctx)))
+		limit := int64(Mirror.flags.initAdRecurLimit.Get(cctx))
 		Mirror.options = append(Mirror.options, mirror.WithInitialAdRecursionLimit(limit))
 	}
 	if cctx.IsSet(Mirror.flags.entriesRecurLimit.Name) {
-		limit := selector.RecursionLimitDepth(int64(Mirror.flags.entriesRecurLimit.Get(cctx)))
+		limit := int64(Mirror.flags.entriesRecurLimit.Get(cctx))
 		Mirror.options = append(Mirror.options, mirror.WithEntriesRecursionLimit(limit))
 	}
 

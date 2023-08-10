@@ -31,7 +31,7 @@ type Ingest struct {
 	// PurgeLinkCache tells whether to purge the link cache on daemon startup.
 	PurgeLinkCache bool
 
-	// HttpPublisher configures the dagsync httpsync publisher.
+	// HttpPublisher configures the dagsync ipnisync publisher.
 	HttpPublisher HttpPublisher
 
 	// PublisherKind specifies which dagsync.Publisher implementation to use.

@@ -23,7 +23,6 @@ import (
 	"github.com/ipld/go-ipld-prime/datamodel"
 	"github.com/ipld/go-ipld-prime/linking"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 	"github.com/ipni/go-libipni/announce"
 	"github.com/ipni/go-libipni/announce/p2psender"
 	"github.com/ipni/go-libipni/dagsync"
@@ -155,14 +154,15 @@ func (m *Mirror) Start() error {
 			}
 			log = log.With("latestMirroredCid", mc)
 
-			var sel ipld.Node
+			var depthLimit int64
+			var stopAtCid cid.Cid
 			if cid.Undef.Equals(mc) {
-				sel = selectors.adsWithRecursionLimit(m.initAdRecurLimit)
+				depthLimit = m.initAdRecurLimit
 			} else {
-				sel = selectors.adsWithStopAt(selector.RecursionLimitNone(), cidlink.Link{Cid: mc})
+				stopAtCid = mc
 			}
 
-			syncedAdCids, err := m.syncAds(ctx, sel)
+			syncedAdCids, err := m.syncAds(ctx, stopAtCid, depthLimit)
 			if err != nil {
 				log.Errorw("Failed to sync source", "err", err)
 				continue
@@ -251,7 +251,7 @@ func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
 			if len(m.source.Addrs) == 0 {
 				return errors.New("no address for source")
 			}
-			_, err = m.sub.Sync(ctx, m.source, entriesCid, selectors.entriesWithLimit(m.entriesRecurLimit))
+			err = m.sub.SyncEntries(ctx, m.source, entriesCid, dagsync.ScopedDepthLimit(m.entriesRecurLimit))
 			if err != nil {
 				log.Errorw("Failed to sync entries", "cid", entriesCid, "err", err)
 				return err
@@ -408,13 +408,13 @@ func (m *Mirror) remapEntries(ctx context.Context, original ipld.Link) (ipld.Lin
 	return mirroredEntriesLink, nil
 }
 
-func (m *Mirror) syncAds(ctx context.Context, sel ipld.Node) ([]cid.Cid, error) {
+func (m *Mirror) syncAds(ctx context.Context, stopAtCid cid.Cid, depthLimit int64) ([]cid.Cid, error) {
 	if len(m.source.Addrs) == 0 {
 		return nil, errors.New("no address for source")
 	}
 	startSync := time.Now()
 	var syncedAdCids []cid.Cid
-	_, err := m.sub.Sync(ctx, m.source, cid.Undef, sel,
+	_, err := m.sub.SyncAdChain(ctx, m.source, dagsync.WithHeadAdCid(stopAtCid), dagsync.ScopedDepthLimit(depthLimit),
 		dagsync.ScopedBlockHook(func(id peer.ID, c cid.Cid, actions dagsync.SegmentSyncActions) {
 			// TODO: set actions next segment link to ad previous id if it is present. For
 			//      now segmentation is disabled.
