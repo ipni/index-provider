@@ -23,7 +23,8 @@ var Mirror struct {
 		source                      *cli.StringFlag
 		syncInterval                *cli.DurationFlag
 		identityPath                *cli.PathFlag
-		listenAddrs                 *cli.StringSliceFlag
+		listenAddr                  *cli.StringFlag
+		p2pListenAddrs              *cli.StringSliceFlag
 		storePath                   *cli.PathFlag
 		initAdRecurLimit            *cli.UintFlag
 		entriesRecurLimit           *cli.UintFlag
@@ -57,9 +58,15 @@ func init() {
 		Usage:       "The path to the file containing the marshalled libp2p private key that the mirror should use as its identity.",
 		DefaultText: "Randomly generated",
 	}
-	Mirror.flags.listenAddrs = &cli.StringSliceFlag{
-		Name:        "listenAddrs",
-		Usage:       "The mirror listen addresses in form of multiaddr.",
+	Mirror.flags.listenAddr = &cli.StringFlag{
+		Name:  "listenAddr",
+		Usage: "The HTTP address:port that the mirror publishes advertisements over HTTP on.",
+		// TODO: when libp2phttp available: "none, publish http over libp2p"
+		DefaultText: "Local host with a random open port",
+	}
+	Mirror.flags.p2pListenAddrs = &cli.StringSliceFlag{
+		Name:        "p2pListenAddrs",
+		Usage:       "The mirror p2p host listen addresses in form of multiaddr.",
 		DefaultText: "Local host with a random open port",
 	}
 	Mirror.flags.storePath = &cli.PathFlag{
@@ -125,7 +132,8 @@ func init() {
 			Mirror.flags.source,
 			Mirror.flags.syncInterval,
 			Mirror.flags.identityPath,
-			Mirror.flags.listenAddrs,
+			Mirror.flags.listenAddr,
+			Mirror.flags.p2pListenAddrs,
 			Mirror.flags.storePath,
 			Mirror.flags.initAdRecurLimit,
 			Mirror.flags.entriesRecurLimit,
@@ -153,28 +161,33 @@ func beforeMirror(cctx *cli.Context) error {
 		Mirror.options = append(Mirror.options, mirror.WithSyncInterval(Mirror.flags.syncInterval.Get(cctx)))
 	}
 	var hostOpts []libp2p.Option
+	var pk crypto.PrivKey
 	if cctx.IsSet(Mirror.flags.identityPath.Name) {
 		pkPath := Mirror.flags.identityPath.Get(cctx)
 		pkBytes, err := os.ReadFile(pkPath)
 		if err != nil {
 			return err
 		}
-		pk, err := crypto.UnmarshalPrivateKey(pkBytes)
+		pk, err = crypto.UnmarshalPrivateKey(pkBytes)
 		if err != nil {
 			return err
 		}
 		hostOpts = append(hostOpts, libp2p.Identity(pk))
 	}
-	if cctx.IsSet(Mirror.flags.listenAddrs.Name) {
-		listenAddrs := Mirror.flags.listenAddrs.Get(cctx)
-		hostOpts = append(hostOpts, libp2p.ListenAddrStrings(listenAddrs...))
+	if cctx.IsSet(Mirror.flags.listenAddr.Name) {
+		listenAddr := Mirror.flags.listenAddr.Get(cctx)
+		Mirror.options = append(Mirror.options, mirror.WithHTTPListenAddr(listenAddr))
+	}
+	if cctx.IsSet(Mirror.flags.p2pListenAddrs.Name) {
+		p2pListenAddrs := Mirror.flags.p2pListenAddrs.Get(cctx)
+		hostOpts = append(hostOpts, libp2p.ListenAddrStrings(p2pListenAddrs...))
 	}
 	if len(hostOpts) != 0 {
 		h, err := libp2p.New(hostOpts...)
 		if err != nil {
 			return err
 		}
-		Mirror.options = append(Mirror.options, mirror.WithHost(h))
+		Mirror.options = append(Mirror.options, mirror.WithHost(h, pk))
 	}
 	if cctx.IsSet(Mirror.flags.storePath.Name) {
 		path := Mirror.flags.storePath.Get(cctx)

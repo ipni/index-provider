@@ -2,21 +2,20 @@ package mirror_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	dssync "github.com/ipfs/go-datastore/sync"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
-	"github.com/ipni/go-libipni/dagsync/dtsync"
+	"github.com/ipni/go-libipni/dagsync/ipnisync"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
@@ -24,9 +23,9 @@ import (
 	"github.com/ipni/index-provider/mirror"
 	"github.com/ipni/index-provider/testutil"
 	"github.com/libp2p/go-libp2p"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )
@@ -38,37 +37,35 @@ type testEnv struct {
 
 	mirror            *mirror.Mirror
 	mirrorHost        host.Host
-	mirrorSync        *dtsync.Sync
+	mirrorSync        *ipnisync.Sync
 	mirrorSyncHost    host.Host
 	mirrorSyncLs      ipld.LinkSystem
-	mirrorSyncer      *dtsync.Syncer
+	mirrorSyncer      *ipnisync.Syncer
 	mirrorSyncLsStore *memstore.Store
 }
 
 func (te *testEnv) startMirror(t *testing.T, ctx context.Context, opts ...mirror.Option) {
-	var err error
-	te.mirrorHost, err = libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
+	privKey, _, err := p2pcrypto.GenerateEd25519Key(rand.Reader)
+	require.NoError(t, err)
+	te.mirrorHost, err = libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"), libp2p.Identity(privKey))
 	require.NoError(t, err)
 	// Override the host, since test environment needs explicit access to it.
-	opts = append(opts, mirror.WithHost(te.mirrorHost))
+	opts = append(opts, mirror.WithHost(te.mirrorHost, privKey))
 	te.mirror, err = mirror.New(ctx, te.sourceAddrInfo(t), opts...)
 	require.NoError(t, err)
 	require.NoError(t, te.mirror.Start())
 	t.Cleanup(func() { require.NoError(t, te.mirror.Shutdown()) })
-
-	te.mirrorSyncHost, err = libp2p.New(libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"))
-	require.NoError(t, err)
-	te.mirrorSyncHost.Peerstore().AddAddrs(te.mirrorHost.ID(), te.mirrorHost.Addrs(), peerstore.PermanentAddrTTL)
 
 	te.mirrorSyncLsStore = &memstore.Store{}
 	te.mirrorSyncLs = cidlink.DefaultLinkSystem()
 	te.mirrorSyncLs.SetReadStorage(te.mirrorSyncLsStore)
 	te.mirrorSyncLs.SetWriteStorage(te.mirrorSyncLsStore)
 
-	te.mirrorSync, err = dtsync.NewSync(te.mirrorSyncHost, dssync.MutexWrap(datastore.NewMapDatastore()), te.mirrorSyncLs, nil, 0, 0)
+	te.mirrorSync = ipnisync.NewSync(te.mirrorSyncLs, nil, nil)
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, te.mirrorSync.Close()) })
-	te.mirrorSyncer = te.mirrorSync.NewSyncer(te.mirrorHost.ID(), te.mirror.GetTopicName())
+	t.Cleanup(func() { te.mirrorSync.Close() })
+	te.mirrorSyncer, err = te.mirrorSync.NewSyncer(te.mirrorHost.ID(), te.mirror.PublisherAddrs())
+	require.NoError(t, err)
 }
 
 func (te *testEnv) sourceAddrInfo(t *testing.T) peer.AddrInfo {

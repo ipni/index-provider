@@ -8,16 +8,9 @@ import (
 	"io"
 	"time"
 
-	dt "github.com/filecoin-project/go-data-transfer/v2"
-	datatransfer "github.com/filecoin-project/go-data-transfer/v2/impl"
-	dtnetwork "github.com/filecoin-project/go-data-transfer/v2/network"
-	gstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/namespace"
-	"github.com/ipfs/go-graphsync"
-	gsimpl "github.com/ipfs/go-graphsync/impl"
-	gsnet "github.com/ipfs/go-graphsync/network"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
@@ -26,12 +19,12 @@ import (
 	"github.com/ipni/go-libipni/announce"
 	"github.com/ipni/go-libipni/announce/p2psender"
 	"github.com/ipni/go-libipni/dagsync"
-	"github.com/ipni/go-libipni/dagsync/dtsync"
+	"github.com/ipni/go-libipni/dagsync/ipnisync"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/metrics"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -62,6 +55,7 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 	if err != nil {
 		return nil, err
 	}
+
 	m := &Mirror{
 		options: opts,
 		source:  source,
@@ -81,17 +75,15 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 		}
 	}
 
-	dtds := namespace.Wrap(opts.ds, datastore.NewKey("datatransfer"))
-	dm, gx, err := newDataTransfer(ctx, m.h, dtds, m.ls)
+	// Create ipnisync publisher.
+	//
+	// TODO: When libp2phttp available, Listen on http over libp2p if
+	// httpListenAddr is not set.
+	m.pub, err = ipnisync.NewPublisher(m.httpListenAddr, m.ls, m.privKey, ipnisync.WithHeadTopic(m.topic), ipnisync.WithServer(true))
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: make the publisher kind configurable just like we do for Engine.
-	m.pub, err = dtsync.NewPublisherFromExisting(dm, m.h, m.topic, m.ls)
-	if err != nil {
-		return nil, err
-	}
 	// TODO: If a mirror should send its own announcements, then pubsub senders
 	// will need a storage provider ID, set as the sender's extra data, in
 	// order to relayed through gateways. HTTP senders will new destination
@@ -102,32 +94,12 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 	}
 	m.senders = append(m.senders, p2pSender)
 
-	m.sub, err = dagsync.NewSubscriber(m.h, nil, m.ls, m.topic, dagsync.DtManager(dm, gx), dagsync.RecvAnnounce())
+	dtds := namespace.Wrap(opts.ds, datastore.NewKey("datatransfer"))
+	m.sub, err = dagsync.NewSubscriber(m.h, dtds, m.ls, m.topic, dagsync.RecvAnnounce())
 	if err != nil {
 		return nil, err
 	}
 	return m, nil
-}
-
-// TODO: add option to override this
-func newDataTransfer(ctx context.Context, host host.Host, ds datastore.Batching, ls ipld.LinkSystem) (dt.Manager, graphsync.GraphExchange, error) {
-	gn := gsnet.NewFromLibp2pHost(host)
-	gx := gsimpl.New(ctx, gn, ls)
-	dn := dtnetwork.NewFromLibp2pHost(host)
-	tp := gstransport.NewTransport(host.ID(), gx)
-	dm, err := datatransfer.NewDataTransfer(ds, dn, tp)
-	if err != nil {
-		return nil, nil, err
-	}
-	dtReady := make(chan error)
-	dm.OnReady(func(e error) { dtReady <- e })
-	if err := dm.Start(ctx); err != nil {
-		return nil, nil, err
-	}
-	if err := <-dtReady; err != nil {
-		return nil, nil, err
-	}
-	return dm, gx, nil
 }
 
 func (m *Mirror) Start() error {
@@ -201,6 +173,10 @@ func (m *Mirror) Shutdown() error {
 		m.cancel()
 	}
 	return nil
+}
+
+func (m *Mirror) PublisherAddrs() []multiaddr.Multiaddr {
+	return m.pub.Addrs()
 }
 
 func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
@@ -296,7 +272,7 @@ func (m *Mirror) mirror(ctx context.Context, adCid cid.Cid) error {
 	}
 
 	m.pub.SetRoot(mirroredAdCid)
-	if err = announce.Send(ctx, mirroredAdCid, m.h.Addrs(), m.senders...); err != nil {
+	if err = announce.Send(ctx, mirroredAdCid, m.pub.Addrs(), m.senders...); err != nil {
 		return err
 	}
 	log.Infow("Mirrored successfully", "originalAdCid", adCid, "mirroredAdCid", mirroredAdCid)

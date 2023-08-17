@@ -1,6 +1,9 @@
 package mirror
 
 import (
+	"crypto/rand"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ipfs/go-datastore"
@@ -10,7 +13,9 @@ import (
 	stischema "github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/libp2p/go-libp2p"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multicodec"
 )
 
@@ -20,11 +25,13 @@ type (
 		h                           host.Host
 		ds                          datastore.Batching
 		syncInterval                time.Duration
+		httpListenAddr              string
 		initAdRecurLimit            int64
 		entriesRecurLimit           int64
 		chunkerFunc                 chunker.NewChunkerFunc
 		chunkCacheCap               int
 		chunkCachePurge             bool
+		privKey                     p2pcrypto.PrivKey
 		topic                       string
 		skipRemapOnEntriesTypeMatch bool
 		entriesRemapPrototype       schema.TypedPrototype
@@ -51,12 +58,30 @@ func newOptions(o ...Option) (*options, error) {
 	}
 	if opts.h == nil {
 		var err error
-		if opts.h, err = libp2p.New(); err != nil {
+		if opts.privKey == nil {
+			opts.privKey, _, err = p2pcrypto.GenerateEd25519Key(rand.Reader)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if opts.h, err = libp2p.New(libp2p.Identity(opts.privKey)); err != nil {
 			return nil, err
+		}
+	} else {
+		peerIDFromPrivKey, err := peer.IDFromPrivateKey(opts.privKey)
+		if err != nil {
+			return nil, fmt.Errorf("could not get peer ID from private key: %w", err)
+		}
+		if opts.h.ID() != peerIDFromPrivKey {
+			return nil, errors.New("host ID does not match ID from private key")
 		}
 	}
 	if opts.ds == nil {
 		opts.ds = dssync.MutexWrap(datastore.NewMapDatastore())
+	}
+	// TODO: Do not set this when libp2phttp available.
+	if opts.httpListenAddr == "" {
+		opts.httpListenAddr = "127.0.0.1:0"
 	}
 	return &opts, nil
 }
@@ -66,9 +91,9 @@ func (o *options) remapEntriesEnabled() bool {
 	return o.chunkerFunc != nil
 }
 
-// WithDatastore specifies the datastore used by the mirror to persist mirrored advertisements,
-// their entries and other internal data.
-// Defaults to an ephemeral in-memory datastore.
+// WithDatastore specifies the datastore used by the mirror to persist mirrored
+// advertisements, their entries and other internal data. Defaults to an
+// ephemeral in-memory datastore.
 func WithDatastore(ds datastore.Batching) Option {
 	return func(o *options) error {
 		o.ds = ds
@@ -78,9 +103,13 @@ func WithDatastore(ds datastore.Batching) Option {
 
 // WithHost specifies the libp2p host the mirror should be exposed on.
 // If unspecified a host with default options and random identity is used.
-func WithHost(h host.Host) Option {
+func WithHost(h host.Host, privKey p2pcrypto.PrivKey) Option {
 	return func(o *options) error {
+		if h != nil && privKey == nil {
+			return errors.New("if host is specified then private key must be specified")
+		}
 		o.h = h
+		o.privKey = privKey
 		return nil
 	}
 }
@@ -107,6 +136,14 @@ func WithHamtRemapper(hashAlg multicodec.Code, bitwidth, bucketSize int) Option 
 	return func(o *options) error {
 		o.entriesRemapPrototype = hamt.HashMapRootPrototype
 		o.chunkerFunc = chunker.NewHamtChunkerFunc(hashAlg, bitwidth, bucketSize)
+		return nil
+	}
+}
+
+// WithHTTPListenAddr sets the HTTP address:port for the http publisher to listen on.
+func WithHTTPListenAddr(addr string) Option {
+	return func(o *options) error {
+		o.httpListenAddr = addr
 		return nil
 	}
 }
