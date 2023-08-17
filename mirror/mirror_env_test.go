@@ -38,7 +38,6 @@ type testEnv struct {
 	mirror            *mirror.Mirror
 	mirrorHost        host.Host
 	mirrorSync        *ipnisync.Sync
-	mirrorSyncHost    host.Host
 	mirrorSyncLs      ipld.LinkSystem
 	mirrorSyncer      *ipnisync.Syncer
 	mirrorSyncLsStore *memstore.Store
