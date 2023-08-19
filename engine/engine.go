@@ -148,23 +148,18 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
 	case HttpPublisher:
-		var httpPub *ipnisync.Publisher
-		var err error
-		if e.pubHttpWithoutServer {
-			httpPub, err = ipnisync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key,
-				ipnisync.WithHeadTopic(e.pubTopicName),
-				ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
-				ipnisync.WithServer(false))
-		} else {
-			httpPub, err = ipnisync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key,
-				ipnisync.WithHeadTopic(e.pubTopicName),
-				ipnisync.WithServer(true))
-		}
+		httpPub, err := ipnisync.NewPublisher(e.lsys, e.key,
+			ipnisync.WithStreamHost(e.h), // TODO: Should serving HTTP over libp2p be configurable?
+			ipnisync.WithHTTPListenAddrs(e.pubHttpListenAddr),
+			ipnisync.WithHeadTopic(e.pubTopicName),
+			ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
+			ipnisync.WithStartServer(!e.pubHttpWithoutServer))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http publisher: %w", err)
 		}
 		return httpPub, nil
 	case DataTransferPublisher:
+		log.Warn("Support ending for publishing IPNI data over data-transfer/graphsync, Disable this feature in configuration and test that indexing is working over libp2p.")
 		if e.pubDT != nil {
 			dtPub, err := dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
 			if err != nil {
