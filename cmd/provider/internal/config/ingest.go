@@ -49,7 +49,7 @@ func NewIngest() Ingest {
 		LinkedChunkSize: defaultLinkedChunkSize,
 		PubSubTopic:     defaultPubSubTopic,
 		HttpPublisher:   NewHttpPublisher(),
-		PublisherKind:   DTSyncPublisherKind,
+		PublisherKind:   HttpPublisherKind,
 		SyncPolicy:      NewPolicy(),
 	}
 }
