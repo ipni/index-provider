@@ -72,6 +72,7 @@ type (
 		// published.
 		pubHttpAnnounceAddrs []multiaddr.Multiaddr
 		pubHttpListenAddr    string
+		pubHttpNoLibp2p      bool
 		pubHttpWithoutServer bool
 		pubHttpHandlerPath   string
 		pubTopicName         string
@@ -241,6 +242,15 @@ func WithPublisherKind(k PublisherKind) Option {
 func WithHttpPublisherListenAddr(addr string) Option {
 	return func(o *options) error {
 		o.pubHttpListenAddr = addr
+		return nil
+	}
+}
+
+// WithHttpNoLibp2p disables serving HTTP over libp2p if true and using an HTTP
+// publisher.
+func WithHttpNoLibp2p(disable bool) Option {
+	return func(o *options) error {
+		o.pubHttpNoLibp2p = disable
 		return nil
 	}
 }

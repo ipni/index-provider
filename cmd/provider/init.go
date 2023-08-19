@@ -12,7 +12,6 @@ import (
 var InitCmd = &cli.Command{
 	Name:   "init",
 	Usage:  "Initialize reference provider config file and identity",
-	Flags:  initFlags,
 	Action: initCommand,
 }
 
@@ -45,9 +44,6 @@ func initCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// Use values from flags to override defaults
-	// cfg.Identity = struct{}{}
 
 	return cfg.Save(configFile)
 }

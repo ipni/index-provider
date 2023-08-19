@@ -13,6 +13,8 @@ type HttpPublisher struct {
 	// ListenMultiaddr is the address of the interface to listen for HTTP
 	// requests for advertisements.
 	ListenMultiaddr string
+	// NoLibp2p disables serving HTTP over libp2p if true.
+	NoLibp2p bool
 }
 
 // NewHttpPublisher instantiates a new config with default values.

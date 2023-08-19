@@ -148,8 +148,12 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
 	case HttpPublisher:
+		streamHost := e.h
+		if e.pubHttpNoLibp2p {
+			streamHost = nil
+		}
 		httpPub, err := ipnisync.NewPublisher(e.lsys, e.key,
-			ipnisync.WithStreamHost(e.h), // TODO: Should serving HTTP over libp2p be configurable?
+			ipnisync.WithStreamHost(streamHost),
 			ipnisync.WithHTTPListenAddrs(e.pubHttpListenAddr),
 			ipnisync.WithHeadTopic(e.pubTopicName),
 			ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
