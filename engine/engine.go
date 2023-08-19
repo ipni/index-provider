@@ -23,7 +23,7 @@ import (
 	"github.com/ipni/go-libipni/announce/p2psender"
 	"github.com/ipni/go-libipni/dagsync"
 	"github.com/ipni/go-libipni/dagsync/dtsync"
-	"github.com/ipni/go-libipni/dagsync/httpsync"
+	"github.com/ipni/go-libipni/dagsync/ipnisync"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
 	provider "github.com/ipni/index-provider"
@@ -148,12 +148,17 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
 	case HttpPublisher:
-		var httpPub *httpsync.Publisher
+		var httpPub *ipnisync.Publisher
 		var err error
 		if e.pubHttpWithoutServer {
-			httpPub, err = httpsync.NewPublisherWithoutServer(e.pubHttpListenAddr, e.pubHttpHandlerPath, e.lsys, e.key)
+			httpPub, err = ipnisync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key,
+				ipnisync.WithHeadTopic(e.pubTopicName),
+				ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
+				ipnisync.WithServer(false))
 		} else {
-			httpPub, err = httpsync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key)
+			httpPub, err = ipnisync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key,
+				ipnisync.WithHeadTopic(e.pubTopicName),
+				ipnisync.WithServer(true))
 		}
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http publisher: %w", err)
@@ -478,7 +483,7 @@ func (e *Engine) GetPublisherHttpFunc() (http.HandlerFunc, error) {
 	if !e.pubHttpWithoutServer {
 		return nil, errors.New("HttpPublisherWithoutServer option not set")
 	}
-	hp, ok := e.publisher.(*httpsync.Publisher)
+	hp, ok := e.publisher.(*ipnisync.Publisher)
 	if !ok {
 		return nil, errors.New("publisher is not an http publisher")
 	}

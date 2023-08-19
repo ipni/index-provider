@@ -7,7 +7,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
-	"github.com/ipld/go-ipld-prime/traversal/selector"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
@@ -236,7 +235,7 @@ func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 	orignalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(3), md)
 
 	// Start mirror with maximum initial depth of 2.
-	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second), mirror.WithInitialAdRecursionLimit(selector.RecursionLimitDepth(2)))
+	te.startMirror(t, ctx, mirror.WithSyncInterval(time.Second), mirror.WithInitialAdRecursionLimit(2))
 
 	var gotMirroredHeadAdCid cid.Cid
 	var err error
