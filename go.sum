@@ -350,8 +350,8 @@ github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0/go.mod h1:od
 github.com/ipld/go-ipld-prime v0.21.0 h1:n4JmcpOlPDIxBcY037SVfpd1G+Sj1nKZah0m6QH9C2E=
 github.com/ipld/go-ipld-prime v0.21.0/go.mod h1:3RLqy//ERg/y5oShXXdx5YIp50cFGOanyMctpPjsvxQ=
 github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20230102063945-1a409dc236dd h1:gMlw/MhNr2Wtp5RwGdsW23cs+yCuj9k2ON7i9MiJlRo=
-github.com/ipni/go-libipni v0.4.1-0.20230819032918-b91b8e8b2ff5 h1:ALGas2QZaG/Imf72bq6C8joiuRB8Q3sonJAJS3uU1KI=
-github.com/ipni/go-libipni v0.4.1-0.20230819032918-b91b8e8b2ff5/go.mod h1:EIfozn+eZNwtjf1ttMDhESOsoKe5ddkPOZROgORZrGU=
+github.com/ipni/go-libipni v0.4.1-0.20230821214050-ef384109d553 h1:SqkOkhNjvVWZrFCoO1oa7ZGQsAkKcAtEieo9tMwTKd0=
+github.com/ipni/go-libipni v0.4.1-0.20230821214050-ef384109d553/go.mod h1:g+9GRhZbCq8+UN2yxlqgnDlNF7EhJmXYu8LBooLP7vE=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52 h1:QG4CGBqCeuBo6aZlGAamSkxWdgWfZGeE49eUOWJPA4c=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52/go.mod h1:fdg+/X9Gg4AsAIzWpEHwnqd+QY3b7lajxyjE1m4hkq4=
 github.com/jackpal/go-nat-pmp v1.0.2 h1:KzKSgb7qkJvOUTqYl9/Hg/me3pWgBmERKrTGD7BdWus=
@@ -399,8 +399,8 @@ github.com/libp2p/go-cidranger v1.1.0 h1:ewPN8EZ0dd1LSnrtuwd4709PXVcITVeuwbag38y
 github.com/libp2p/go-cidranger v1.1.0/go.mod h1:KWZTfSr+r9qEo9OkI9/SIEeAtw+NNoU0dXIXt15Okic=
 github.com/libp2p/go-flow-metrics v0.1.0 h1:0iPhMI8PskQwzh57jB9WxIuIOQ0r+15PChFGkx3Q3WM=
 github.com/libp2p/go-flow-metrics v0.1.0/go.mod h1:4Xi8MX8wj5aWNDAZttg6UPmc0ZrnFNsMtpsYUClFtro=
-github.com/libp2p/go-libp2p v0.29.1-0.20230819022641-d88fa5e2a696 h1:6RRECCAo+B06+b3mWRPunW9oEF5prrt+VGVAwvI0WC4=
-github.com/libp2p/go-libp2p v0.29.1-0.20230819022641-d88fa5e2a696/go.mod h1:iNKL7mEnZ9wAss+03IjAwM9ZAQXfVUAPUUmOACQfQ/g=
+github.com/libp2p/go-libp2p v0.29.1-0.20230821201003-23bc261aa509 h1:UKZTdF3iBeQ9SapDqx2x2oq31Nw+SV6ej/g6Jtckkt8=
+github.com/libp2p/go-libp2p v0.29.1-0.20230821201003-23bc261aa509/go.mod h1:iNKL7mEnZ9wAss+03IjAwM9ZAQXfVUAPUUmOACQfQ/g=
 github.com/libp2p/go-libp2p-asn-util v0.3.0 h1:gMDcMyYiZKkocGXDQ5nsUQyquC9+H+iLEQHwOCZ7s8s=
 github.com/libp2p/go-libp2p-asn-util v0.3.0/go.mod h1:B1mcOrKUE35Xq/ASTmQ4tN3LNzVVaMNmq2NACuqyB9w=
 github.com/libp2p/go-libp2p-gostream v0.6.0 h1:QfAiWeQRce6pqnYfmIVWJFXNdDyfiR/qkCnjyaZUPYU=
