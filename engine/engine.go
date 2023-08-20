@@ -161,6 +161,10 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http publisher: %w", err)
 		}
+		if len(e.pubHttpAnnounceAddrs) == 0 {
+			e.pubHttpAnnounceAddrs = append(e.pubHttpAnnounceAddrs, httpPub.Addrs()...)
+			log.Warn("Plain HTTP publisher in use without HTTP address for announcements. Using publisher listen address, but external address may be needed.", "addrs", e.pubHttpAnnounceAddrs)
+		}
 		return httpPub, nil
 	case DataTransferPublisher:
 		log.Warn("Support ending for publishing IPNI data over data-transfer/graphsync, Disable this feature in configuration and test that indexing is working over libp2p.")
