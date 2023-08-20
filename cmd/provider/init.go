@@ -12,10 +12,22 @@ import (
 var InitCmd = &cli.Command{
 	Name:   "init",
 	Usage:  "Initialize reference provider config file and identity",
+	Flags:  initFlags,
 	Action: initCommand,
 }
 
-var initFlags = []cli.Flag{}
+var initFlags = []cli.Flag{
+	&cli.BoolFlag{
+		Name:  "pub-dtsync",
+		Usage: "Set config to publish using dtsync",
+		Value: false,
+	},
+	&cli.BoolFlag{
+		Name:  "no-libp2phttp",
+		Usage: "Set config to not serve HTTP over libp2p",
+		Value: false,
+	},
+}
 
 func initCommand(cctx *cli.Context) error {
 	log.Info("Initializing provider config file")
@@ -44,6 +56,11 @@ func initCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if cctx.Bool("pub-dtsync") {
+		cfg.Ingest.PublisherKind = config.DTSyncPublisherKind
+	}
+	cfg.Ingest.HttpPublisher.NoLibp2p = cctx.Bool("no-libp2phttp")
 
 	return cfg.Save(configFile)
 }
