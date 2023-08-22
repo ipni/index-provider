@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ipni/index-provider"
+	provider "github.com/ipni/index-provider"
 	"github.com/urfave/cli/v2"
 )
 
