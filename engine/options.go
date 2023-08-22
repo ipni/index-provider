@@ -20,16 +20,19 @@ import (
 )
 
 const (
-	// NoPublisher indicates that no announcements are made to the network and all advertisements
-	// are only stored locally.
+	// NoPublisher indicates that no announcements are made to the network and
+	// all advertisements are only stored locally.
 	NoPublisher PublisherKind = ""
 
-	// DataTransferPublisher makes announcements over a gossipsub topic and exposes a
-	// datatransfer/graphsync server that allows peers in the network to sync advertisements.
+	// DataTransferPublisher exposes a datatransfer/graphsync server that
+	// allows peers in the network to sync advertisements.
+	//
+	// This option is being discontinued. Only provided as a fallback in case
+	// HttpPublisher is not working.
 	DataTransferPublisher PublisherKind = "dtsync"
 
-	// HttpPublisher exposes a HTTP server that announces published advertisements and allows peers
-	// in the network to sync them over raw HTTP transport.
+	// HttpPublisher exposes an HTTP server that allows peers in the network to
+	// sync advertisements over a raw HTTP transport.
 	HttpPublisher PublisherKind = "http"
 )
 
@@ -290,7 +293,7 @@ func WithHttpPublisherAnnounceAddr(addr string) Option {
 	}
 }
 
-// WithTopicName sets toe topic name on which pubsub announcements are published.
+// WithTopicName sets the topic name on which pubsub announcements are published.
 // To override the default pubsub configuration, use WithTopic.
 //
 // Note that this option only takes effect if the PublisherKind is set to DataTransferPublisher.

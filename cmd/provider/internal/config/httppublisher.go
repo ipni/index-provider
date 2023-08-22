@@ -25,6 +25,9 @@ func NewHttpPublisher() HttpPublisher {
 }
 
 func (hs *HttpPublisher) ListenNetAddr() (string, error) {
+	if hs.ListenMultiaddr == "" {
+		return "", nil
+	}
 	maddr, err := multiaddr.NewMultiaddr(hs.ListenMultiaddr)
 	if err != nil {
 		return "", err
