@@ -35,9 +35,9 @@ type Ingest struct {
 	HttpPublisher HttpPublisher
 
 	// PublisherKind specifies which dagsync.Publisher implementation to use.
-	// When set to "http", publisher serves HTTP over libp2p if
-	// HttpPublisher.NoLibp2p is false. If HttpPublisher.ListenMultiaddr
-	// publisher serves plain HTTP on that address.
+	// When set to "http", the publisher serves plain HTTP and libp2phttp.
+	// Libp2phttp is disabled by setting HttpPublisher.NoLibp2p to true, and
+	// plain HTTP is disabled by setting HttpPublisher.ListenMultiaddr to "".
 	PublisherKind PublisherKind
 
 	// SyncPolicy configures which indexers are allowed to sync advertisements

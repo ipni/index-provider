@@ -11,9 +11,11 @@ type HttpPublisher struct {
 	// specified, the ListenMultiaddr is used.
 	AnnounceMultiaddr string
 	// ListenMultiaddr is the address of the interface to listen for HTTP
-	// requests for advertisements.
+	// requests for advertisements. Set this to "" to disable serving plain
+	// HTTP if only libp2phttp is wanted.
 	ListenMultiaddr string
-	// NoLibp2p disables serving HTTP over libp2p if true.
+	// NoLibp2p disables serving HTTP over libp2p if true. Set this to true to
+	// publish over plain HTTP only.
 	NoLibp2p bool
 }
 

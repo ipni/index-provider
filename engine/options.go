@@ -227,8 +227,11 @@ func WithEntriesCacheCapacity(s int) Option {
 	}
 }
 
-// WithPublisherKind sets the kind of publisher used to announce new advertisements.
-// If unset, advertisements are only stored locally and no announcements are made.
+// WithPublisherKind sets the kind of publisher used to serve advertisements.
+// If unset, advertisements are only stored locally and no announcements are
+// made. This does not affect the methods used to send announcements of new
+// advertisements, which are configured independent of this.
+//
 // See: PublisherKind.
 func WithPublisherKind(k PublisherKind) Option {
 	return func(o *options) error {
@@ -237,10 +240,12 @@ func WithPublisherKind(k PublisherKind) Option {
 	}
 }
 
-// WithHttpPublisherListenAddr sets the net listen address for the HTTP publisher.
-// If unset, the default net listen address of '0.0.0.0:3104' is used.
+// WithHttpPublisherListenAddr sets the net listen address for the HTTP
+// publisher. If unset, the default net listen address of '0.0.0.0:3104' is
+// used. To disable plain HTTP and only serve libp2phttp, explicitly set this
+// to "".
 //
-// Note that this option only takes effect if the PublisherKind is set to HttpPublisher.
+// This option only takes effect if the PublisherKind is set to HttpPublisher.
 // See: WithPublisherKind.
 func WithHttpPublisherListenAddr(addr string) Option {
 	return func(o *options) error {
@@ -250,7 +255,7 @@ func WithHttpPublisherListenAddr(addr string) Option {
 }
 
 // WithHttpNoLibp2p disables serving HTTP over libp2p if true and using an HTTP
-// publisher.
+// publisher. This is used to disable libp2phttp and only serve plain HTTP.
 func WithHttpNoLibp2p(disable bool) Option {
 	return func(o *options) error {
 		o.pubHttpNoLibp2p = disable
