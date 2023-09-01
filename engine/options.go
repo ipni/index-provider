@@ -82,7 +82,6 @@ type (
 		// published.
 		pubHttpAnnounceAddrs []multiaddr.Multiaddr
 		pubHttpListenAddr    string
-		pubHttpNoLibp2p      bool
 		pubHttpWithoutServer bool
 		pubHttpHandlerPath   string
 		pubTopicName         string
