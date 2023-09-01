@@ -41,6 +41,12 @@ specified, they key is simply calculated as the SHA_256 hash of the given path.`
 		Before: beforeRemoveCar,
 		Action: doRemoveCar,
 	}
+
+	removeCarFlags = []cli.Flag{
+		adminAPIFlag,
+		optionalCarPathFlag,
+		keyFlag,
+	}
 )
 
 func beforeRemoveCar(cctx *cli.Context) error {

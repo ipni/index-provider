@@ -54,6 +54,25 @@ var DaemonCmd = &cli.Command{
 	Action: daemonCommand,
 }
 
+var carZeroLengthAsEOFFlagValue bool
+
+var daemonFlags = []cli.Flag{
+	&cli.BoolFlag{
+		Name:        "carZeroLengthAsEOF",
+		Aliases:     []string{"cz"},
+		Usage:       "Specifies whether zero-length blocks in CAR should be consideted as EOF.",
+		Value:       false, // Default to disabled, consistent with go-car/v2 defaults.
+		Destination: &carZeroLengthAsEOFFlagValue,
+	},
+	&cli.StringFlag{
+		Name:     "log-level",
+		Usage:    "Set the log level",
+		EnvVars:  []string{"GOLOG_LOG_LEVEL"},
+		Value:    "info",
+		Required: false,
+	},
+}
+
 var tempBootstrapPeersKey = datastore.NewKey("/local/temp_bootstrap_peers")
 
 func daemonCommand(cctx *cli.Context) error {

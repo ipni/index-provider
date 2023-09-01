@@ -16,6 +16,8 @@ var InitCmd = &cli.Command{
 	Action: initCommand,
 }
 
+var initFlags = []cli.Flag{}
+
 func initCommand(cctx *cli.Context) error {
 	log.Info("Initializing provider config file")
 

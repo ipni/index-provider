@@ -21,6 +21,27 @@ var IndexCmd = &cli.Command{
 	Action: indexCommand,
 }
 
+var indexFlags = []cli.Flag{
+	addrFlag,
+	indexerFlag,
+	&cli.StringFlag{
+		Name:     "mh",
+		Usage:    "Specify multihash to use as indexer key",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name:     "cid",
+		Usage:    "Specify CID to use as indexer key",
+		Required: false,
+	},
+	&cli.StringFlag{
+		Name:     "ctxid",
+		Usage:    "Context ID",
+		Required: true,
+	},
+	metadataFlag,
+}
+
 func indexCommand(cctx *cli.Context) error {
 	mhArg := cctx.String("mh")
 	cidArg := cctx.String("cid")
