@@ -12,7 +12,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	dssync "github.com/ipfs/go-datastore/sync"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -21,8 +20,7 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector"
 	selectorbuilder "github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	"github.com/ipni/go-libipni/announce/message"
-	"github.com/ipni/go-libipni/dagsync/dtsync"
-	"github.com/ipni/go-libipni/dagsync/p2p/protocol/head"
+	"github.com/ipni/go-libipni/dagsync/ipnisync"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
 	"github.com/ipni/go-libipni/test"
@@ -108,7 +106,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 	require.Equal(t, gotLatestAdCid, gotPublishedAdCid)
 }
 
-func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
+func TestEngine_PublishWithLibp2pHttpPublisher(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
@@ -118,11 +116,17 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	// Use test name as gossip topic name for uniqueness per test.
 	topic := t.Name()
 
-	subHost, err := libp2p.New()
-	require.NoError(t, err)
-
 	pubHost, err := libp2p.New()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		pubHost.Close()
+	})
+
+	subHost, err := libp2p.New()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		subHost.Close()
+	})
 
 	// DirectConnectTicks set to 5 here, because if the gossub for the subHost
 	// does not start within n ticks then they never peer. So, if
@@ -163,7 +167,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		// Since the message is coming from a dtsync publisher, the addresses
+		// Since the message is coming from a libp2p publisher, the addresses
 		// should include a p2p ID.
 		ais, err := peer.AddrInfosFromP2pAddrs(addrs...)
 		if err != nil {
@@ -186,7 +190,9 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
-	defer ts.Close()
+	t.Cleanup(func() {
+		ts.Close()
+	})
 
 	pubT, err := pubG.Join(topic)
 	require.NoError(t, err)
@@ -194,7 +200,7 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	subject, err := engine.New(
 		engine.WithDirectAnnounce(ts.URL),
 		engine.WithHost(pubHost),
-		engine.WithPublisherKind(engine.DataTransferPublisher),
+		engine.WithPublisherKind(engine.Libp2pPublisher),
 		engine.WithTopic(pubT),
 		engine.WithTopicName(topic),
 		engine.WithExtraGossipData(wantExtraGossipData),
@@ -202,7 +208,9 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.NoError(t, err)
 	err = subject.Start(ctx)
 	require.NoError(t, err)
-	defer subject.Shutdown()
+	t.Cleanup(func() {
+		subject.Shutdown()
+	})
 
 	subG, err := pubsub.NewGossipSub(ctx, subHost,
 		pubsub.WithDirectConnectTicks(1),
@@ -282,19 +290,20 @@ func TestEngine_PublishWithDataTransferPublisher(t *testing.T) {
 	require.NoError(t, err)
 	requireEqualDagsyncMessage(t, wantMessage, gotMessage)
 
-	gotRootCid, err := head.QueryRootCid(ctx, subHost, topic, pubHost.ID())
-	require.NoError(t, err)
-	require.Equal(t, gotPublishedAdCid, gotRootCid)
-
-	ds := dssync.MutexWrap(datastore.NewMapDatastore())
 	ls := cidlink.DefaultLinkSystem()
 	store := &memstore.Store{}
 	ls.SetReadStorage(store)
 	ls.SetWriteStorage(store)
 
-	sync, err := dtsync.NewSync(subHost, ds, ls, nil, 0, 0)
+	sync := ipnisync.NewSync(ls, nil, ipnisync.ClientStreamHost(subHost))
+	t.Cleanup(func() {
+		sync.Close()
+	})
+	subjectInfo := peer.AddrInfo{
+		ID: subject.Host().ID(),
+	}
+	syncer, err := sync.NewSyncer(subjectInfo)
 	require.NoError(t, err)
-	syncer := sync.NewSyncer(subject.Host().ID(), topic)
 	gotHead, err := syncer.GetHead(ctx)
 	require.NoError(t, err)
 	require.Equal(t, gotLatestAdCid, gotHead)
@@ -453,10 +462,10 @@ func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
 	wantContextID1 := []byte("fish")
 	wantContextID2 := []byte("bird")
 	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
-
 		if string(contextID) == string(wantContextID1) && p == provider1id {
 			return provider.SliceMultihashIterator(mhs1), nil
-		} else if string(contextID) == string(wantContextID2) && p == provider2id {
+		}
+		if string(contextID) == string(wantContextID2) && p == provider2id {
 			return provider.SliceMultihashIterator(mhs2), nil
 		}
 		return nil, errors.New("not found")

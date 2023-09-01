@@ -60,10 +60,14 @@ func (te *testEnv) startMirror(t *testing.T, ctx context.Context, opts ...mirror
 	te.mirrorSyncLs.SetReadStorage(te.mirrorSyncLsStore)
 	te.mirrorSyncLs.SetWriteStorage(te.mirrorSyncLsStore)
 
-	te.mirrorSync = ipnisync.NewSync(te.mirrorSyncLs, nil, nil)
+	te.mirrorSync = ipnisync.NewSync(te.mirrorSyncLs, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { te.mirrorSync.Close() })
-	te.mirrorSyncer, err = te.mirrorSync.NewSyncer(te.mirrorHost.ID(), te.mirror.PublisherAddrs())
+	pubInfo := peer.AddrInfo{
+		ID:    te.mirrorHost.ID(),
+		Addrs: te.mirror.PublisherAddrs(),
+	}
+	te.mirrorSyncer, err = te.mirrorSync.NewSyncer(pubInfo)
 	require.NoError(t, err)
 }
 

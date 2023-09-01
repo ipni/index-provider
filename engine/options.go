@@ -20,17 +20,27 @@ import (
 )
 
 const (
-	// NoPublisher indicates that no announcements are made to the network and all advertisements
-	// are only stored locally.
+	// NoPublisher indicates that no announcements are made to the network and
+	// all advertisements are only stored locally.
 	NoPublisher PublisherKind = ""
 
-	// DataTransferPublisher makes announcements over a gossipsub topic and exposes a
-	// datatransfer/graphsync server that allows peers in the network to sync advertisements.
+	// DataTransferPublisher exposes a datatransfer/graphsync server that
+	// allows peers in the network to sync advertisements.
+	//
+	// This option is being discontinued. Only provided as a fallback in case
+	// HttpPublisher is not working.
 	DataTransferPublisher PublisherKind = "dtsync"
 
-	// HttpPublisher exposes a HTTP server that announces published advertisements and allows peers
-	// in the network to sync them over raw HTTP transport.
+	// HttpPublisher exposes an HTTP server that serves advertisements using an
+	// HTTP server.
 	HttpPublisher PublisherKind = "http"
+
+	// Libp2pPublisher serves advertisements using the engine's libp2p host.
+	Libp2pPublisher PublisherKind = "libp2p"
+
+	// Libp2pHttpPublisher serves advertisements using both HTTP and libp2p
+	// servers.
+	Libp2pHttpPublisher PublisherKind = "libp2phttp"
 )
 
 type (
@@ -223,8 +233,11 @@ func WithEntriesCacheCapacity(s int) Option {
 	}
 }
 
-// WithPublisherKind sets the kind of publisher used to announce new advertisements.
-// If unset, advertisements are only stored locally and no announcements are made.
+// WithPublisherKind sets the kind of publisher used to serve advertisements.
+// If unset, advertisements are only stored locally and no announcements are
+// made. This does not affect the methods used to send announcements of new
+// advertisements, which are configured independent of this.
+//
 // See: PublisherKind.
 func WithPublisherKind(k PublisherKind) Option {
 	return func(o *options) error {
@@ -233,10 +246,12 @@ func WithPublisherKind(k PublisherKind) Option {
 	}
 }
 
-// WithHttpPublisherListenAddr sets the net listen address for the HTTP publisher.
-// If unset, the default net listen address of '0.0.0.0:3104' is used.
+// WithHttpPublisherListenAddr sets the net listen address for the HTTP
+// publisher. If unset, the default net listen address of '0.0.0.0:3104' is
+// used. To disable plain HTTP and only serve libp2phttp, explicitly set this
+// to "".
 //
-// Note that this option only takes effect if the PublisherKind is set to HttpPublisher.
+// This option only takes effect if the PublisherKind is set to HttpPublisher.
 // See: WithPublisherKind.
 func WithHttpPublisherListenAddr(addr string) Option {
 	return func(o *options) error {
@@ -280,7 +295,7 @@ func WithHttpPublisherAnnounceAddr(addr string) Option {
 	}
 }
 
-// WithTopicName sets toe topic name on which pubsub announcements are published.
+// WithTopicName sets the topic name on which pubsub announcements are published.
 // To override the default pubsub configuration, use WithTopic.
 //
 // Note that this option only takes effect if the PublisherKind is set to DataTransferPublisher.

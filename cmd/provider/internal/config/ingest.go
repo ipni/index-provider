@@ -11,8 +11,10 @@ const (
 type PublisherKind string
 
 const (
-	DTSyncPublisherKind PublisherKind = "dtsync"
-	HttpPublisherKind   PublisherKind = "http"
+	DTSyncPublisherKind     PublisherKind = "dtsync"
+	HttpPublisherKind       PublisherKind = "http"
+	Libp2pPublisherKind     PublisherKind = "libp2p"
+	Libp2pHttpPublisherKind PublisherKind = "libp2phttp"
 )
 
 // Ingest configures settings related to the ingestion protocol.
@@ -35,6 +37,9 @@ type Ingest struct {
 	HttpPublisher HttpPublisher
 
 	// PublisherKind specifies which dagsync.Publisher implementation to use.
+	// When set to "http", the publisher serves plain HTTP and libp2phttp.
+	// Libp2phttp is disabled by setting HttpPublisher.NoLibp2p to true, and
+	// plain HTTP is disabled by setting HttpPublisher.ListenMultiaddr to "".
 	PublisherKind PublisherKind
 
 	// SyncPolicy configures which indexers are allowed to sync advertisements
@@ -49,7 +54,7 @@ func NewIngest() Ingest {
 		LinkedChunkSize: defaultLinkedChunkSize,
 		PubSubTopic:     defaultPubSubTopic,
 		HttpPublisher:   NewHttpPublisher(),
-		PublisherKind:   DTSyncPublisherKind,
+		PublisherKind:   HttpPublisherKind,
 		SyncPolicy:      NewPolicy(),
 	}
 }

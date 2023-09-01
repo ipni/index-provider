@@ -75,11 +75,13 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 		}
 	}
 
-	// Create ipnisync publisher.
-	//
-	// TODO: When libp2phttp available, Listen on http over libp2p if
-	// httpListenAddr is not set.
-	m.pub, err = ipnisync.NewPublisher(m.httpListenAddr, m.ls, m.privKey, ipnisync.WithHeadTopic(m.topic), ipnisync.WithServer(true))
+	// Create ipnisync publisher. If m.httpListenAddr has a value, then mirror
+	// will serve over HTTP on that address. If there is a libp2p Host, then
+	// the mirror will serve HTTP over libp2p using that Host.
+	m.pub, err = ipnisync.NewPublisher(m.ls, m.privKey,
+		ipnisync.WithHTTPListenAddrs(m.httpListenAddr),
+		ipnisync.WithStreamHost(m.h),
+		ipnisync.WithHeadTopic(m.topic))
 	if err != nil {
 		return nil, err
 	}

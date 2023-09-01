@@ -148,23 +148,50 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
 	case HttpPublisher:
-		var httpPub *ipnisync.Publisher
-		var err error
-		if e.pubHttpWithoutServer {
-			httpPub, err = ipnisync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key,
-				ipnisync.WithHeadTopic(e.pubTopicName),
-				ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
-				ipnisync.WithServer(false))
-		} else {
-			httpPub, err = ipnisync.NewPublisher(e.pubHttpListenAddr, e.lsys, e.key,
-				ipnisync.WithHeadTopic(e.pubTopicName),
-				ipnisync.WithServer(true))
-		}
+		httpPub, err := ipnisync.NewPublisher(e.lsys, e.key,
+			ipnisync.WithHTTPListenAddrs(e.pubHttpListenAddr),
+			ipnisync.WithHeadTopic(e.pubTopicName),
+			ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
+			ipnisync.WithStartServer(!e.pubHttpWithoutServer))
 		if err != nil {
-			return nil, fmt.Errorf("cannot create http publisher: %w", err)
+			return nil, fmt.Errorf("cannot create publisher: %w", err)
+		}
+		if len(e.pubHttpAnnounceAddrs) == 0 {
+			e.pubHttpAnnounceAddrs = append(e.pubHttpAnnounceAddrs, httpPub.Addrs()...)
+			log.Warn("HTTP publisher in use without address for announcements. Using publisher listen addresses, but external address may be needed.", "addrs", httpPub.Addrs())
 		}
 		return httpPub, nil
+	case Libp2pPublisher:
+		libp2pPub, err := ipnisync.NewPublisher(e.lsys, e.key,
+			ipnisync.WithStreamHost(e.h),
+			ipnisync.WithHeadTopic(e.pubTopicName))
+		if err != nil {
+			return nil, fmt.Errorf("cannot create publisher: %w", err)
+		}
+		if len(e.pubHttpAnnounceAddrs) == 0 {
+			e.pubHttpAnnounceAddrs = append(e.pubHttpAnnounceAddrs, libp2pPub.Addrs()...)
+			log.Warn("Libp2p publisher in use without address for announcements. Using libp2p host addresses, but external address may be needed.", "addrs", libp2pPub.Addrs())
+		}
+		return libp2pPub, nil
+	case Libp2pHttpPublisher:
+		libp2phttpPub, err := ipnisync.NewPublisher(e.lsys, e.key,
+			ipnisync.WithStreamHost(e.h),
+			ipnisync.WithHTTPListenAddrs(e.pubHttpListenAddr),
+			ipnisync.WithHeadTopic(e.pubTopicName),
+			ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
+			ipnisync.WithStartServer(!e.pubHttpWithoutServer))
+		if err != nil {
+			return nil, fmt.Errorf("cannot create publisher: %w", err)
+		}
+		if len(e.pubHttpAnnounceAddrs) == 0 {
+			// No addresses explicitly specified, so use http and libp2p
+			// publisher listen addrs.
+			e.pubHttpAnnounceAddrs = append(e.pubHttpAnnounceAddrs, libp2phttpPub.Addrs()...)
+			log.Warn("Libp2p + HTTP publisher in use without address for announcements. Using HTTP listen and libp2p host addresses, but external addresses may be needed.", "addrs", libp2phttpPub.Addrs())
+		}
+		return libp2phttpPub, nil
 	case DataTransferPublisher:
+		log.Warn("Support ending for publishing IPNI data over data-transfer/graphsync, Disable this feature in configuration and test that indexing is working over libp2p.")
 		if e.pubDT != nil {
 			dtPub, err := dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
 			if err != nil {
@@ -218,7 +245,8 @@ func (e *Engine) createSenders() ([]announce.Sender, error) {
 func (e *Engine) announce(ctx context.Context, c cid.Cid) {
 	var err error
 	switch e.pubKind {
-	case HttpPublisher:
+	case HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher:
+		// e.pubHttpAnnounceAddrs is always set in newPublisher.
 		err = announce.Send(ctx, c, e.pubHttpAnnounceAddrs, e.senders...)
 	case DataTransferPublisher:
 		// TODO: It may be necessary to specify a set of external addresses to
@@ -371,17 +399,14 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	case NoPublisher:
 		log.Info("Remote announcements disabled")
 		return nil
+	case HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher:
+		// e.pubHttpAnnounceAddrs is always set in newPublisher.
+		msg.SetAddrs(e.pubHttpAnnounceAddrs)
 	case DataTransferPublisher:
 		// TODO: It may be necessary to specify a set of external addresses to
 		// put into the announce message, instead of using the libp2p host's
 		// addresses.
 		msg.SetAddrs(e.h.Addrs())
-	case HttpPublisher:
-		if len(e.pubHttpAnnounceAddrs) != 0 {
-			msg.SetAddrs(e.pubHttpAnnounceAddrs)
-		} else {
-			msg.SetAddrs(e.publisher.Addrs())
-		}
 	}
 
 	// Create the http announce sender.
