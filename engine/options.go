@@ -31,9 +31,16 @@ const (
 	// HttpPublisher is not working.
 	DataTransferPublisher PublisherKind = "dtsync"
 
-	// HttpPublisher exposes an HTTP server that allows peers in the network to
-	// sync advertisements over a raw HTTP transport.
+	// HttpPublisher exposes an HTTP server that serves advertisements using an
+	// HTTP server.
 	HttpPublisher PublisherKind = "http"
+
+	// Libp2pPublisher serves advertisements using the engine's libp2p host.
+	Libp2pPublisher PublisherKind = "libp2p"
+
+	// Libp2pHttpPublisher serves advertisements using both HTTP and libp2p
+	// servers.
+	Libp2pHttpPublisher PublisherKind = "libp2phttp"
 )
 
 type (
@@ -250,15 +257,6 @@ func WithPublisherKind(k PublisherKind) Option {
 func WithHttpPublisherListenAddr(addr string) Option {
 	return func(o *options) error {
 		o.pubHttpListenAddr = addr
-		return nil
-	}
-}
-
-// WithHttpNoLibp2p, if true, disables serving HTTP over libp2p and only serves
-// plain HTTP.
-func WithHttpNoLibp2p(disable bool) Option {
-	return func(o *options) error {
-		o.pubHttpNoLibp2p = disable
 		return nil
 	}
 }

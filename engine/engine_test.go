@@ -200,8 +200,7 @@ func TestEngine_PublishWithLibp2pHttpPublisher(t *testing.T) {
 	subject, err := engine.New(
 		engine.WithDirectAnnounce(ts.URL),
 		engine.WithHost(pubHost),
-		engine.WithPublisherKind(engine.HttpPublisher),
-		engine.WithHttpPublisherListenAddr(""), // disable plain http
+		engine.WithPublisherKind(engine.Libp2pPublisher),
 		engine.WithTopic(pubT),
 		engine.WithTopicName(topic),
 		engine.WithExtraGossipData(wantExtraGossipData),

@@ -11,8 +11,10 @@ const (
 type PublisherKind string
 
 const (
-	DTSyncPublisherKind PublisherKind = "dtsync"
-	HttpPublisherKind   PublisherKind = "http"
+	DTSyncPublisherKind     PublisherKind = "dtsync"
+	HttpPublisherKind       PublisherKind = "http"
+	Libp2pPublisherKind     PublisherKind = "libp2p"
+	Libp2pHttpPublisherKind PublisherKind = "libp2phttp"
 )
 
 // Ingest configures settings related to the ingestion protocol.

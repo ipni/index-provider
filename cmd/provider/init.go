@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -17,15 +18,10 @@ var InitCmd = &cli.Command{
 }
 
 var initFlags = []cli.Flag{
-	&cli.BoolFlag{
-		Name:  "pub-dtsync",
-		Usage: "Set config to publish using dtsync",
-		Value: false,
-	},
-	&cli.BoolFlag{
-		Name:  "no-libp2phttp",
-		Usage: "Set config to not serve HTTP over libp2p",
-		Value: false,
+	&cli.StringFlag{
+		Name:  "pubkind",
+		Usage: "Set publisher king in config. Must be one of 'http', 'libp2p', 'libp2phttp', 'dtsync'",
+		Value: "libp2p",
 	},
 }
 
@@ -57,10 +53,15 @@ func initCommand(cctx *cli.Context) error {
 		return err
 	}
 
-	if cctx.Bool("pub-dtsync") {
-		cfg.Ingest.PublisherKind = config.DTSyncPublisherKind
+	pubkind := config.PublisherKind(cctx.String("pubkind"))
+	switch pubkind {
+	case "":
+		pubkind = config.Libp2pPublisherKind
+	case config.Libp2pPublisherKind, config.HttpPublisherKind, config.Libp2pHttpPublisherKind, config.DTSyncPublisherKind:
+	default:
+		return fmt.Errorf("unknown publisher kind: %s", pubkind)
 	}
-	cfg.Ingest.HttpPublisher.NoLibp2p = cctx.Bool("no-libp2phttp")
+	cfg.Ingest.PublisherKind = pubkind
 
 	return cfg.Save(configFile)
 }
