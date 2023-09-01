@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ipfs/boxo/ipns"
 	"github.com/ipfs/boxo/routing/http/server"
 	"github.com/ipfs/boxo/routing/http/types"
 	"github.com/ipfs/boxo/routing/http/types/iter"
@@ -83,6 +84,8 @@ const (
 	retryWithBackoffMaxAttempts = 3
 )
 
+var _ server.ContentRouter = (*Listener)(nil)
+
 type Listener struct {
 	dsWrapper    *dsWrapper
 	engine       provider.Interface
@@ -102,6 +105,14 @@ type Listener struct {
 	lock                   sync.Mutex
 	adFlushFrequency       time.Duration
 	contextCancelFunc      context.CancelFunc
+}
+
+func (listener *Listener) FindIPNSRecord(ctx context.Context, name ipns.Name) (*ipns.Record, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (listener *Listener) ProvideIPNSRecord(ctx context.Context, name ipns.Name, record *ipns.Record) error {
+	return errors.New("not implemented")
 }
 
 type MultihashLister struct {
