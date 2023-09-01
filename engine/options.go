@@ -254,8 +254,8 @@ func WithHttpPublisherListenAddr(addr string) Option {
 	}
 }
 
-// WithHttpNoLibp2p disables serving HTTP over libp2p if true and using an HTTP
-// publisher. This is used to disable libp2phttp and only serve plain HTTP.
+// WithHttpNoLibp2p, if true, disables serving HTTP over libp2p and only serves
+// plain HTTP.
 func WithHttpNoLibp2p(disable bool) Option {
 	return func(o *options) error {
 		o.pubHttpNoLibp2p = disable

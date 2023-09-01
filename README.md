@@ -15,10 +15,7 @@ A list of features include:
 * [`provider`](cmd/provider) CLI that can:
     * Run as a standalone provider daemon instance.
     * Generate and publish indexing advertisements directly from CAR files.
-    * Serve retrieval requests for the advertised content over GraphSync.
-    * list advertisements published by a provider instance
-    * verify ingestion of multihashes by an indexer node from CAR files, detached CARv2 indices or
-      from an index provider's advertisement chain.
+    * Serve retrieval requests for the advertised content over HTTP or HTTP over libp2p.
 * A Golang SDK to embed indexing integration into existing applications, which includes:
     * Programmatic advertisement for content via index provider [Engine](engine) with built-in
       chunking functionality
@@ -30,6 +27,11 @@ A list of features include:
     * Index advertisement [`go-libipni/metadata`](https://pkg.go.dev/github.com/ipni/go-libipni/metadata) schema for retrieval
       over [graphsync](https://pkg.go.dev/github.com/ipni/go-libipni/metadata#GraphsyncFilecoinV1) and [bitswap](https://pkg.go.dev/github.com/ipni/go-libipni/metadata#Bitswap)
 
+Use of the [ipni-cli](https://github.com/ipni/ipni-cli#ipni-cli) provides additional utility that is useful to check the functioning of an index-provider instance:
+
+* list advertisements published by a provider instance
+* verify ingestion of multihashes by an indexer node from CAR files, detached CARv2 indices or from an index provider's advertisement chain.
+
 ## Current status :construction:
 
 This implementation is under active development.
@@ -40,14 +42,14 @@ The protocol implemented by this repository is the index provider portion of a l
 . The indexer node implementation can be found at [`storetheindex`](https://github.com/ipni/storetheindex) and [`go-libipni`](https://github.com/ipni/go-libipni).
 
 For more details on the ingestion protocol itself
-see [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
+see [IPNI Spec - Ingestion](https://github.com/ipni/specs/blob/main/IPNI.md#ingestion)
 .
 
 ## Install
 
 Prerequisite:
 
-- [Go 1.19+](https://golang.org/doc/install)
+- [Go 1.20+](https://golang.org/doc/install)
 
 To use the provider as a Go library, execute:
 
@@ -56,17 +58,9 @@ go get github.com/ipni/index-provider
 ```
 
 To install the latest `provider` CLI, run:
-<!-- 
-Note: installation instructions uses `git clone` because the `cmd` module uses `replace` directive 
-and cannot be installed directly via `go install`
--->
-
 ```shell
 go install github.com/ipni/index-provider/cmd/provider@latest
 ```
-
-Alternatively, download the executables directly from
-the [releases](https://github.com/ipni/index-provider/releases).
 
 ## Usage
 
@@ -97,7 +91,7 @@ to `http://localhost:3102`.
 You can then advertise content by importing/removing CAR files via the `provider` CLI, for example:
 
 ```shell
-provider import car -l http://localhost:3102 -i <path-to-car-file>
+provider import car -i <path-to-car-file>
 ```
 
 Both CARv1 and CARv2 formats are supported. Index is regenerated on the fly if one is not present.
@@ -121,17 +115,16 @@ Delegated Routing server is off by default. To enable it, add the following conf
 
 **Disclaimer: PUT /routing/v1 is currently not officially supported in Kubo. Please use it at your own risk. See [IPIP-378](https://github.com/ipfs/specs/pull/378) for the latest updates.**
 
-Kubo supports HTTP delegated routing as of [v0.18.0](https://github.com/ipfs/kubo/releases/tag/v0.18.0). The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to 
-IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
+Kubo supports HTTP delegated routing as of [v0.18.0](https://github.com/ipfs/kubo/releases/tag/v0.18.0). The following section contains configuration examples and a few tips to enable Kubo to advertise its CIDs to IPNI systems like `cid.contact` using `index-provider`. Delegated Routing is still in the Experimental stage and configuration might change from version to version. 
 This section serves as an inspiration for configuring your node to use IPNI, but for comprehensive information, refer to the [Kubo documentation](https://docs.ipfs.tech/install/command-line/). Here are some important points to consider:
 
 * `PUT /routing/v1` is currently not officially supported in Kubo. HTTP Delegated Routing supports only reads at the moment, not writes. Please use it at your own risk;
 * The `index-provider` delegated routing server should be running continuously as a "sidecar" to the Kubo node. While `index-provider` can be restarted safely, if it goes down, no new CIDs will flow from Kubo to IPNI.
-* The latest version of Kubo (v0.18.+) with HTTP delegated routing support should be used as `index-provider` no longer supports Reframe.
+* The latest version of Kubo with HTTP delegated routing support should be used since `index-provider` no longer supports Reframe.
 * Kubo advertises its data in snapshots, which means that all CIDs managed by Kubo are reprovided to the configured routers every 12/24 hours (configurable). This mechanism is similar to how the Distributed Hash Table (DHT) works. During the reproviding process, there may be significant communication between the involved processes. In between reprovides, Kubo also sends new individual CIDs to the configured routers.
 * Kubo requires `index-provider` only for publishing its CIDs to IPNI. Kubo can perform IPNI lookups natively without the need for a sidecar (refer to Kubo docs on `auto` routers).
 * `index-provider` must be publicly reachable. IPNI will try to establish connection into it to fetch Advertisement chains. If that can't be done CIDs will not appear in IPNI. 
-Ensure that your firewall is configured to allow incoming connections on the `ProviderServer` port specified in the `index-provider` configuration.
+Ensure that your firewall is configured to allow incoming connections on the `ProviderServer` port specified in the `index-provider` configuration. Ensure that the index-provider is configured to advertise routable addresses in its announcements (where indexers get advertisements) and in its advertisements (where retrieval clients get content).
 
 To configure `index-provider` to expose the delegated routing server, use the following configuration:
 
@@ -266,6 +259,10 @@ advertise content, see:
 
 * [`engine/example_test.go`](engine/example_test.go)
 
+#### Configuration for Sublishing Advertisements
+
+See the [Publisher Configuratgion document](publisher-config.md)
+
 #### Publishing advertisements with extended providers
 
 [Extended providers](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md#extendedprovider) 
@@ -338,7 +335,7 @@ range of administrative operations. For example, the `provider` CLI can be used 
 and advertise its content to the indexer nodes by executing:
 
 ```shell
-provider import car -l http://localhost:3102 -i <path-to-car-file>
+provider import car -i <path-to-car-file>
 ```
 
 For usage description, execute `provider --help`
@@ -389,8 +386,9 @@ advertisement. The cache expansion is logged in `INFO` level at `provider/engine
 ## Related Resources
 
 * [Indexer Ingestion IPLD Schema](https://github.com/ipni/go-libipni/blob/main/ingest/schema/schema.ipldsch)
-* [Indexer Node Design](https://www.notion.so/protocollabs/Indexer-Node-Design-4fb94471b6be4352b6849dc9b9527825)
-* [Providing data to a network indexer](https://github.com/ipni/storetheindex/blob/main/doc/ingest.md)
+* [Indexer Ingestion JSON Schema](https://github.com/ipni/specs/blob/main/schemas/v1/openapi.yaml)
+* [IPNI: InterPlanetary Network Indexer](https://github.com/ipni/specs/blob/main/IPNI.md#ipni-interplanetary-network-indexer)
+* [`go-libipni` reference](https://pkg.go.dev/github.com/ipni/go-libipni)
 * [`storetheindex`](https://github.com/ipni/storetheindex): indexer node implementation
 * [`storetheindex` documentation](https://github.com/ipni/storetheindex/blob/main/doc/)
 * [`go-indexer-core`](https://github.com/filecoin-project/go-indexer-core): Core index key-value store
