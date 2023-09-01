@@ -17,11 +17,20 @@ var AnnounceCmd = &cli.Command{
 	Action: announceCommand,
 }
 
+var announceFlags = []cli.Flag{
+	adminAPIFlag,
+}
+
 var AnnounceHttpCmd = &cli.Command{
 	Name:   "announce-http",
 	Usage:  "Publish an announcement message for the latest advertisement to a specific indexer via http",
 	Flags:  announceHttpFlags,
 	Action: announceHttpCommand,
+}
+
+var announceHttpFlags = []cli.Flag{
+	adminAPIFlag,
+	indexerFlag,
 }
 
 func announceCommand(cctx *cli.Context) error {

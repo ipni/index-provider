@@ -15,6 +15,16 @@ var ConnectCmd = &cli.Command{
 	Action: connectCommand,
 }
 
+var connectFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:     "indexermaddr",
+		Usage:    "Indexer multiaddr to connect",
+		Aliases:  []string{"imaddr"},
+		Required: true,
+	},
+	adminAPIFlag,
+}
+
 func connectCommand(cctx *cli.Context) error {
 	iaddr := cctx.String("indexermaddr")
 	req := &adminserver.ConnectReq{Maddr: iaddr}

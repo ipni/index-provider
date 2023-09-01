@@ -35,6 +35,13 @@ var (
 	md = metadata.Default.New()
 )
 
+var importCarFlags = []cli.Flag{
+	adminAPIFlag,
+	carPathFlag,
+	metadataFlag,
+	keyFlag,
+}
+
 func beforeImportCar(cctx *cli.Context) error {
 	if cctx.IsSet(keyFlag.Name) {
 		decoded, err := base64.StdEncoding.DecodeString(keyFlagValue)
