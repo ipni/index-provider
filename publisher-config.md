@@ -67,7 +67,7 @@ There is no need to specify the IPNI path anywhere, and the publisher always exp
 
 The IPNI path in the URL may optionally be preceded by a user-defined path. This can be specified by the engine option `WithHttpPublisherHandlerPath`. It is useful when using an external server that serves the IPNI publisher under some existing path. If a handler path of "/foo/bar/" is specified, then the URL path for a chain head query will be "/foo/bar/ipni/v1/ad/head". The publisher will only handle requests that have a URL path starting with "/foo/bar/ipni/v1/ad/". When using an existing HTTP server, the publisher's handler function expect the full handler path and will return an error if it is asked to handle a request with a URL that does not contain the full path.
 
-## Configure HTTP over libp2p with `Libp2pPublisher' publisher kind
+## Configure HTTP over libp2p with `Libp2pPublisher` publisher kind
 
 This is the default mode of operation. It allows HTTP requests and responses to be communicated over libp2p. A libp2p stream host must be provided to use this mode of operation.
 

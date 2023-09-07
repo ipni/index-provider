@@ -38,8 +38,9 @@ const (
 	// Libp2pPublisher serves advertisements using the engine's libp2p host.
 	Libp2pPublisher PublisherKind = "libp2p"
 
-	// Libp2pHttpPublisher serves advertisements using both HTTP and libp2p
-	// servers.
+	// Libp2pHttpPublisher serves advertisements using both an HTTP server and
+	// engine's libp2p host. This is just the combination of HttpPublisher and
+	// Libp2pPublisher configurable as a single option.
 	Libp2pHttpPublisher PublisherKind = "libp2phttp"
 )
 
