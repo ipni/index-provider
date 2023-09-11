@@ -14,7 +14,7 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v1.3.0
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipfs/kubo v0.22.0
-	github.com/ipld/go-car/v2 v2.12.0
+	github.com/ipld/go-car/v2 v2.13.1
 	github.com/ipld/go-codec-dagpb v1.6.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20220616142416-9004dbd839e0
 	github.com/ipld/go-ipld-prime v0.21.0
