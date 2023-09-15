@@ -261,7 +261,7 @@ advertise content, see:
 
 #### Configuration for Sublishing Advertisements
 
-See the [Publisher Configuratgion document](publisher-config.md)
+See the [Publisher Configuratgion document](doc/publisher-config.md)
 
 #### Publishing advertisements with extended providers
 
