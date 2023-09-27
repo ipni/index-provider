@@ -273,12 +273,27 @@ func (listener *Listener) Shutdown() {
 	listener.contextCancelFunc()
 }
 
-func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit int) (iter.ResultIter[types.ProviderResponse], error) {
+func (listener *Listener) GetIPNS(ctx context.Context, name ipns.Name) (*ipns.Record, error) {
+	log.Warn("Received unsupported GetIPNS request")
+	return nil, errors.New("unsupported get ipns request")
+}
+
+func (listener *Listener) PutIPNS(ctx context.Context, name ipns.Name, record *ipns.Record) error {
+	log.Warn("Received unsupported PutIPNS request")
+	return errors.New("unsupported put ipns request")
+}
+
+func (listener *Listener) FindPeers(ctx context.Context, pid peer.ID, limit int) (iter.ResultIter[types.Record], error) {
+	log.Warn("Received unsupported FindPeers request")
+	return nil, errors.New("unsupported find peers request")
+}
+
+func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit int) (iter.ResultIter[types.Record], error) {
 	log.Warn("Received unsupported FindProviders request")
 	return nil, errors.New("unsupported find providers request")
 }
 
-func (listener *Listener) Provide(ctx context.Context, req *server.WriteProvideRequest) (types.ProviderResponse, error) {
+func (listener *Listener) Provide(ctx context.Context, req *server.WriteProvideRequest) (iter.ResultIter[types.Record], error) {
 	log.Warn("Received unsupported Provide request")
 	return nil, errors.New("unsupported provide request")
 }
