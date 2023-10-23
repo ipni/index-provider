@@ -293,8 +293,9 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 }
 
 // Publish stores the given advertisement locally via Engine.PublishLocal
-// first, then publishes a message onto the gossipsub to signal the change in
-// the latest advertisement by the provider to indexer nodes.
+// first. It then announces the availability of the new advertisement by
+// sending an announcement message via HTTP and/or gossipsub to indexers,
+// depending on configuration..
 //
 // The publication mechanism uses dagsync.Publisher internally.
 // See: https://github.com/ipni/go-libipni/tree/main/dagsync
