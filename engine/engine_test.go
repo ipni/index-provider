@@ -734,6 +734,62 @@ func TestEngine_RegenrateEntryChunksFromOldDatastore(t *testing.T) {
 	requireLoadEntryChunkFromEngine(t, subject, ad.Entries)
 }
 
+func TestEngine_DeleteAndPublishWithTheSameContextID(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	t.Cleanup(cancel)
+
+	mhs1 := test.RandomMultihashes(42)
+	mhs2 := test.RandomMultihashes(42)
+
+	subject, err := engine.New()
+	require.NoError(t, err)
+	err = subject.Start(ctx)
+	require.NoError(t, err)
+	defer subject.Shutdown()
+
+	cnt := 0
+	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
+		cnt++
+		if cnt == 1 {
+			return provider.SliceMultihashIterator(mhs1), nil
+		} else {
+			// return mhs1 only for the first ad
+			return provider.SliceMultihashIterator(mhs2), nil
+		}
+	})
+
+	md := metadata.Default.New(metadata.Bitswap{})
+	contextId := []byte("fish")
+	paddr := peer.AddrInfo{ID: subject.Host().ID(), Addrs: subject.Host().Addrs()}
+
+	// publish the first ad
+	ad1Cid, err := subject.NotifyPut(ctx, &paddr, contextId, md)
+	require.NoError(t, err)
+	require.NotEqual(t, cid.Undef, ad1Cid)
+
+	// publish a remove for the context id followed by a new ad - that should result into the latest ad linking to the new array of multihashes
+	ad2Cid, err := subject.NotifyRemove(ctx, paddr.ID, contextId)
+	require.NoError(t, err)
+	require.NotEqual(t, ad1Cid, ad2Cid)
+
+	ad3Cid, err := subject.NotifyPut(ctx, &paddr, contextId, md)
+	require.NoError(t, err)
+	require.NotEqual(t, ad2Cid, ad3Cid)
+
+	latestAdCid, latestAd, err := subject.GetLatestAdv(ctx)
+	require.NoError(t, err)
+	require.Equal(t, ad3Cid, latestAdCid)
+
+	// read cached entries and extract multihashes
+	var mhs []multihash.Multihash
+	entryChunks := requireLoadEntryChunkFromEngine(t, subject, latestAd.Entries)
+	for _, ch := range entryChunks {
+		mhs = append(mhs, ch.Entries...)
+	}
+
+	require.Equal(t, mhs2, mhs)
+}
+
 func verifyAd(t *testing.T, ctx context.Context, subject *engine.Engine, expected, actual *schema.Advertisement) {
 	require.Equal(t, expected.ContextID, actual.ContextID)
 	require.Equal(t, expected.Provider, actual.Provider)

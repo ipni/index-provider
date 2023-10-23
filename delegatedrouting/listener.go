@@ -293,11 +293,13 @@ func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit 
 	return nil, errors.New("unsupported find providers request")
 }
 
+//lint:ignore update to the new API once it materialises in boxo
 func (listener *Listener) Provide(ctx context.Context, req *server.WriteProvideRequest) (iter.ResultIter[types.Record], error) {
 	log.Warn("Received unsupported Provide request")
 	return nil, errors.New("unsupported provide request")
 }
 
+//lint:ignore update to the new API once it materialises in boxo
 func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.BitswapWriteProvideRequest) (time.Duration, error) {
 	cids := req.Keys
 	pid := req.ID
