@@ -23,21 +23,21 @@ The index-provider engine must be configured to use a libp2p publisher, HTTP pub
 
 If `WithPublisherKind` is not provided a value, it defaults to `NoPublisher` and advertisements are only stored locally and no announcements are made. If configuring the command-line application, `WithPublisherKind` is configured by setting the `config.Ingest.PublisherKind` item in the configuration file to a value of "http", "libp2p", "libp2phttp, "dtsync", or "".
 
-For all publisher kinds, except the `DataTransfer` publisher, the `WithHttpPublisherAnnounceAddr` options sets the addresses that are announced to indexers, telling the indexers where to fetch advertisements from. If configuring the command-line application, `WithHttpPublisherAnnounceAddr is configured by specifying multiaddr strings in `config.Ingest.HttpPublisher.AnnounceMultiaddr`.
+For all publisher kinds, except the `DataTransfer` publisher, the `WithHttpPublisherAnnounceAddr` option sets the addresses that are announced to indexers, telling the indexers where to fetch advertisements from. If configuring the command-line application, `WithHttpPublisherAnnounceAddr` is configured by specifying multiaddr strings in `config.Ingest.HttpPublisher.AnnounceMultiaddr`.
 
 In future index-provider releases support for the DataTransfer publisher kind will be removed.
 
 ## Publishing vs Announcing
 
-When a new advertisement is made available by a publisher, the new advertisement's CID is generally announced to one or more indexers. An announcement message is constructed and is sent to indexers over libp2p gossip pubsub where it is received by any indexers subscribed to the topic on which the message was publisher. Or, the announcement message is send directly to specific indexers by HTTP.
+When a new advertisement is made available by a publisher, the new advertisement's CID is generally announced to one or more indexers. An announcement message is constructed and is sent to indexers over libp2p gossip pubsub where it is received by any indexers subscribed to the topic on which the message was publisher. Or, the announcement message is sent directly to specific indexers by HTTP.
 
-One, both, or none of these announcement methods may be used in conjunction with the publisher, without regard to what kind of publisher is configured. It is only necessary that the announcement message is created with one or more addresses that are usable by indexers to contact the publisher. The address(es) configured by `WithHttpPublisherAnnounceAddr` may depend on the type of publisher. Otherwise, the configuration of announcement senders is totally separate from the publisher.
+One, both, or none of these announcement methods may be used to make announcements for the publisher, without regard to what kind of publisher is configured. It is only necessary that the announcement message is created with one or more addresses that indexers can use to contact the publisher. The address(es) configured by `WithHttpPublisherAnnounceAddr` may depend on the type of publisher. Otherwise, the configuration of announcement senders is totally separate from the publisher.
 
-If using an HTTP server, then provide addresses that specify the "http" or "https" protocol, for example "/dns4/ipni.example.com/tcp/80/https" where is ipni.example.com is resolves to a public address and TLS termination is done for the endpoint. If using a Libp2p server then specify address(es) that your libp2p host can be contacted on without the "http". Specifying multiple addresses to announce is OK. If no addresses are specified, then the listening HTTP addresses are used if there is an HTTP publisher and the libp2p host addresses are used if there is a libp2p server.
+If using a plain HTTP server, then provide addresses that specify the "http" or "https" protocol. For example "/dns4/ipni.example.com/tcp/80/https" uses "ipni.example.com" as a DNS address that is expected to resolve to a public address that handles TLS termination, and indicated by the "https" portion. If using a Libp2p server, then specify address(es) that your libp2p host can be contacted on _without_ the "http". Specifying multiple addresses to announce is OK. If no addresses are specified, then the listening HTTP addresses are used if there is an HTTP publisher, and the libp2p host addresses are used if there is a libp2p server.
 
 ## Configure HTTP server `HttpPublisher` publisher kind
 
-The publisher can be configured to server HTTP using a plain (non-libp2p) HTTP server. This is configured by calling `WithPublisherKind(HttpPublisher)`.
+The publisher can be configured to server HTTP using a plain (non-libp2p) HTTP server. This is configured by calling `WithPublisherKind(HttpPublisher)`. If configuring the command-line application, this is set in the configuration file as `config.Ingest.HttpPublisher.ListenMultiaddr`.
 
 The publisher's HTTP listen address is configured using the engine option `WithHttpPublisherListenAddr`. If unset, the default net listen address of '0.0.0.0:3104' is used.
 
@@ -69,7 +69,7 @@ The IPNI path in the URL may optionally be preceded by a user-defined path. This
 
 ## Configure HTTP over libp2p with `Libp2pPublisher` publisher kind
 
-This is the default mode of operation. It allows HTTP requests and responses to be communicated over libp2p. A libp2p stream host must be provided to use this mode of operation.
+HTTP over libp2p is the default mode of operation. It allows HTTP requests and responses to be communicated over libp2p. A libp2p stream host must be provided to use this mode of operation.
 
 When serving HTTP over libp2p, it is not necessary to specify a publisher HTTP listen address since the libp2p stream host is responsible for handling connections. Any publisher HTTP listen address is ignored. Announcement addresses, specified with `WithHttpPublisherAnnounceAddr`, do not need to include a `/http` component.
 
@@ -87,4 +87,19 @@ This is a combination of the `Libp2pPublisher` and `HttpPublisher` kinds, and th
 
 Publishing with data-transfer/graphsync is legacy configuration, and is only supported by the IPNI publisher for now as a fall-back in case there is some unforeseen problem with the new HTTP over libp2p. Publisher support for this will be dropped is future releases of the index-provider.
 
+## Config Quick Reference
+
+- Tell indexers where to fetch advertisements from:
+  - `WithHttpPublisherAnnounceAddr`
+  - `"config"."Ingest"."HttpPublisher"."AnnounceMultiaddr"`
+- Listen for plain HTTP requests for advertisements
+  - `WithHttpPublisherListenAddr`
+  - `"config"."Ingest"."HttpPublisher"."ListenMultiaddr"`
+- Tell retrieval clients where to retrieve content from, by advertising these addrs:
+  - `WithRetrievalAddrs`
+  - `"ProviderServer"."RetrievalMultiaddrs"
+- Configure the interface that the content-retrieval-server listens on and provider ID:
+  - `WithProvider`  
+  - `"ProviderServer"."ListenMultiaddr"
+  
 A data-transfer publisher is configured by specifying the engine option `WithPublisherKind(DataTransferPublisher)`. When this option is specified, all of the `HttpPublisher` and `Libp2pPublisher` options are ignored.
