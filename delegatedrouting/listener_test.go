@@ -779,7 +779,8 @@ func TestMissingCidTimestampsBackfilledOnIntialisation(t *testing.T) {
 
 	s.Close()
 
-	drouting.WrappedDatastore(listener1).Delete(ctx, datastore.NewKey("tc/"+testCid1.String()))
+	err = drouting.WrappedDatastore(listener1).Delete(ctx, datastore.NewKey("tc/"+testCid1.String()))
+	require.NoError(t, err)
 
 	listener2, err := drouting.New(ctx, mockEng, ttl, chunkSize, snapshotSize, "", nil, ds, testNonceGen)
 	require.NoError(t, err)

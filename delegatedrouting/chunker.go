@@ -27,7 +27,11 @@ type cidsChunk struct {
 
 func defaultNonceGen() []byte {
 	nonce := make([]byte, 8)
-	rand.Read(nonce)
+	_, err := rand.Read(nonce)
+	if err != nil {
+		// Do not allow non-random nonce to be created.
+		panic(err.Error())
+	}
 	return nonce
 }
 
