@@ -78,7 +78,9 @@ func TestEngine_PublishLocal(t *testing.T) {
 	require.NoError(t, err)
 	err = subject.Start(ctx)
 	require.NoError(t, err)
-	defer subject.Shutdown()
+	t.Cleanup(func() {
+		require.NoError(t, subject.Shutdown())
+	})
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))
 	require.NoError(t, err)

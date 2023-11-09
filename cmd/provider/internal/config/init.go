@@ -59,7 +59,7 @@ func CreateIdentity(out io.Writer) (Identity, error) {
 	if err != nil {
 		return ident, err
 	}
-	ident.PeerID = id.Pretty()
+	ident.PeerID = id.String()
 	fmt.Fprintf(out, "peer identity: %s\n", ident.PeerID)
 	return ident, nil
 }

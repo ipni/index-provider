@@ -118,7 +118,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.publisher, err = e.newPublisher()
 	if err != nil {
-		log.Errorw("Failed to instantiate publisher", "err", err, "kind", e.pubKind)
+		log.Errorw("Failed to create publisher", "err", err)
 		return err
 	}
 
@@ -206,7 +206,7 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 		}
 		return dtPub, nil
 	}
-	return nil, fmt.Errorf("unknown publisher kind: %s", e.pubKind)
+	return nil, fmt.Errorf("unknown publisher kind %s, expecting one of %v", e.pubKind, []PublisherKind{HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher, DataTransferPublisher})
 }
 
 func (e *Engine) createSenders() ([]announce.Sender, error) {

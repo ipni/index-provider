@@ -283,7 +283,7 @@ func (listener *Listener) PutIPNS(ctx context.Context, name ipns.Name, record *i
 	return errors.New("unsupported put ipns request")
 }
 
-func (listener *Listener) FindPeers(ctx context.Context, pid peer.ID, limit int) (iter.ResultIter[types.Record], error) {
+func (listener *Listener) FindPeers(ctx context.Context, pid peer.ID, limit int) (iter.ResultIter[*types.PeerRecord], error) {
 	log.Warn("Received unsupported FindPeers request")
 	return nil, errors.New("unsupported find peers request")
 }
@@ -291,11 +291,6 @@ func (listener *Listener) FindPeers(ctx context.Context, pid peer.ID, limit int)
 func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit int) (iter.ResultIter[types.Record], error) {
 	log.Warn("Received unsupported FindProviders request")
 	return nil, errors.New("unsupported find providers request")
-}
-
-func (listener *Listener) Provide(ctx context.Context, req *server.WriteProvideRequest) (iter.ResultIter[types.Record], error) {
-	log.Warn("Received unsupported Provide request")
-	return nil, errors.New("unsupported provide request")
 }
 
 func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.BitswapWriteProvideRequest) (time.Duration, error) {
