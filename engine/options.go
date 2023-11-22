@@ -57,10 +57,6 @@ type (
 		ds datastore.Batching
 		h  host.Host
 
-		// announceURLs is the list of indexer URLs to send direct HTTP
-		// announce messages to.
-		announceURLs []*url.URL
-
 		// key is always initialized from the host peerstore.
 		// Setting an explicit identity must not be exposed unless it is tightly coupled with the
 		// host identity. Otherwise, the signature of advertisement will not match the libp2p host
@@ -76,18 +72,30 @@ type (
 		// default configured provider will be assumed.
 		provider peer.AddrInfo
 
+		// ---- publisher config ----
+
 		pubKind PublisherKind
 		pubDT   datatransfer.Manager
 		// pubHttpAnnounceAddrs are the addresses that are put into announce
-		// messages to tell the indexer the addresses where advertisement are
-		// published.
+		// messages to tell indexers the addresses to fetch advertisements
+		// from.
 		pubHttpAnnounceAddrs []multiaddr.Multiaddr
 		pubHttpListenAddr    string
 		pubHttpWithoutServer bool
 		pubHttpHandlerPath   string
 		pubTopicName         string
 		pubTopic             *pubsub.Topic
-		pubExtraGossipData   []byte
+
+		// ---- announce sender config ----
+
+		// announceURLs enables sending direct announcements via HTTP. This is
+		// the list of indexer URLs to send direct HTTP announce messages to.
+		announceURLs []*url.URL
+		// pubsubAnnounce enables broadcasting announcements via gossip pubsub.
+		pubsubAnnounce bool
+		// pubsubExtraGossipData supplies extra data to include in pubsub
+		// announcements.
+		pubsubExtraGossipData []byte
 
 		entCacheCap int
 		purgeCache  bool
@@ -102,6 +110,7 @@ func newOptions(o ...Option) (*options, error) {
 		pubKind:           NoPublisher,
 		pubHttpListenAddr: "0.0.0.0:3104",
 		pubTopicName:      "/indexer/ingest/mainnet",
+		pubsubAnnounce:    true,
 		// Keep 1024 ad entry DAG in cache; note, the size on disk depends on DAG format and
 		// multihash code.
 		entCacheCap: 1024,
@@ -282,7 +291,7 @@ func WithHttpPublisherHandlerPath(handlerPath string) Option {
 // WithHttpPublisherAnnounceAddr sets the address to be supplied in announce
 // messages to tell indexers where to retrieve advertisements.
 //
-// This option only takes effect if the PublisherKind is set to HttpPublisher.
+// This option is not used if PublisherKind is set to DataTransferPublisher.
 func WithHttpPublisherAnnounceAddr(addr string) Option {
 	return func(o *options) error {
 		if addr != "" {
@@ -390,20 +399,6 @@ func WithProvider(provider peer.AddrInfo) Option {
 	}
 }
 
-// WithExtraGossipData supplies extra data to include in the pubsub announcement.
-// Note that this option only takes effect if the PublisherKind is set to DataTransferPublisher.
-// See: WithPublisherKind.
-func WithExtraGossipData(extraData []byte) Option {
-	return func(o *options) error {
-		if len(extraData) != 0 {
-			// Make copy for safety.
-			o.pubExtraGossipData = make([]byte, len(extraData))
-			copy(o.pubExtraGossipData, extraData)
-		}
-		return nil
-	}
-}
-
 func WithPrivateKey(key crypto.PrivKey) Option {
 	return func(o *options) error {
 		o.key = key
@@ -420,6 +415,29 @@ func WithDirectAnnounce(announceURLs ...string) Option {
 				return err
 			}
 			o.announceURLs = append(o.announceURLs, u)
+		}
+		return nil
+	}
+}
+
+// WithPubsubAnnounce configures whether or not announcements are send via
+// gossip pubsub. Default is true if this option is not specified.
+func WithPubsubAnnounce(enable bool) Option {
+	return func(o *options) error {
+		o.pubsubAnnounce = enable
+		return nil
+	}
+}
+
+// WithExtraGossipData supplies extra data to include in the pubsub
+// announcement. Note that this option only takes effect if pubsub
+// announcements are enabled.
+func WithExtraGossipData(extraData []byte) Option {
+	return func(o *options) error {
+		if len(extraData) != 0 {
+			// Make copy for safety.
+			o.pubsubExtraGossipData = make([]byte, len(extraData))
+			copy(o.pubsubExtraGossipData, extraData)
 		}
 		return nil
 	}

@@ -79,6 +79,7 @@ func doRemoveCar(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return errFromHttpResp(resp)

@@ -81,7 +81,6 @@ func beforeImportCar(cctx *cli.Context) error {
 }
 
 func doImportCar(cctx *cli.Context) error {
-
 	mdBytes, err := md.MarshalBinary()
 	if err != nil {
 		return err
@@ -101,6 +100,8 @@ func doImportCar(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return errFromHttpResp(resp)
 	}

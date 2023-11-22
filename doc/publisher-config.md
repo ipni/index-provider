@@ -29,11 +29,13 @@ In future index-provider releases support for the DataTransfer publisher kind wi
 
 ## Publishing vs Announcing
 
-When a new advertisement is made available by a publisher, the new advertisement's CID is generally announced to one or more indexers. An announcement message is constructed and is sent to indexers over libp2p gossip pubsub where it is received by any indexers subscribed to the topic on which the message was publisher. Or, the announcement message is sent directly to specific indexers by HTTP.
+When a new advertisement is made available by a publisher, the new advertisement's CID is generally announced to one or more indexers. An announcement message is constructed and is sent to indexers over libp2p gossip pubsub where it is received by any indexers subscribed to the topic on which the message was publisher. The announcement message may also be sent directly to specific indexers via HTTP.
+
+The `WithDirectAnnounce` option enables sending announcements directly, via HTTP, to the indexer URLs speciied. If this option isnot configured or no URLs specified, then direct HTTP announcement is disabled. The corresponding config file item is `config.DirectAnnounce.URLs`. The `WithPubsubAnnounce` option configures whether or not to broadcast announcements to all subscribed indexers. The corresponding config file item is `config.DirectAnnounce.NoPubsubAnnounce`.
 
 One, both, or none of these announcement methods may be used to make announcements for the publisher, without regard to what kind of publisher is configured. It is only necessary that the announcement message is created with one or more addresses that indexers can use to contact the publisher. The address(es) configured by `WithHttpPublisherAnnounceAddr` may depend on the type of publisher. Otherwise, the configuration of announcement senders is totally separate from the publisher.
 
-If using a plain HTTP server, then provide addresses that specify the "http" or "https" protocol. For example "/dns4/ipni.example.com/tcp/80/https" uses "ipni.example.com" as a DNS address that is expected to resolve to a public address that handles TLS termination, and indicated by the "https" portion. If using a Libp2p server, then specify address(es) that your libp2p host can be contacted on _without_ the "http". Specifying multiple addresses to announce is OK. If no addresses are specified, then the listening HTTP addresses are used if there is an HTTP publisher, and the libp2p host addresses are used if there is a libp2p server.
+If using a plain HTTP server, then provide addresses that specify the "http" or "https" protocol. For example "/dns4/ipni.example.com/tcp/80/https" uses "ipni.example.com" as a DNS address that is expected to resolve to a public address that handles TLS termination, as indicated by the "https" portion. If using a Libp2p server, then specify address(es) that your libp2p host can be contacted on _without_ the "http". Specifying multiple addresses to announce is OK. If no addresses are specified, then the listening HTTP addresses are used if there is an HTTP publisher, and the libp2p host addresses are used if there is a libp2p server.
 
 ## Configure HTTP server `HttpPublisher` publisher kind
 
@@ -101,5 +103,12 @@ Publishing with data-transfer/graphsync is legacy configuration, and is only sup
 - Configure the interface that the content-retrieval-server listens on and provider ID:
   - `WithProvider`  
   - `"ProviderServer"."ListenMultiaddr"
-  
-A data-transfer publisher is configured by specifying the engine option `WithPublisherKind(DataTransferPublisher)`. When this option is specified, all of the `HttpPublisher` and `Libp2pPublisher` options are ignored.
+- Send advertisement announcements to specific indexers via HTTP:
+  - `WithDirectAnnounce`
+  - `"DirectAnnounce"."URLs"`
+- Disable/enable sending advertisement announcements via pubsub:
+ - `WithPubsubAnnounce`
+ - `"DirectAnnounce"."NoPubsubAnnounce"`
+
+
+A data-transfer publisher is configured by specifying the engine option `WithPublisherKind(DataTransferPublisher)`. When this option is specified, all of the `HttpPublisher` and `Libp2pPublisher` options are ignored. This option is depricated and will not be supported in the future.
