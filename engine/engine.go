@@ -228,6 +228,7 @@ func (e *Engine) createSenders(announceURLs []*url.URL, pubsubOK bool, extraGoss
 		}
 		senders = append(senders, httpSender)
 		hasHttpSender = true
+		log.Info("HTTP announcements enabled")
 	}
 
 	// If pubsub announcements are enabled and there is a libp2p host, then
@@ -242,6 +243,7 @@ func (e *Engine) createSenders(announceURLs []*url.URL, pubsubOK bool, extraGoss
 		}
 		senders = append(senders, p2pSender)
 		hasP2pSender = true
+		log.Info("Pubsub announcements enabled")
 	}
 
 	if hasHttpSender && hasP2pSender {
