@@ -21,9 +21,9 @@ The index-provider engine must be configured to use a libp2p publisher, HTTP pub
 - `Libp2pHttpPublisher` serves advertisements using both HTTP and libp2p servers.
 - `DataTransferPublisher` exposes a data-transfer/graphsync server that allows peers in the network to sync advertisements. This option is being discontinued. Only provided as a fallback in case HttpPublisher and Libp2pHttpPublisher are not working.
 
-If `WithPublisherKind` is not provided a value, it defaults to `NoPublisher` and advertisements are only stored locally and no announcements are made. If configuring the command-line application, `WithPublisherKind` is configured by setting the `config.Ingest.PublisherKind` item in the configuration file to a value of "http", "libp2p", "libp2phttp, "dtsync", or "".
+If `WithPublisherKind` is not provided a value, it defaults to `NoPublisher` and advertisements are only stored locally and no announcements are made. If configuring the command-line application, `WithPublisherKind` is configured by setting the `Ingest.PublisherKind` item in the configuration file to a value of "http", "libp2p", "libp2phttp, "dtsync", or "".
 
-For all publisher kinds, except the `DataTransfer` publisher, the `WithHttpPublisherAnnounceAddr` option sets the addresses that are announced to indexers, telling the indexers where to fetch advertisements from. If configuring the command-line application, `WithHttpPublisherAnnounceAddr` is configured by specifying multiaddr strings in `config.Ingest.HttpPublisher.AnnounceMultiaddr`.
+For all publisher kinds, except the `DataTransfer` publisher, the `WithHttpPublisherAnnounceAddr` option sets the addresses that are announced to indexers, telling the indexers where to fetch advertisements from. If configuring the command-line application, `WithHttpPublisherAnnounceAddr` is configured by specifying multiaddr strings in `Ingest.HttpPublisher.AnnounceMultiaddr`.
 
 In future index-provider releases support for the DataTransfer publisher kind will be removed.
 
@@ -31,7 +31,7 @@ In future index-provider releases support for the DataTransfer publisher kind wi
 
 When a new advertisement is made available by a publisher, the new advertisement's CID is generally announced to one or more indexers. An announcement message is constructed and is sent to indexers over libp2p gossip pubsub where it is received by any indexers subscribed to the topic on which the message was publisher. The announcement message may also be sent directly to specific indexers via HTTP.
 
-The `WithDirectAnnounce` option enables sending announcements directly, via HTTP, to the indexer URLs speciied. If this option isnot configured or no URLs specified, then direct HTTP announcement is disabled. The corresponding config file item is `config.DirectAnnounce.URLs`. The `WithPubsubAnnounce` option configures whether or not to broadcast announcements to all subscribed indexers. The corresponding config file item is `config.DirectAnnounce.NoPubsubAnnounce`.
+The `WithDirectAnnounce` option enables sending announcements directly, via HTTP, to the indexer URLs specified. If this option is not configured or no URLs specified, then direct HTTP announcement is disabled. The corresponding config file item is `DirectAnnounce.URLs`. The `WithPubsubAnnounce` option configures whether or not to broadcast announcements to all subscribed indexers. The corresponding config file item is `DirectAnnounce.NoPubsubAnnounce`.
 
 One, both, or none of these announcement methods may be used to make announcements for the publisher, without regard to what kind of publisher is configured. It is only necessary that the announcement message is created with one or more addresses that indexers can use to contact the publisher. The address(es) configured by `WithHttpPublisherAnnounceAddr` may depend on the type of publisher. Otherwise, the configuration of announcement senders is totally separate from the publisher.
 
@@ -39,7 +39,7 @@ If using a plain HTTP server, then provide addresses that specify the "http" or 
 
 ## Configure HTTP server `HttpPublisher` publisher kind
 
-The publisher can be configured to server HTTP using a plain (non-libp2p) HTTP server. This is configured by calling `WithPublisherKind(HttpPublisher)`. If configuring the command-line application, this is set in the configuration file as `config.Ingest.HttpPublisher.ListenMultiaddr`.
+The publisher can be configured to server HTTP using a plain (non-libp2p) HTTP server. This is configured by calling `WithPublisherKind(HttpPublisher)`. If configuring the command-line application, this is set in the configuration file as `Ingest.HttpPublisher.ListenMultiaddr`.
 
 The publisher's HTTP listen address is configured using the engine option `WithHttpPublisherListenAddr`. If unset, the default net listen address of '0.0.0.0:3104' is used.
 
@@ -53,7 +53,7 @@ The `HttpPublisher` kind can use either the publisher's HTTP server, or use an e
 
 This is the default for the `HttpPublisher`.
 
-At least one HTTP listen address is required for the HTTP server to listen on. An HTTP listen address is supplied by the `WithHttpPublisherListenAddr` option. The corresponding config file item is `config.Ingest.HttpPublisher.ListenMultiaddr`. If left unspecified a default listen address is provided. This does not apply if using one of the http provider kinds.
+At least one HTTP listen address is required for the HTTP server to listen on. An HTTP listen address is supplied by the `WithHttpPublisherListenAddr` option. The corresponding config file item is `Ingest.HttpPublisher.ListenMultiaddr`. If left unspecified a default listen address is provided. This does not apply if using one of the http provider kinds.
 
 #### Existing HTTP server
 
@@ -79,7 +79,7 @@ When serving HTTP over libp2p, it is not necessary to specify a publisher HTTP l
 
 The engine always has a libp2p stream host supplied to it with the `WithHost` option or created internally. This libp2p host is give to the engine's HTTP publisher. The private key associated with the libp2p host's Identity is given to the engine using the `WithPrivateKey` option, and is also given to the publisher. This allows advertisements to be signed.
 
-If using the command-line, the libp2p host Identity and private key are configured using the `config.Identiry.PeerID` and `config.Identity.PrivKey` configuration file items. The libp2p host's listen address is configured using the config file item `config.ProviderServer.ListenMultiaddr`.
+If using the command-line, the libp2p host Identity and private key are configured using the `Identiry.PeerID` and `Identity.PrivKey` configuration file items. The libp2p host's listen address is configured using the config file item `ProviderServer.ListenMultiaddr`.
 
 ## Configure HTTP over libp2p and HTTP with `Libp2pHttpPublisher` publisher kind
 
@@ -93,15 +93,15 @@ Publishing with data-transfer/graphsync is legacy configuration, and is only sup
 
 - Tell indexers where to fetch advertisements from:
   - `WithHttpPublisherAnnounceAddr`
-  - `"config"."Ingest"."HttpPublisher"."AnnounceMultiaddr"`
+  - `"Ingest"."HttpPublisher"."AnnounceMultiaddr"`
 - Listen for plain HTTP requests for advertisements
   - `WithHttpPublisherListenAddr`
-  - `"config"."Ingest"."HttpPublisher"."ListenMultiaddr"`
+  - `"Ingest"."HttpPublisher"."ListenMultiaddr"`
 - Tell retrieval clients where to retrieve content from, by advertising these addrs:
   - `WithRetrievalAddrs`
-  - `"ProviderServer"."RetrievalMultiaddrs"
+  - `"ProviderServer"."RetrievalMultiaddrs"`
 - Configure the interface that the content-retrieval-server listens on and provider ID:
-  - `WithProvider`  
+  - `WithProvider`
   - `"ProviderServer"."ListenMultiaddr"
 - Send advertisement announcements to specific indexers via HTTP:
   - `WithDirectAnnounce`
@@ -111,4 +111,4 @@ Publishing with data-transfer/graphsync is legacy configuration, and is only sup
  - `"DirectAnnounce"."NoPubsubAnnounce"`
 
 
-A data-transfer publisher is configured by specifying the engine option `WithPublisherKind(DataTransferPublisher)`. When this option is specified, all of the `HttpPublisher` and `Libp2pPublisher` options are ignored. This option is depricated and will not be supported in the future.
+A data-transfer publisher is configured by specifying the engine option `WithPublisherKind(DataTransferPublisher)`. When this option is specified, all of the `HttpPublisher` and `Libp2pPublisher` options are ignored. This option is deprecated and will not be supported in the future.
