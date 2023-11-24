@@ -56,6 +56,8 @@ type Engine struct {
 
 	publisher dagsync.Publisher
 	senders   []announce.Sender
+	// announceMsg is the message that is logged when an announcement is sent.
+	announceMsg string
 
 	mhLister provider.MultihashLister
 	cblk     sync.Mutex
@@ -116,7 +118,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		return err
 	}
 
-	e.publisher, err = e.newPublisher()
+	e.publisher, err = e.newPublisher(e.pubHttpListenAddr, e.pubHttpHandlerPath)
 	if err != nil {
 		log.Errorw("Failed to create publisher", "err", err)
 		return err
@@ -133,7 +135,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 
 		// If publisher created, then create announcement senders.
-		e.senders, err = e.createSenders()
+		e.senders, err = e.createSenders(e.announceURLs, e.pubsubAnnounce, e.pubsubExtraGossipData)
 		if err != nil {
 			return err
 		}
@@ -142,16 +144,16 @@ func (e *Engine) Start(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) newPublisher() (dagsync.Publisher, error) {
+func (e *Engine) newPublisher(httpListenAddr, httpPath string) (dagsync.Publisher, error) {
 	switch e.pubKind {
 	case NoPublisher:
 		log.Info("Remote announcements disabled; all advertisements will only be stored locally.")
 		return nil, nil
 	case HttpPublisher:
 		httpPub, err := ipnisync.NewPublisher(e.lsys, e.key,
-			ipnisync.WithHTTPListenAddrs(e.pubHttpListenAddr),
+			ipnisync.WithHTTPListenAddrs(httpListenAddr),
 			ipnisync.WithHeadTopic(e.pubTopicName),
-			ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
+			ipnisync.WithHandlerPath(httpPath),
 			ipnisync.WithStartServer(!e.pubHttpWithoutServer))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create publisher: %w", err)
@@ -176,9 +178,9 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	case Libp2pHttpPublisher:
 		libp2phttpPub, err := ipnisync.NewPublisher(e.lsys, e.key,
 			ipnisync.WithStreamHost(e.h),
-			ipnisync.WithHTTPListenAddrs(e.pubHttpListenAddr),
+			ipnisync.WithHTTPListenAddrs(httpListenAddr),
 			ipnisync.WithHeadTopic(e.pubTopicName),
-			ipnisync.WithHandlerPath(e.pubHttpHandlerPath),
+			ipnisync.WithHandlerPath(httpPath),
 			ipnisync.WithStartServer(!e.pubHttpWithoutServer))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create publisher: %w", err)
@@ -209,33 +211,49 @@ func (e *Engine) newPublisher() (dagsync.Publisher, error) {
 	return nil, fmt.Errorf("unknown publisher kind %s, expecting one of %v", e.pubKind, []PublisherKind{HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher, DataTransferPublisher})
 }
 
-func (e *Engine) createSenders() ([]announce.Sender, error) {
+func (e *Engine) createSenders(announceURLs []*url.URL, pubsubOK bool, extraGossipData []byte) ([]announce.Sender, error) {
 	var senders []announce.Sender
+	var hasHttpSender, hasP2pSender bool
 
 	// If there are announce URLs, then creage an announce sender to send
 	// direct HTTP announce messages to these URLs.
-	if len(e.announceURLs) != 0 {
+	if len(announceURLs) != 0 {
 		id, err := peer.IDFromPrivateKey(e.key)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get peer ID from private key: %w", err)
 		}
-		httpSender, err := httpsender.New(e.announceURLs, id)
+		httpSender, err := httpsender.New(announceURLs, id)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create http announce sender: %w", err)
 		}
 		senders = append(senders, httpSender)
+		hasHttpSender = true
+		log.Info("HTTP announcements enabled")
 	}
 
-	// If there is a libp2p host, then create a gossip pubsub announce sender.
-	if e.h != nil {
+	// If pubsub announcements are enabled and there is a libp2p host, then
+	// create a gossip pubsub announce sender.
+	if pubsubOK && e.h != nil {
 		// Create an announce sender to send over gossip pubsub.
 		p2pSender, err := p2psender.New(e.h, e.pubTopicName,
 			p2psender.WithTopic(e.pubTopic),
-			p2psender.WithExtraData(e.pubExtraGossipData))
+			p2psender.WithExtraData(extraGossipData))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create p2p pubsub announce sender: %w", err)
 		}
 		senders = append(senders, p2pSender)
+		hasP2pSender = true
+		log.Info("Pubsub announcements enabled")
+	}
+
+	if hasHttpSender && hasP2pSender {
+		e.announceMsg = "Announcing advertisement in pubsub channel and via http"
+	} else if hasHttpSender {
+		e.announceMsg = "Announcing advertisement via http"
+	} else if hasP2pSender {
+		e.announceMsg = "Announcing advertisement in pubsub channel"
+	} else {
+		e.announceMsg = "Cannot announce advertisement, no http or pubsub senders configured"
 	}
 
 	return senders, nil
@@ -253,6 +271,8 @@ func (e *Engine) announce(ctx context.Context, c cid.Cid) {
 		// put into the announce message, instead of using the libp2p host's
 		// addresses.
 		err = announce.Send(ctx, c, e.h.Addrs(), e.senders...)
+	case NoPublisher:
+		// Announcements disabled.
 	}
 	if err != nil {
 		log.Errorw("Failed to announce advertisement", "err", err)
@@ -308,17 +328,7 @@ func (e *Engine) Publish(ctx context.Context, adv schema.Advertisement) (cid.Cid
 
 	// Only announce the advertisement CID if publisher is configured.
 	if e.publisher != nil {
-		log := log.With("adCid", c)
-		if len(e.announceURLs) == 0 && e.h != nil {
-			log.Info("Announcing advertisement in pubsub channel")
-		} else if len(e.announceURLs) != 0 && e.h == nil {
-			log.Info("Announcing advertisement via http")
-		} else if len(e.announceURLs) != 0 && e.h != nil {
-			log.Info("Announcing advertisement in pubsub channel and via http")
-		} else {
-			return cid.Undef, fmt.Errorf("unexpected publisher state, no announceURLs or libp2p host")
-		}
-
+		log.Infow(e.announceMsg, "adCid", c)
 		e.publisher.SetRoot(c)
 		e.announce(ctx, c)
 	}
@@ -388,6 +398,10 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	if len(announceURLs) == 0 {
 		return nil
 	}
+	if e.publisher == nil {
+		log.Info("No publisher to announce advertisements for")
+		return nil
+	}
 
 	// Create announce message.
 	msg := message.Message{
@@ -397,9 +411,6 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	// The publisher kind determines what addresses to put into the announce
 	// message.
 	switch e.pubKind {
-	case NoPublisher:
-		log.Info("Remote announcements disabled")
-		return nil
 	case HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher:
 		// e.pubHttpAnnounceAddrs is always set in newPublisher.
 		msg.SetAddrs(e.pubHttpAnnounceAddrs)

@@ -159,6 +159,7 @@ func daemonCommand(cctx *cli.Context) error {
 		engine.WithPublisherKind(engine.PublisherKind(cfg.Ingest.PublisherKind)),
 		engine.WithHttpPublisherListenAddr(httpListenAddr),
 		engine.WithHttpPublisherAnnounceAddr(cfg.Ingest.HttpPublisher.AnnounceMultiaddr),
+		engine.WithPubsubAnnounce(!cfg.DirectAnnounce.NoPubsubAnnounce),
 		engine.WithSyncPolicy(syncPolicy),
 		engine.WithRetrievalAddrs(cfg.ProviderServer.RetrievalMultiaddrs...),
 	)

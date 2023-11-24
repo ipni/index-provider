@@ -32,6 +32,8 @@ func connectCommand(cctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	// Handle failed requests
 	if resp.StatusCode != http.StatusOK {
 		return errFromHttpResp(resp)

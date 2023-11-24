@@ -8,6 +8,10 @@ import (
 // DirectAnnounce configures the target indexers that advertisement announce
 // messages are sent directly to via HTTP.
 type DirectAnnounce struct {
+	// NoPubsubAnnounce disables pubsub announce when set to true. The default
+	// behavior (false) is to enable sending advertisement announcements via
+	// gossib pubsub.
+	NoPubsubAnnounce bool
 	// URLs is a list of indexer URLs to send HTTP announce messages to.
 	URLs []string
 }
