@@ -25,7 +25,9 @@ var (
 // Creates the main engine linksystem.
 func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 	lsys := cidlink.DefaultLinkSystem()
-	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+
+	storageReadOpener := func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+
 		// If link corresponds to schema.NoEntries return error immediately.
 		if lnk == schema.NoEntries {
 			return nil, errNoEntries
@@ -148,6 +150,14 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 		}
 
 		return bytes.NewBuffer(val), nil
+	}
+
+	lsys.StorageReadOpener = func(lctx ipld.LinkContext, lnk ipld.Link) (io.Reader, error) {
+		r, err := storageReadOpener(lctx, lnk)
+		if err != nil && e.options.storageReadOpenerErrorHook != nil {
+			return r, e.options.storageReadOpenerErrorHook(lctx, lnk, err)
+		}
+		return r, err
 	}
 	lsys.StorageWriteOpener = func(lctx ipld.LinkContext) (io.Writer, ipld.BlockWriteCommitter, error) {
 		buf := bytes.NewBuffer(nil)
