@@ -7,6 +7,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
+	"github.com/ipld/go-ipld-prime"
 	_ "github.com/ipni/go-libipni/maurl"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/ipni/index-provider/engine/policy"
@@ -94,6 +95,8 @@ type (
 		chunker     chunker.NewChunkerFunc
 
 		syncPolicy *policy.Policy
+
+		storageReadOpenerErrorHook func(lctx ipld.LinkContext, lnk ipld.Link, err error) error
 	}
 )
 
@@ -421,6 +424,16 @@ func WithDirectAnnounce(announceURLs ...string) Option {
 			}
 			o.announceURLs = append(o.announceURLs, u)
 		}
+		return nil
+	}
+}
+
+// WithStorageReadOpenerErrorHook allows the calling applicaiton to invoke a custom piece logic whenever a storage read opener error occurs.
+// For example the calling application can delete corrupted / create a new advertisement if the datastore was corrupted for some reason.
+// The calling application can return ipld.ErrNotFound{} to indicate IPNI that this advertisement should be skipped without halting processing of the rest of the chain.
+func WithStorageReadOpenerErrorHook(hook func(ipld.LinkContext, ipld.Link, error) error) Option {
+	return func(o *options) error {
+		o.storageReadOpenerErrorHook = hook
 		return nil
 	}
 }
