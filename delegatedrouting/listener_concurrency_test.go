@@ -82,7 +82,7 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 	pID, priv, _ := test.RandomIdentity()
 	ctx := context.Background()
 
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	require.NoError(t, err)
 	err = engine.Start(ctx)
 	defer engine.Shutdown()

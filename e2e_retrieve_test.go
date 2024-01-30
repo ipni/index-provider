@@ -43,13 +43,13 @@ type testCase struct {
 
 var testCases = []testCase{
 	{
-		name: "DT Publisher",
+		name: "Libp2p Publisher",
 		serverConfigOpts: func(t *testing.T) []engine.Option {
 			// Use env var to signal what publisher kind is being used.
-			setPubKindEnvVarKey(t, engine.DataTransferPublisher)
+			setPubKindEnvVarKey(t, engine.Libp2pPublisher)
 			return []engine.Option{
 				engine.WithTopicName(testTopic),
-				engine.WithPublisherKind(engine.DataTransferPublisher),
+				engine.WithPublisherKind(engine.Libp2pPublisher),
 			}
 		},
 	},
@@ -109,10 +109,8 @@ func testRetrievalRoundTripWithTestCase(t *testing.T, tc testCase) {
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
-	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
-	// For now instantiate a new host for subscriber so that dt constructed by test client works.
 	subHost := newHost(t)
-	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic)
+	sub, err := dagsync.NewSubscriber(subHost, client.lsys)
 	require.NoError(t, err)
 
 	serverInfo := peer.AddrInfo{
@@ -189,10 +187,8 @@ func testReimportCarWtihTestCase(t *testing.T, tc testCase) {
 	advCid, err := server.cs.Put(ctx, contextID, filepath.Join(testutil.ThisDir(t), "./testdata/sample-v1-2.car"), md)
 	require.NoError(t, err)
 
-	// TODO: Review after resolution of https://github.com/filecoin-project/go-legs/issues/95
-	// For now instantiate a new host for subscriber so that dt constructed by test client works.
 	subHost := newHost(t)
-	sub, err := dagsync.NewSubscriber(subHost, client.store, client.lsys, testTopic)
+	sub, err := dagsync.NewSubscriber(subHost, client.lsys)
 	require.NoError(t, err)
 
 	serverInfo := peer.AddrInfo{
@@ -275,7 +271,7 @@ func newTestServer(t *testing.T, ctx context.Context, o ...engine.Option) *testS
 	h := newHost(t)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
 	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
-	o = append(o, engine.WithHost(h), engine.WithDatastore(store), engine.WithDataTransfer(dt))
+	o = append(o, engine.WithHost(h), engine.WithDatastore(store))
 
 	var publisherAddr multiaddr.Multiaddr
 	pubKind := engine.PublisherKind(os.Getenv(pubKindEnvVarKey(t)))

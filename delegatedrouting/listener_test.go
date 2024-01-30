@@ -122,7 +122,7 @@ func TestProvideRoundtrip(t *testing.T) {
 
 	ctx := context.Background()
 
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	require.NoError(t, err)
 	err = engine.Start(ctx)
 	defer engine.Shutdown()
@@ -181,7 +181,7 @@ func TestProvideRoundtripWithRemove(t *testing.T) {
 	pID, priv, _ := test.RandomIdentity()
 	ctx := context.Background()
 
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	require.NoError(t, err)
 	err = engine.Start(ctx)
 	defer engine.Shutdown()
@@ -1178,7 +1178,7 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 	pID, priv, _ := test.RandomIdentity()
 	ctx := context.Background()
 
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	require.NoError(t, err)
 	err = engine.Start(ctx)
 	defer engine.Shutdown()
@@ -1243,7 +1243,7 @@ func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
 	pID, priv, _ := test.RandomIdentity()
 	ctx := context.Background()
 
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	require.NoError(t, err)
 	err = engine.Start(ctx)
 	defer engine.Shutdown()
@@ -1290,7 +1290,7 @@ func TestShouldRecogniseLegacySnapshot(t *testing.T) {
 	pID, priv, _ := test.RandomIdentity()
 	ctx := context.Background()
 
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	require.NoError(t, err)
 	err = engine.Start(ctx)
 	defer engine.Shutdown()

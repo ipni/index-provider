@@ -11,7 +11,6 @@ const (
 type PublisherKind string
 
 const (
-	DTSyncPublisherKind     PublisherKind = "dtsync"
 	HttpPublisherKind       PublisherKind = "http"
 	Libp2pPublisherKind     PublisherKind = "libp2p"
 	Libp2pHttpPublisherKind PublisherKind = "libp2phttp"
@@ -37,9 +36,11 @@ type Ingest struct {
 	HttpPublisher HttpPublisher
 
 	// PublisherKind specifies which dagsync.Publisher implementation to use.
-	// When set to "http", the publisher serves plain HTTP and libp2phttp.
-	// Libp2phttp is disabled by setting HttpPublisher.NoLibp2p to true, and
-	// plain HTTP is disabled by setting HttpPublisher.ListenMultiaddr to "".
+	// When set to "http", the publisher serves plain HTTP. When set to
+	// "libp2p" the publisher serves HTTP over libp2p. When set to
+	// "libp2phttp", the publisher serves both plain HTTP and HTTP over libp2p.
+	//
+	// Plain HTTP is disabled if HttpPublisher.ListenMultiaddr is set to "".
 	PublisherKind PublisherKind
 
 	// SyncPolicy configures which indexers are allowed to sync advertisements
