@@ -20,7 +20,7 @@ var InitCmd = &cli.Command{
 var initFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:  "pubkind",
-		Usage: "Set publisher king in config. Must be one of 'http', 'libp2p', 'libp2phttp'",
+		Usage: "Set publisher kind in config. Must be one of 'http', 'libp2p', 'libp2phttp'",
 		Value: "libp2p",
 	},
 }
