@@ -270,7 +270,6 @@ func newTestServer(t *testing.T, ctx context.Context, o ...engine.Option) *testS
 	// Explicitly override host so that the host is known for testing purposes.
 	h := newHost(t)
 	store := dssync.MutexWrap(datastore.NewMapDatastore())
-	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
 	o = append(o, engine.WithHost(h), engine.WithDatastore(store))
 
 	var publisherAddr multiaddr.Multiaddr
@@ -289,6 +288,7 @@ func newTestServer(t *testing.T, ctx context.Context, o ...engine.Option) *testS
 	require.NoError(t, err)
 	require.NoError(t, e.Start(ctx))
 
+	dt := testutil.SetupDataTransferOnHost(t, h, store, cidlink.DefaultLinkSystem())
 	cs := supplier.NewCarSupplier(e, store, car.ZeroLengthSectionAsEOF(false))
 	require.NoError(t, cardatatransfer.StartCarDataTransfer(dt, cs))
 

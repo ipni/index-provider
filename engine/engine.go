@@ -568,7 +568,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 			lnk, err := e.entriesChunker.Chunk(ctx, mhIter)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("could not generate entries list: %s", err)
-			} else if lnk == nil {
+			}
+			if lnk == nil {
 				log.Warnw("chunking for context ID resulted in no link", "contextID", contextID)
 				lnk = schema.NoEntries
 			}
@@ -676,12 +677,10 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 }
 
 func (e *Engine) keyToCidKey(provider peer.ID, contextID []byte) datastore.Key {
-	switch provider {
-	case e.provider.ID:
+	if provider == e.provider.ID {
 		return datastore.NewKey(keyToCidMapPrefix + string(contextID))
-	default:
-		return datastore.NewKey(keyToCidMapPrefix + provider.String() + "/" + string(contextID))
 	}
+	return datastore.NewKey(keyToCidMapPrefix + provider.String() + "/" + string(contextID))
 }
 
 func (e *Engine) cidToKeyKey(c cid.Cid) datastore.Key {
@@ -693,12 +692,10 @@ func (e *Engine) cidToProviderAndKeyKey(c cid.Cid) datastore.Key {
 }
 
 func (e *Engine) keyToMetadataKey(provider peer.ID, contextID []byte) datastore.Key {
-	switch provider {
-	case e.provider.ID:
+	if provider == e.provider.ID {
 		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID))
-	default:
-		return datastore.NewKey(keyToMetadataMapPrefix + provider.String() + "/" + string(contextID))
 	}
+	return datastore.NewKey(keyToMetadataMapPrefix + provider.String() + "/" + string(contextID))
 }
 
 func (e *Engine) putKeyCidMap(ctx context.Context, provider peer.ID, contextID []byte, c cid.Cid) error {

@@ -294,11 +294,11 @@ func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit 
 }
 
 func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.BitswapWriteProvideRequest) (time.Duration, error) {
+	const printFrequency = 10_000
 	cids := req.Keys
 	pid := req.ID
 	paddrs := req.Addrs
 	startTime := time.Now()
-	printFrequency := 10_000
 	listener.lock.Lock()
 	defer func() {
 		listener.stats.incDelegatedRoutingCallsProcessed()
@@ -326,12 +326,10 @@ func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.Bitswa
 	listener.lastSeenProviderInfo.ID = pid
 	listener.lastSeenProviderInfo.Addrs = paddrs
 
-	timestamp := time.Now()
 	for i, c := range cids {
-
 		// persisting timestamp only if this is not a snapshot
 		if len(cids) < listener.snapshotSize {
-			err := listener.dsWrapper.recordCidTimestamp(ctx, c, timestamp)
+			err := listener.dsWrapper.recordCidTimestamp(ctx, c, startTime)
 			if err != nil {
 				log.Errorw("Error persisting timestamp. Continuing.", "cid", c, "err", err)
 				continue
@@ -342,7 +340,7 @@ func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.Bitswa
 		if listElem == nil {
 			listener.cidQueue.recordCidNode(&cidNode{
 				C:         c,
-				Timestamp: timestamp,
+				Timestamp: startTime,
 			})
 			err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
 				return listener.notifyPutAndPersist(ctx, cc)
@@ -354,7 +352,7 @@ func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.Bitswa
 			}
 		} else {
 			node := listElem.Value.(*cidNode)
-			node.Timestamp = timestamp
+			node.Timestamp = startTime
 			listener.cidQueue.recordCidNode(node)
 			// if no existing chunk has been found for the cid - adding it to the current one
 			// This can happen in the following cases:
@@ -393,12 +391,12 @@ func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.Bitswa
 
 // Revise logic here
 func (listener *Listener) removeExpiredCids(ctx context.Context) (bool, error) {
+	const printFrequency = 100
 	lastElem := listener.cidQueue.nodesLl.Back()
 	currentTime := time.Now()
 	chunksToRemove := make(map[string]*cidsChunk)
 	cidsToRemove := make(map[cid.Cid]struct{})
 	removedSomeCids := false
-	printFrequency := 100
 	var cidsRemoved, chunksRemoved, chunksReplaced int
 	// find expired cids and their respective chunks
 	for {
