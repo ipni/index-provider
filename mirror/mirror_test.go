@@ -41,7 +41,7 @@ func TestMirror_PutAdIsMirrored(t *testing.T) {
 
 	te := &testEnv{}
 	// Start original index provider
-	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
+	te.startSource(t, ctx, engine.WithPublisherKind(engine.Libp2pPublisher))
 
 	// Publish an advertisement on original provider.
 	originalAdCid := te.putAdOnSource(t, ctx, wantCtxID, wantMhs, wantMetadata)
@@ -67,7 +67,7 @@ func TestMirror_IsAlsoCdnForOriginalAds(t *testing.T) {
 
 	te := &testEnv{}
 	// Start original index provider
-	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
+	te.startSource(t, ctx, engine.WithPublisherKind(engine.Libp2pPublisher))
 
 	// Publish a bunch of ads on the original provider
 	ad1 := te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(3), md)
@@ -103,7 +103,7 @@ func TestMirror_FormsExpectedAdChain(t *testing.T) {
 
 	te := &testEnv{}
 	// Start original index provider
-	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
+	te.startSource(t, ctx, engine.WithPublisherKind(engine.Libp2pPublisher))
 
 	// Publish a bunch of ads on the original provider
 	_ = te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(3), md)
@@ -187,7 +187,7 @@ func TestMirror_FormsExpectedAdChainRemap(t *testing.T) {
 
 			te := &testEnv{}
 			// Start original index provider
-			te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
+			te.startSource(t, ctx, engine.WithPublisherKind(engine.Libp2pPublisher))
 
 			// Publish a bunch of ads on the original provider
 			_ = te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(1), md)
@@ -229,7 +229,7 @@ func TestMirror_PreviousIDIsPreservedOnStartFromPartialAdChain(t *testing.T) {
 
 	te := &testEnv{}
 	// Start source and publish 3 ads.
-	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
+	te.startSource(t, ctx, engine.WithPublisherKind(engine.Libp2pPublisher))
 	originalACid := te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(1), md)
 	originalBCid := te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(2), md)
 	orignalHeadCid := te.putAdOnSource(t, ctx, []byte("ad3"), test.RandomMultihashes(3), md)
@@ -284,7 +284,7 @@ func TestMirror_MirrorsAdsIdenticallyWhenConfiguredTo(t *testing.T) {
 
 	te := &testEnv{}
 	// Start source and publish 3 ads.
-	te.startSource(t, ctx, engine.WithPublisherKind(engine.DataTransferPublisher))
+	te.startSource(t, ctx, engine.WithPublisherKind(engine.Libp2pPublisher))
 	_ = te.putAdOnSource(t, ctx, []byte("ad1"), test.RandomMultihashes(1), md)
 	_ = te.putAdOnSource(t, ctx, []byte("ad2"), test.RandomMultihashes(2), md)
 	_ = te.removeAdOnSource(t, ctx, []byte("ad1"))

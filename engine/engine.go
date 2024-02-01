@@ -22,7 +22,6 @@ import (
 	"github.com/ipni/go-libipni/announce/message"
 	"github.com/ipni/go-libipni/announce/p2psender"
 	"github.com/ipni/go-libipni/dagsync"
-	"github.com/ipni/go-libipni/dagsync/dtsync"
 	"github.com/ipni/go-libipni/dagsync/ipnisync"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
@@ -107,9 +106,10 @@ func New(o ...Option) (*Engine, error) {
 // the configured gossipsub topic used for publishing advertisements.
 //
 // The context is used to instantiate the internal LRU cache storage. See:
-// Engine.Shutdown, chunker.NewCachedEntriesChunker,
-// dtsync.NewPublisherFromExisting
+// Engine.Shutdown, chunker.NewCachedEntriesChunker.
 func (e *Engine) Start(ctx context.Context) error {
+	go cleanupDTTempData(ctx, e.ds)
+
 	var err error
 	// Create datastore entriesChunker.
 	entriesCacheDs := dsn.Wrap(e.ds, datastore.NewKey(linksCachePath))
@@ -192,23 +192,8 @@ func (e *Engine) newPublisher(httpListenAddr, httpPath string) (dagsync.Publishe
 			log.Warn("Libp2p + HTTP publisher in use without address for announcements. Using HTTP listen and libp2p host addresses, but external addresses may be needed.", "addrs", libp2phttpPub.Addrs())
 		}
 		return libp2phttpPub, nil
-	case DataTransferPublisher:
-		log.Warn("Support ending for publishing IPNI data over data-transfer/graphsync, Disable this feature in configuration and test that indexing is working over libp2p.")
-		if e.pubDT != nil {
-			dtPub, err := dtsync.NewPublisherFromExisting(e.pubDT, e.h, e.pubTopicName, e.lsys, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
-			if err != nil {
-				return nil, fmt.Errorf("cannot create data-transfer publisher with existing dt manager: %w", err)
-			}
-			return dtPub, nil
-		}
-		ds := dsn.Wrap(e.ds, datastore.NewKey("/dagsync/dtsync/pub"))
-		dtPub, err := dtsync.NewPublisher(e.h, ds, e.lsys, e.pubTopicName, dtsync.WithAllowPeer(e.syncPolicy.Allowed))
-		if err != nil {
-			return nil, fmt.Errorf("cannot create data-transfer publisher: %w", err)
-		}
-		return dtPub, nil
 	}
-	return nil, fmt.Errorf("unknown publisher kind %s, expecting one of %v", e.pubKind, []PublisherKind{HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher, DataTransferPublisher})
+	panic("bad publisher kind")
 }
 
 func (e *Engine) createSenders(announceURLs []*url.URL, pubsubOK bool, extraGossipData []byte) ([]announce.Sender, error) {
@@ -261,19 +246,12 @@ func (e *Engine) createSenders(announceURLs []*url.URL, pubsubOK bool, extraGoss
 
 // announce uses the engines senders to send advertisement announcement messages.
 func (e *Engine) announce(ctx context.Context, c cid.Cid) {
-	var err error
-	switch e.pubKind {
-	case HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher:
-		// e.pubHttpAnnounceAddrs is always set in newPublisher.
-		err = announce.Send(ctx, c, e.pubHttpAnnounceAddrs, e.senders...)
-	case DataTransferPublisher:
-		// TODO: It may be necessary to specify a set of external addresses to
-		// put into the announce message, instead of using the libp2p host's
-		// addresses.
-		err = announce.Send(ctx, c, e.h.Addrs(), e.senders...)
-	case NoPublisher:
-		// Announcements disabled.
+	// If announcements disabled.
+	if e.pubKind == NoPublisher {
+		return
 	}
+
+	err := announce.Send(ctx, c, e.pubHttpAnnounceAddrs, e.senders...)
 	if err != nil {
 		log.Errorw("Failed to announce advertisement", "err", err)
 	}
@@ -408,18 +386,7 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 		Cid: adCid,
 	}
 
-	// The publisher kind determines what addresses to put into the announce
-	// message.
-	switch e.pubKind {
-	case HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher:
-		// e.pubHttpAnnounceAddrs is always set in newPublisher.
-		msg.SetAddrs(e.pubHttpAnnounceAddrs)
-	case DataTransferPublisher:
-		// TODO: It may be necessary to specify a set of external addresses to
-		// put into the announce message, instead of using the libp2p host's
-		// addresses.
-		msg.SetAddrs(e.h.Addrs())
-	}
+	msg.SetAddrs(e.pubHttpAnnounceAddrs)
 
 	// Create the http announce sender.
 	httpSender, err := httpsender.New(announceURLs, e.h.ID())
@@ -502,9 +469,13 @@ func (e *Engine) Shutdown() error {
 		if err = e.publisher.Close(); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("error closing leg publisher: %s", err))
 		}
+		e.publisher = nil
 	}
-	if err = e.entriesChunker.Close(); err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
+	if e.entriesChunker != nil {
+		if err = e.entriesChunker.Close(); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
+		}
+		e.entriesChunker = nil
 	}
 	return errs
 }
@@ -597,7 +568,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 			lnk, err := e.entriesChunker.Chunk(ctx, mhIter)
 			if err != nil {
 				return cid.Undef, fmt.Errorf("could not generate entries list: %s", err)
-			} else if lnk == nil {
+			}
+			if lnk == nil {
 				log.Warnw("chunking for context ID resulted in no link", "contextID", contextID)
 				lnk = schema.NoEntries
 			}
@@ -705,12 +677,10 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 }
 
 func (e *Engine) keyToCidKey(provider peer.ID, contextID []byte) datastore.Key {
-	switch provider {
-	case e.provider.ID:
+	if provider == e.provider.ID {
 		return datastore.NewKey(keyToCidMapPrefix + string(contextID))
-	default:
-		return datastore.NewKey(keyToCidMapPrefix + provider.String() + "/" + string(contextID))
 	}
+	return datastore.NewKey(keyToCidMapPrefix + provider.String() + "/" + string(contextID))
 }
 
 func (e *Engine) cidToKeyKey(c cid.Cid) datastore.Key {
@@ -722,12 +692,10 @@ func (e *Engine) cidToProviderAndKeyKey(c cid.Cid) datastore.Key {
 }
 
 func (e *Engine) keyToMetadataKey(provider peer.ID, contextID []byte) datastore.Key {
-	switch provider {
-	case e.provider.ID:
+	if provider == e.provider.ID {
 		return datastore.NewKey(keyToMetadataMapPrefix + string(contextID))
-	default:
-		return datastore.NewKey(keyToMetadataMapPrefix + provider.String() + "/" + string(contextID))
 	}
+	return datastore.NewKey(keyToMetadataMapPrefix + provider.String() + "/" + string(contextID))
 }
 
 func (e *Engine) putKeyCidMap(ctx context.Context, provider peer.ID, contextID []byte, c cid.Cid) error {

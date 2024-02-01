@@ -11,25 +11,22 @@ Usage:
 	USAGE:
 	   provider [global options] command [command options] [arguments...]
 
-	VERSION:
-	   v0.0.0+unknown
-
 	COMMANDS:
-	   daemon             Starts a reference provider
-	   find               Query an indexer for indexed content
-	   index              Push a single content index into an indexer
-	   init               Initialize reference provider config file and identity
-	   connect            Connects to an indexer through its multiaddr
-	   import, i          Imports sources of multihashes to the index provider.
-	   register           Register provider information with an indexer that trusts the provider
-	   remove, rm         Removes previously advertised multihashes by the provider.
-	   verify-ingest, vi  Verifies ingestion of multihashes to an indexer node from a Lotus miner, CAR file or a CARv2 Index
-	   list               Lists advertisements
-	   help, h            Shows a list of commands or help for one command
+	   announce       Publish an announcement message for the latest advertisement
+	   announce-http  Publish an announcement message for the latest advertisement to a specific indexer via http
+	   connect        Connects to an indexer through its multiaddr
+	   daemon         Starts a reference provider
+	   import, i      Imports sources of multihashes to the index provider.
+	   index          Push a single content index into an indexer
+	   init           Initialize reference provider config file and identity
+	   list, ls       List local paths to data
+	   remove, rm     Removes previously advertised multihashes by the provider.
+	   mirror         Mirrors the advertisement chain from an existing index provider.
+	   help, h        Shows a list of commands or help for one command
 
 	GLOBAL OPTIONS:
-	   --help, -h     show help (default: false)
-	   --version, -v  print the version (default: false)
+	   --help, -h     show help
+	   --version, -v  print the version
 
 To run a provider daemon it must first be initialized. To initialize the provider, execute:
 

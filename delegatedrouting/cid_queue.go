@@ -31,11 +31,10 @@ func (cq *cidQueue) recordCidNode(node *cidNode) *list.Element {
 		listElem.Value.(*cidNode).Timestamp = node.Timestamp
 		cq.nodesLl.MoveToFront(listElem)
 		return listElem
-	} else {
-		listElem := cq.nodesLl.PushFront(node)
-		cq.listNodeByCid[node.C] = listElem
-		return listElem
 	}
+	listElem := cq.nodesLl.PushFront(node)
+	cq.listNodeByCid[node.C] = listElem
+	return listElem
 }
 
 func (cq *cidQueue) removeCidNode(c cid.Cid) {

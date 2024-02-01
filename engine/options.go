@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 
-	datatransfer "github.com/filecoin-project/go-data-transfer/v2"
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	_ "github.com/ipni/go-libipni/maurl"
@@ -24,13 +23,6 @@ const (
 	// all advertisements are only stored locally.
 	NoPublisher PublisherKind = ""
 
-	// DataTransferPublisher exposes a datatransfer/graphsync server that
-	// allows peers in the network to sync advertisements.
-	//
-	// This option is being discontinued. Only provided as a fallback in case
-	// HttpPublisher is not working.
-	DataTransferPublisher PublisherKind = "dtsync"
-
 	// HttpPublisher exposes an HTTP server that serves advertisements using an
 	// HTTP server.
 	HttpPublisher PublisherKind = "http"
@@ -42,12 +34,15 @@ const (
 	// engine's libp2p host. This is just the combination of HttpPublisher and
 	// Libp2pPublisher configurable as a single option.
 	Libp2pHttpPublisher PublisherKind = "libp2phttp"
+
+	// Deprecated. Use Libp2pPublisher.
+	DataTransferPublisher PublisherKind = "dtsync"
 )
 
 type (
 	// PublisherKind represents the kind of publisher to use in order to announce a new
 	// advertisement to the network.
-	// See: WithPublisherKind, NoPublisher, DataTransferPublisher, HttpPublisher.
+	// See: WithPublisherKind
 	PublisherKind string
 
 	// Option sets a configuration parameter for the provider engine.
@@ -75,7 +70,6 @@ type (
 		// ---- publisher config ----
 
 		pubKind PublisherKind
-		pubDT   datatransfer.Manager
 		// pubHttpAnnounceAddrs are the addresses that are put into announce
 		// messages to tell indexers the addresses to fetch advertisements
 		// from.
@@ -251,6 +245,13 @@ func WithEntriesCacheCapacity(s int) Option {
 // See: PublisherKind.
 func WithPublisherKind(k PublisherKind) Option {
 	return func(o *options) error {
+		switch k {
+		case NoPublisher, HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher:
+		case DataTransferPublisher:
+			return fmt.Errorf("publisher kind %q is no longer supported", DataTransferPublisher)
+		default:
+			return fmt.Errorf("unknown publisher kind %q, expecting one of %v", k, []PublisherKind{HttpPublisher, Libp2pPublisher, Libp2pHttpPublisher})
+		}
 		o.pubKind = k
 		return nil
 	}
@@ -326,18 +327,6 @@ func WithTopicName(t string) Option {
 func WithTopic(t *pubsub.Topic) Option {
 	return func(o *options) error {
 		o.pubTopic = t
-		return nil
-	}
-}
-
-// WithDataTransfer sets the instance of datatransfer.Manager to use.
-// If unspecified a new instance is created automatically.
-//
-// Note that this option only takes effect if the PublisherKind is set to DataTransferPublisher.
-// See: WithPublisherKind.
-func WithDataTransfer(dt datatransfer.Manager) Option {
-	return func(o *options) error {
-		o.pubDT = dt
 		return nil
 	}
 }

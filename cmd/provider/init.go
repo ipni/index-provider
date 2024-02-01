@@ -20,7 +20,7 @@ var InitCmd = &cli.Command{
 var initFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:  "pubkind",
-		Usage: "Set publisher king in config. Must be one of 'http', 'libp2p', 'libp2phttp', 'dtsync'",
+		Usage: "Set publisher kind in config. Must be one of 'http', 'libp2p', 'libp2phttp'",
 		Value: "libp2p",
 	},
 }
@@ -57,7 +57,7 @@ func initCommand(cctx *cli.Context) error {
 	switch pubkind {
 	case "":
 		pubkind = config.Libp2pPublisherKind
-	case config.Libp2pPublisherKind, config.HttpPublisherKind, config.Libp2pHttpPublisherKind, config.DTSyncPublisherKind:
+	case config.Libp2pPublisherKind, config.HttpPublisherKind, config.Libp2pHttpPublisherKind:
 	default:
 		return fmt.Errorf("unknown publisher kind: %s", pubkind)
 	}

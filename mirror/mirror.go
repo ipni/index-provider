@@ -10,7 +10,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/namespace"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
@@ -96,8 +95,7 @@ func New(ctx context.Context, source peer.AddrInfo, o ...Option) (*Mirror, error
 	}
 	m.senders = append(m.senders, p2pSender)
 
-	dtds := namespace.Wrap(opts.ds, datastore.NewKey("datatransfer"))
-	m.sub, err = dagsync.NewSubscriber(m.h, dtds, m.ls, m.topic, dagsync.RecvAnnounce())
+	m.sub, err = dagsync.NewSubscriber(m.h, m.ls, dagsync.RecvAnnounce(m.topic))
 	if err != nil {
 		return nil, err
 	}

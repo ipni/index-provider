@@ -42,8 +42,8 @@ func Example_advertiseHelloWorld() {
 	fmt.Printf("✓ Instantiated new libp2p host with peer ID: %s...\n", h.ID().String()[:4])
 
 	// Construct a new provider engine with given libp2p host that announces advertisements over
-	// gossipsub and datatrasfer/graphsync.
-	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.DataTransferPublisher))
+	// gossipsub.
+	engine, err := engine.New(engine.WithHost(h), engine.WithPublisherKind(engine.Libp2pPublisher))
 	if err != nil {
 		panic(err)
 	}
