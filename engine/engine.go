@@ -29,6 +29,7 @@ import (
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-varint"
 )
 
 const (
@@ -37,13 +38,16 @@ const (
 	cidToProviderAndKeyMapPrefix = "map/cidProvAndKey/"
 	keyToMetadataMapPrefix       = "map/keyMD/"
 	latestAdvKey                 = "sync/adv/"
+	latestAdvSeq                 = "sync/seq/"
 	linksCachePath               = "/cache/links"
+	maxSeqNum                    = 9007199254740991 // (1 << 53) - 1
 )
 
 var (
 	log = logging.Logger("provider/engine")
 
 	dsLatestAdvKey = datastore.NewKey(latestAdvKey)
+	dsLatestAdvSeq = datastore.NewKey(latestAdvSeq)
 )
 
 // Engine is an implementation of the core reference provider interface.
@@ -283,8 +287,10 @@ func (e *Engine) PublishLocal(ctx context.Context, adv schema.Advertisement) (ci
 	log.Info("Stored ad in local link system")
 
 	if err = e.putLatestAdv(ctx, c.Bytes()); err != nil {
-		log.Errorw("Failed to update reference to the latest advertisement", "err", err)
 		return cid.Undef, fmt.Errorf("failed to update reference to latest advertisement: %w", err)
+	}
+	if err = e.putAdSeq(ctx, adv.Sequence()); err != nil {
+		return cid.Undef, fmt.Errorf("failed to update latest advertisement sequence number: %w", err)
 	}
 	log.Info("Updated reference to the latest advertisement successfully")
 	return c, nil
@@ -642,8 +648,8 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 	}
 
 	var stringAddrs []string
-	for _, addr := range addrs {
-		stringAddrs = append(stringAddrs, addr.String())
+	for i, addr := range addrs {
+		stringAddrs[i] = addr.String()
 	}
 
 	adv := schema.Advertisement{
@@ -668,6 +674,12 @@ func (e *Engine) publishAdvForIndex(ctx context.Context, p peer.ID, addrs []mult
 	} else {
 		adv.PreviousID = ipld.Link(cidlink.Link{Cid: prevAdvID})
 	}
+
+	seq, err := e.nextAdSeq(ctx)
+	if err != nil {
+		return cid.Undef, fmt.Errorf("could not get latest advertisement sequence number: %w", err)
+	}
+	adv.SeqNum = &seq
 
 	// Sign the advertisement.
 	if err = adv.Sign(e.key); err != nil {
@@ -817,4 +829,32 @@ func (e *Engine) getLatestAdCid(ctx context.Context) (cid.Cid, error) {
 	}
 	_, c, err := cid.CidFromBytes(b)
 	return c, err
+}
+
+func (e *Engine) putAdSeq(ctx context.Context, seq uint64) error {
+	return e.ds.Put(ctx, dsLatestAdvSeq, varint.ToUvarint(seq))
+}
+
+func (e *Engine) lastAdSeq(ctx context.Context) (uint64, error) {
+	b, err := e.ds.Get(ctx, dsLatestAdvSeq)
+	if err != nil {
+		if errors.Is(err, datastore.ErrNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	seq, _, err := varint.FromUvarint(b)
+	return seq, err
+}
+
+func (e *Engine) nextAdSeq(ctx context.Context) (uint64, error) {
+	seq, err := e.lastAdSeq(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if seq == maxSeqNum {
+		log.Warnf("Advertisement SeqNum has exceeded the maximum value of %d and is being reset to 0. This may indicate an error.", maxSeqNum)
+		return 0, nil
+	}
+	return seq + 1, nil
 }
