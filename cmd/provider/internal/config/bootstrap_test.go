@@ -1,7 +1,7 @@
 package config
 
 import (
-	"sort"
+	"slices"
 	"testing"
 )
 
@@ -25,8 +25,8 @@ func TestBoostrapPeers(t *testing.T) {
 
 	var b2 Bootstrap
 	b2.SetPeers(addrs)
-	sort.Strings(b2.Peers)
-	sort.Strings(b.Peers)
+	slices.Sort(b2.Peers)
+	slices.Sort(b.Peers)
 
 	for i := range b2.Peers {
 		if b2.Peers[i] != b.Peers[i] {

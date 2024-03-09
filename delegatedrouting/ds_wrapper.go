@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -125,13 +125,12 @@ func (dsw *dsWrapper) initialiseCidTimestampsFromDatastore(ctx context.Context, 
 		cidNodes = append(cidNodes, &cidNode{Timestamp: time.UnixMilli(timestamp), C: c})
 	}
 
-	sort.SliceStable(cidNodes, func(i, j int) bool {
-		return cidNodes[i].Timestamp.Before(cidNodes[j].Timestamp)
+	slices.SortStableFunc(cidNodes, func(a, b *cidNode) int {
+		return a.Timestamp.Compare(b.Timestamp)
 	})
 
 	for i := range cidNodes {
-		n := cidNodes[i]
-		cidImporter(n)
+		cidImporter(cidNodes[i])
 	}
 
 	log.Infof("Loaded up all CIDs from the datastore in %v", time.Since(start))

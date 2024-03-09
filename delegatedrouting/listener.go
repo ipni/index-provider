@@ -1,11 +1,12 @@
 package delegatedrouting
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -134,8 +135,8 @@ func (lister *MultihashLister) MultihashLister(ctx context.Context, p peer.ID, c
 		i++
 	}
 
-	sort.SliceStable(mhs, func(i, j int) bool {
-		return mhs[i].String() < mhs[j].String()
+	slices.SortStableFunc(mhs, func(a, b multihash.Multihash) int {
+		return bytes.Compare(a, b)
 	})
 
 	log.Infow("Returning a chunk from MultihashLister", "contextId", contextIdStr, "size", len(mhs))

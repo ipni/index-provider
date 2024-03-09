@@ -1,10 +1,11 @@
 package provider
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 
 	carindex "github.com/ipld/go-car/v2/index"
 	hamt "github.com/ipld/go-ipld-adl-hamt"
@@ -41,8 +42,8 @@ func CarMultihashIterator(idx carindex.IterableIndex) (MultihashIterator, error)
 	}); err != nil {
 		return nil, err
 	}
-	sort.Slice(steps, func(i, j int) bool {
-		return steps[i].offset < steps[j].offset
+	slices.SortFunc(steps, func(a, b iteratorStep) int {
+		return cmp.Compare(a.offset, b.offset)
 	})
 
 	var lastOffset uint64
