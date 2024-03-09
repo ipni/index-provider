@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -105,7 +105,7 @@ func (ch *chunker) generateContextID(cidsMap map[cid.Cid]struct{}) []byte {
 		cids[i] = k.String()
 		i++
 	}
-	sort.Strings(cids)
+	slices.Sort(cids)
 
 	hasher := sha256.New()
 	for _, c := range cids {
