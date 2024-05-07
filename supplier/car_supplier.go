@@ -6,10 +6,10 @@ import (
 	"io"
 	"path/filepath"
 
+	bstore "github.com/ipfs/boxo/blockstore"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
-	bstore "github.com/ipfs/go-ipfs-blockstore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipld/go-car/v2/blockstore"

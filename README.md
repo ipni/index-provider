@@ -49,7 +49,7 @@ see [IPNI Spec - Ingestion](https://github.com/ipni/specs/blob/main/IPNI.md#inge
 
 Prerequisite:
 
-- [Go 1.20+](https://golang.org/doc/install)
+- [Go 1.21+](https://golang.org/doc/install)
 
 To use the provider as a Go library, execute:
 

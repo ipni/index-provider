@@ -19,7 +19,6 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipni/go-libipni/announce"
 	"github.com/ipni/go-libipni/announce/httpsender"
-	"github.com/ipni/go-libipni/announce/message"
 	"github.com/ipni/go-libipni/announce/p2psender"
 	"github.com/ipni/go-libipni/dagsync"
 	"github.com/ipni/go-libipni/dagsync/ipnisync"
@@ -381,13 +380,6 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 		return nil
 	}
 
-	// Create announce message.
-	msg := message.Message{
-		Cid: adCid,
-	}
-
-	msg.SetAddrs(e.pubHttpAnnounceAddrs)
-
 	// Create the http announce sender.
 	httpSender, err := httpsender.New(announceURLs, e.h.ID())
 	if err != nil {
@@ -395,7 +387,7 @@ func (e *Engine) httpAnnounce(ctx context.Context, adCid cid.Cid, announceURLs [
 	}
 
 	log.Infow("Announcing advertisements over HTTP", "urls", announceURLs)
-	return httpSender.Send(ctx, msg)
+	return announce.Send(ctx, adCid, e.pubHttpAnnounceAddrs, httpSender)
 }
 
 // RegisterMultihashLister registers a provider.MultihashLister that is used to
