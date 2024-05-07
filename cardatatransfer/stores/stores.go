@@ -8,7 +8,7 @@ import (
 	"io"
 	"sync"
 
-	bstore "github.com/ipfs/go-ipfs-blockstore"
+	bstore "github.com/ipfs/boxo/blockstore"
 )
 
 var ErrNotFound = errors.New("not found")
