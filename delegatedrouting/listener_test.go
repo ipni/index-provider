@@ -13,6 +13,8 @@ import (
 	"github.com/ipfs/boxo/routing/http/client"
 	"github.com/ipfs/boxo/routing/http/contentrouter"
 	"github.com/ipfs/boxo/routing/http/server"
+	"github.com/ipfs/boxo/routing/http/types"
+	"github.com/ipfs/boxo/routing/http/types/iter"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -140,7 +142,10 @@ func TestProvideRoundtrip(t *testing.T) {
 	testCid4 := newCid("test4")
 	testCid5 := newCid("test5")
 
-	_, err = errorClient.ProvideBitswap(ctx, []cid.Cid{testCid1}, time.Hour)
+	_, err = errorClient.Provide(ctx, types.AnnouncementRequest{
+		CID: testCid1,
+		TTL: time.Hour,
+	})
 	require.Error(t, err, "should get sync error on unsigned provide request.")
 	errorServer.Close()
 
@@ -197,7 +202,10 @@ func TestProvideRoundtripWithRemove(t *testing.T) {
 	testCid2 := newCid("test2")
 	testCid3 := newCid("test3")
 
-	_, err = errorClient.ProvideBitswap(ctx, []cid.Cid{testCid1}, time.Hour)
+	_, err = errorClient.Provide(ctx, types.AnnouncementRequest{
+		CID: testCid1,
+		TTL: time.Hour,
+	})
 	require.Error(t, err, "should get sync error on unsigned provide request.")
 	errorServer.Close()
 
@@ -1380,9 +1388,22 @@ func provide(t *testing.T, cc contentrouter.Client, ctx context.Context, c cid.C
 }
 
 func provideMany(t *testing.T, cc contentrouter.Client, ctx context.Context, cids []cid.Cid) time.Duration {
-	rc, err := cc.ProvideBitswap(ctx, cids, 2*time.Hour)
+	var announcements []types.AnnouncementRequest
+	for _, cid := range cids {
+		announcements = append(announcements, types.AnnouncementRequest{
+			CID: cid,
+			TTL: 2 * time.Hour,
+		})
+	}
+
+	resultIter, err := cc.Provide(ctx, announcements...)
 	require.NoError(t, err)
-	return rc
+
+	results, err := iter.ReadAllResults(resultIter)
+	require.NoError(t, err)
+	require.Len(t, results, len(cids))
+
+	return results[0].TTL
 }
 
 func generateContextID(cids []string, nonce []byte) []byte {
@@ -1408,10 +1429,10 @@ func createClientAndServer(t *testing.T, router server.ContentRouter, p *peer.Ad
 	var c contentrouter.Client
 	var err error
 	if p != nil {
-		c, err = client.New(s.URL, client.WithIdentity(identity), client.WithProviderInfo(p.ID, p.Addrs))
+		c, err = client.New(s.URL, client.WithProviderInfo(identity, p.ID, p.Addrs, nil))
 		require.NoError(t, err)
 	} else {
-		c, err = client.New(s.URL, client.WithIdentity(identity))
+		c, err = client.New(s.URL)
 		require.NoError(t, err)
 	}
 

@@ -294,20 +294,23 @@ func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit 
 	return nil, errors.New("unsupported find providers request")
 }
 
-func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.BitswapWriteProvideRequest) (time.Duration, error) {
-	const printFrequency = 10_000
-	cids := req.Keys
-	pid := req.ID
-	paddrs := req.Addrs
+func (listener *Listener) Provide(ctx context.Context, rec *types.AnnouncementRecord) (time.Duration, error) {
+	cid := rec.Payload.CID
+	pid := *rec.Payload.ID
+	paddrs := make([]multiaddr.Multiaddr, len(rec.Payload.Addrs))
+	for i, addr := range rec.Payload.Addrs {
+		paddrs[i] = addr.Multiaddr
+	}
+
 	startTime := time.Now()
 	listener.lock.Lock()
 	defer func() {
 		listener.stats.incDelegatedRoutingCallsProcessed()
-		log.Infow("Finished processing Provide request.", "time", time.Since(startTime), "len", len(cids))
+		log.Infow("Finished processing Provide request.", "time", time.Since(startTime))
 		listener.lock.Unlock()
 	}()
 
-	log.Infof("Received Provide request with %d cids.", len(cids))
+	log.Infof("Received Provide request")
 	listener.stats.incDelegatedRoutingCallsReceived()
 
 	// shadowing the calling function's context so that cancellation of it doesn't affect processing
@@ -327,64 +330,57 @@ func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.Bitswa
 	listener.lastSeenProviderInfo.ID = pid
 	listener.lastSeenProviderInfo.Addrs = paddrs
 
-	for i, c := range cids {
-		// persisting timestamp only if this is not a snapshot
-		if len(cids) < listener.snapshotSize {
-			err := listener.dsWrapper.recordCidTimestamp(ctx, c, startTime)
-			if err != nil {
-				log.Errorw("Error persisting timestamp. Continuing.", "cid", c, "err", err)
-				continue
-			}
-		}
+	// TODO: REMOVE?
+	//  persisting timestamp only if this is not a snapshot
+	// if len(cids) < listener.snapshotSize {
+	err := listener.dsWrapper.recordCidTimestamp(ctx, cid, startTime)
+	if err != nil {
+		log.Errorw("Error persisting timestamp. Continuing.", "cid", cid, "err", err)
+	}
+	// }
 
-		listElem := listener.cidQueue.getNodeByCid(c)
-		if listElem == nil {
-			listener.cidQueue.recordCidNode(&cidNode{
-				C:         c,
-				Timestamp: startTime,
-			})
-			err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
+	listElem := listener.cidQueue.getNodeByCid(cid)
+	if listElem == nil {
+		listener.cidQueue.recordCidNode(&cidNode{
+			C:         cid,
+			Timestamp: startTime,
+		})
+		err := listener.chunker.addCidToCurrentChunk(ctx, cid, func(cc *cidsChunk) error {
+			return listener.notifyPutAndPersist(ctx, cc)
+		})
+		if err != nil {
+			log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", cid, "err", err)
+			listener.cidQueue.removeCidNode(cid)
+		}
+	} else {
+		node := listElem.Value.(*cidNode)
+		node.Timestamp = startTime
+		listener.cidQueue.recordCidNode(node)
+		// if no existing chunk has been found for the cid - adding it to the current one
+		// This can happen in the following cases:
+		//     * when currentChunk disappears between restarts as it doesn't get persisted until it's advertised
+		//     * when the same cid comes multiple times within the lifespan of the same chunk
+		//	   * after a error to generate a replacement chunk
+		if node.chunk == nil {
+			err := listener.chunker.addCidToCurrentChunk(ctx, cid, func(cc *cidsChunk) error {
 				return listener.notifyPutAndPersist(ctx, cc)
 			})
 			if err != nil {
-				log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
-				listener.cidQueue.removeCidNode(c)
-				continue
+				log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", cid, "err", err)
 			}
-		} else {
-			node := listElem.Value.(*cidNode)
-			node.Timestamp = startTime
-			listener.cidQueue.recordCidNode(node)
-			// if no existing chunk has been found for the cid - adding it to the current one
-			// This can happen in the following cases:
-			//     * when currentChunk disappears between restarts as it doesn't get persisted until it's advertised
-			//     * when the same cid comes multiple times within the lifespan of the same chunk
-			//	   * after a error to generate a replacement chunk
-			if node.chunk == nil {
-				err := listener.chunker.addCidToCurrentChunk(ctx, c, func(cc *cidsChunk) error {
-					return listener.notifyPutAndPersist(ctx, cc)
-				})
-				if err != nil {
-					log.Errorw("Error adding a cid to the current chunk. Continuing.", "cid", c, "err", err)
-					continue
-				}
-			}
-			listener.stats.incExistingCidsProcessed()
 		}
-
-		listener.stats.incCidsProcessed()
-		// Doing some logging for larger requests
-		if i != 0 && i%printFrequency == 0 {
-			log.Infof("Processed %d out of %d CIDs. startTime=%v", i, len(cids), startTime)
-		}
+		listener.stats.incExistingCidsProcessed()
 	}
+
+	listener.stats.incCidsProcessed()
+
 	removedSomething, err := listener.removeExpiredCids(ctx)
 	if err != nil {
 		log.Warnw("Error removing expired cids.", "err", err)
 	}
 
 	// if that was a snapshot or some cids have expired - persisting timestamps as binary blob
-	if removedSomething || len(cids) >= listener.snapshotSize {
+	if removedSomething { // TODO: remove ? || len(cids) >= listener.snapshotSize {
 		listener.dsWrapper.recordTimestampsSnapshot(ctx, listener.cidQueue.getTimestampsSnapshot())
 	}
 	return time.Duration(listener.cidTtl), nil
@@ -548,6 +544,11 @@ func (listener *Listener) notifyPutAndPersist(ctx context.Context, chunk *cidsCh
 	}
 
 	return nil
+}
+
+func (listener *Listener) ProvidePeer(ctx context.Context, rec *types.AnnouncementRecord) (time.Duration, error) {
+	log.Warn("Received unsupported ProvidePeer request")
+	return 0, errors.New("unsupported provide peer request")
 }
 
 func (listener *Listener) provider() peer.ID {
