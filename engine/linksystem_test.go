@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
-	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/engine/chunker"
@@ -51,7 +51,7 @@ func Test_RemovalAdvertisementWithNoEntriesIsRetrievable(t *testing.T) {
 	defer subject.Shutdown()
 
 	ctxID := []byte("added then removed content")
-	mhs := test.RandomCids(12)
+	mhs := random.Cids(12)
 	require.NoError(t, err)
 
 	// Register lister with removal handle
@@ -112,18 +112,18 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	otherProviderId, _, _ := test.RandomIdentity()
+	otherProviderId, _, _ := random.Identity()
 
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
 	wantAd1EntriesChainLen := ad1MhCount / chunkSize
-	ad1Mhs := test.RandomCids(ad1MhCount)
+	ad1Mhs := random.Cids(ad1MhCount)
 	require.NoError(t, err)
 
 	ad2CtxID := []byte("second")
 	ad2MhCount := 10
 	wantAd2ChunkLen := ad2MhCount / chunkSize
-	ad2Mhs := test.RandomCids(ad2MhCount)
+	ad2Mhs := random.Cids(ad2MhCount)
 	require.NoError(t, err)
 
 	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {

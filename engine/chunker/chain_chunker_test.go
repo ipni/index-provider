@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ipfs/go-test/random"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
 	"github.com/ipni/go-libipni/ingest/schema"
-	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,7 @@ func TestChainChunker_Chunk(t *testing.T) {
 	ctx := context.TODO()
 	ls := cidlink.DefaultLinkSystem()
 	chunkHasExpectedMhs := func(t *testing.T, subject chunker.EntriesChunker) {
-		mhs := test.RandomMultihashes(100)
+		mhs := random.Multihashes(100)
 		l, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhs))
 		require.NoError(t, err)
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
-	"github.com/ipni/go-libipni/test"
+	"github.com/ipfs/go-test/random"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
 	"github.com/multiformats/go-multicodec"
@@ -25,7 +25,7 @@ func BenchmarkCachedChunker(b *testing.B) {
 
 	var mhis [][]multihash.Multihash
 	for i := 0; i < capacity; i++ {
-		mhis = append(mhis, test.RandomMultihashes(mhCount))
+		mhis = append(mhis, random.Multihashes(mhCount))
 	}
 
 	b.Run("ChainedEntryChunk/ChunkSize_1", benchmarkCachedChunker(ctx, byteSize, capacity, mhis, chunker.NewChainChunkerFunc(1)))
@@ -76,7 +76,7 @@ func BenchmarkRestoreCache_ChainChunker(b *testing.B) {
 	subject, err := chunker.NewCachedEntriesChunker(ctx, store, capacity, chunker.NewChainChunkerFunc(chunkSize), false)
 	require.NoError(b, err)
 	for i := 0; i < capacity; i++ {
-		mhi := test.RandomMultihashes(mhCount)
+		mhi := random.Multihashes(mhCount)
 		chunk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhi))
 		require.NoError(b, err)
 		require.NotNil(b, chunk)
