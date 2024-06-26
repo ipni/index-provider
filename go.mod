@@ -12,7 +12,7 @@ require (
 	github.com/ipfs/go-ds-leveldb v0.5.0
 	github.com/ipfs/go-graphsync v0.17.0
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/ipfs/go-test v0.0.1
+	github.com/ipfs/go-test v0.0.2
 	github.com/ipld/go-car/v2 v2.13.1
 	github.com/ipld/go-codec-dagpb v1.6.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20240322071803-376decb85801
