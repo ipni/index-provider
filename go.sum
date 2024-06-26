@@ -347,6 +347,8 @@ github.com/ipfs/go-metrics-interface v0.0.1 h1:j+cpbjYvu4R8zbleSs36gvB7jR+wsL2fG
 github.com/ipfs/go-metrics-interface v0.0.1/go.mod h1:6s6euYU4zowdslK0GKHmqaIZ3j/b/tL7HTWtJ4VPgWY=
 github.com/ipfs/go-peertaskqueue v0.8.1 h1:YhxAs1+wxb5jk7RvS0LHdyiILpNmRIRnZVztekOF0pg=
 github.com/ipfs/go-peertaskqueue v0.8.1/go.mod h1:Oxxd3eaK279FxeydSPPVGHzbwVeHjatZ2GA8XD+KbPU=
+github.com/ipfs/go-test v0.0.1 h1:ndnYcnWEXzYQqkYX18fh/p1Pn8HHnj1OdA/m+Z10wFE=
+github.com/ipfs/go-test v0.0.1/go.mod h1:uDtFPEphmLrcPCitEY/xn1QnR7wm7iFBVrOIjkdxSZ0=
 github.com/ipfs/go-unixfs v0.4.5 h1:wj8JhxvV1G6CD7swACwSKYa+NgtdWC1RUit+gFnymDU=
 github.com/ipfs/go-unixfs v0.4.5/go.mod h1:BIznJNvt/gEx/ooRMI4Us9K8+qeGO7vx1ohnbk8gjFg=
 github.com/ipfs/go-unixfsnode v1.9.0 h1:ubEhQhr22sPAKO2DNsyVBW7YB/zA8Zkif25aBvz8rc8=
@@ -365,8 +367,6 @@ github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20230102063945-1a409dc236
 github.com/ipld/go-ipld-prime/storage/bsadapter v0.0.0-20230102063945-1a409dc236dd/go.mod h1:wZ8hH8UxeryOs4kJEJaiui/s00hDSbE37OKsL47g+Sw=
 github.com/ipni/go-libipni v0.6.8 h1:bwyu7g+1jwgCptabQ6It2VtFucFJIsOckzQNBBObHoE=
 github.com/ipni/go-libipni v0.6.8/go.mod h1:yXjq2JgqPMcubWpJie3OjyG0HNIoRdbmqxQMx+gF4TM=
-github.com/ipni/test v0.0.4 h1:RTf4XA35zGEc+iDa+qFCEFxw4RvUQSeMQ4LH6jlj3VE=
-github.com/ipni/test v0.0.4/go.mod h1:+zqwOJ0gz7N5+y75v/xBeFA/F6sofois7K11ARS3QxA=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52 h1:QG4CGBqCeuBo6aZlGAamSkxWdgWfZGeE49eUOWJPA4c=
 github.com/ipsn/go-secp256k1 v0.0.0-20180726113642-9d62b9f0bc52/go.mod h1:fdg+/X9Gg4AsAIzWpEHwnqd+QY3b7lajxyjE1m4hkq4=
 github.com/jackpal/go-nat-pmp v1.0.2 h1:KzKSgb7qkJvOUTqYl9/Hg/me3pWgBmERKrTGD7BdWus=

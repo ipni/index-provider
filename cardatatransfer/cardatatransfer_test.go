@@ -16,6 +16,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync/storeutil"
+	"github.com/ipfs/go-test/random"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
@@ -30,7 +31,6 @@ import (
 	"github.com/ipni/index-provider/cardatatransfer"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/ipni/index-provider/testutil"
-	"github.com/ipni/test/random"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/require"
 )

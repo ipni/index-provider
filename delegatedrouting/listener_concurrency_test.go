@@ -12,10 +12,10 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	leveldb "github.com/ipfs/go-ds-leveldb"
+	"github.com/ipfs/go-test/random"
 	drouting "github.com/ipni/index-provider/delegatedrouting"
 	"github.com/ipni/index-provider/engine"
 	mock_provider "github.com/ipni/index-provider/mock"
-	"github.com/ipni/test/random"
 	"github.com/libp2p/go-libp2p"
 	"github.com/stretchr/testify/require"
 )

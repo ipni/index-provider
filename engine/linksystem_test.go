@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipld/go-car/v2/index"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
@@ -17,7 +18,6 @@ import (
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/test/random"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 )

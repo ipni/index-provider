@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-test/random"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/mirror"
-	"github.com/ipni/test/random"
 	"github.com/multiformats/go-multihash"
 	"github.com/stretchr/testify/require"
 )

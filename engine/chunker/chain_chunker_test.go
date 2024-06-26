@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ipfs/go-test/random"
 	"github.com/ipld/go-ipld-prime"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
 	"github.com/ipni/go-libipni/ingest/schema"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
-	"github.com/ipni/test/random"
 	"github.com/stretchr/testify/require"
 )
 
