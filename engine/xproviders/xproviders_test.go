@@ -8,9 +8,9 @@ import (
 	"github.com/ipfs/go-cid"
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipni/go-libipni/ingest/schema"
-	"github.com/ipni/go-libipni/test"
 	"github.com/ipni/index-provider/engine"
 	ep "github.com/ipni/index-provider/engine/xproviders"
+	"github.com/ipni/test/random"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ func TestPublish(t *testing.T) {
 	defer cancel()
 
 	contextID := []byte("test-context")
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	addrsStr := []string{addrs[0].String(), addrs[1].String()}
 	metadata := []byte("thisismeta")
 	eps := make([]ep.Info, 2)
@@ -35,7 +35,7 @@ func TestPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer eng.Shutdown()
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	for i := 0; i < len(eps); i++ {
 		epID, ep := randomExtendedProvider()
@@ -93,7 +93,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 	defer cancel()
 	contextID := []byte("test-context")
 
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	addrsStr := []string{addrs[0].String(), addrs[1].String()}
 	metadata := []byte("thisismeta")
 
@@ -103,7 +103,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 	require.NoError(t, err)
 	defer eng.Shutdown()
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	override := true
 	adv, err := ep.NewAdBuilder(providerID, priv, addrs).
@@ -138,10 +138,10 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfItsAlreadyOnTheList(t *testing.
 }
 
 func TestExtendedProvidersShouldNotAllowEmptyAddresses(t *testing.T) {
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	metadata := []byte("thisismeta")
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(ep.NewInfo(providerID, priv, metadata, []multiaddr.Multiaddr{})).
@@ -153,10 +153,10 @@ func TestExtendedProvidersShouldNotAllowEmptyAddresses(t *testing.T) {
 }
 
 func TestExtendedProvidersShouldAllowEmptyMetadata(t *testing.T) {
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	metadata := []byte("thisismeta")
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(ep.NewInfo(providerID, priv, []byte{}, addrs)).
@@ -168,10 +168,10 @@ func TestExtendedProvidersShouldAllowEmptyMetadata(t *testing.T) {
 }
 
 func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	metadata := []byte("thisismeta")
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(ep.NewInfo("invalid", priv, []byte{}, addrs)).
@@ -183,9 +183,9 @@ func TestExtendedProvidersShouldNotAllowInvalidPeerIDs(t *testing.T) {
 }
 
 func TestExtendedProvidersShouldAllowEntries(t *testing.T) {
-	addrs := test.RandomMultiaddrs(1)
-	providerID, priv, _ := test.RandomIdentity()
-	entries := test.RandomCids(1)[0]
+	addrs := random.Multiaddrs(1)
+	providerID, priv, _ := random.Identity()
+	entries := random.Cids(1)[0]
 
 	ad, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithEntries(entries).
@@ -199,10 +199,10 @@ func TestExtendedProvidersShouldAllowEntries(t *testing.T) {
 }
 
 func TestZeroExtendedProvidersShouldStillCreateExtendedProvidersField(t *testing.T) {
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	metadata := []byte("thisismeta")
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	ad, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithOverride(true).
@@ -218,7 +218,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	contextID := []byte("test-context")
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	addrsStr := []string{addrs[0].String(), addrs[1].String()}
 	metadata := []byte("thisismeta")
 
@@ -228,7 +228,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 	require.NoError(t, err)
 	defer eng.Shutdown()
 
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	override := true
 	adv, err := ep.NewAdBuilder(providerID, priv, addrs).
@@ -257,7 +257,7 @@ func TestMainProviderShouldNotBeAddedAsExtendedIfThereAreNoOthers(t *testing.T) 
 }
 
 func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	metadata := []byte("thisismeta")
 	eps := make([]ep.Info, 2)
 	epIds := make([]peer.ID, len(eps))
@@ -266,7 +266,7 @@ func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
 		eps[i] = ep
 		epIds[i] = epID
 	}
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 
 	_, err := ep.NewAdBuilder(providerID, priv, addrs).
 		WithExtendedProviders(eps...).
@@ -278,8 +278,8 @@ func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
 }
 
 func randomExtendedProvider() (peer.ID, ep.Info) {
-	providerID, priv, _ := test.RandomIdentity()
+	providerID, priv, _ := random.Identity()
 	metadata := []byte("thisismeta")
-	addrs := test.RandomMultiaddrs(2)
+	addrs := random.Multiaddrs(2)
 	return providerID, ep.NewInfo(providerID, priv, metadata, addrs)
 }

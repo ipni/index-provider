@@ -23,10 +23,10 @@ import (
 	"github.com/ipni/go-libipni/dagsync/ipnisync"
 	"github.com/ipni/go-libipni/ingest/schema"
 	"github.com/ipni/go-libipni/metadata"
-	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine"
 	"github.com/ipni/index-provider/testutil"
+	"github.com/ipni/test/random"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -46,7 +46,7 @@ func TestEngine_NotifyRemoveWithUnknownContextIDIsError(t *testing.T) {
 func Test_NewEngineWithNoPublisherAndRoot(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
-	mhs := test.RandomMultihashes(1)
+	mhs := random.Multihashes(1)
 	contextID := []byte("fish")
 
 	subject, err := engine.New(engine.WithPublisherKind(engine.NoPublisher))
@@ -72,7 +72,7 @@ func TestEngine_PublishLocal(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestEngine_PublishWithLibp2pHttpPublisher(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	wantExtraGossipData := []byte("🐠")
 	// Use test name as gossip topic name for uniqueness per test.
@@ -342,7 +342,7 @@ func TestEngine_NotifyPutThenNotifyRemove(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -380,7 +380,7 @@ func TestEngine_NotifyRemoveWithDefaultProvider(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -412,7 +412,7 @@ func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -428,7 +428,7 @@ func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	providerId, _, _ := test.RandomIdentity()
+	providerId, _, _ := random.Identity()
 	providerAddrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
 
 	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: providerId, Addrs: []multiaddr.Multiaddr{providerAddrs}}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
@@ -446,13 +446,13 @@ func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	randMhs := test.RandomMultihashes(84)
+	randMhs := random.Multihashes(84)
 	mhs1 := randMhs[:42]
 	mhs2 := randMhs[42:]
 
-	provider1id, _, _ := test.RandomIdentity()
+	provider1id, _, _ := random.Identity()
 	provider1Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
-	provider2id, _, _ := test.RandomIdentity()
+	provider2id, _, _ := random.Identity()
 	provider2Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/4321/http")
 
 	subject, err := engine.New()
@@ -499,7 +499,7 @@ func TestEngine_NotifyPutUseDefaultProviderAndAddressesWhenNoneGiven(t *testing.
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -531,7 +531,7 @@ func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -554,7 +554,7 @@ func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
 	_, err = subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.Error(t, err, provider.ErrAlreadyAdvertised)
 
-	p, _, _ := test.RandomIdentity()
+	p, _, _ := random.Identity()
 	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: p}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err, provider.ErrAlreadyAdvertised)
 }
@@ -563,11 +563,11 @@ func TestEngine_ShouldHaveSameChunksInChunkerForSameCIDs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := test.RandomMultihashes(42)
+	mhs := random.Multihashes(42)
 
-	provider1id, _, _ := test.RandomIdentity()
+	provider1id, _, _ := random.Identity()
 	provider1Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
-	provider2id, _, _ := test.RandomIdentity()
+	provider2id, _, _ := random.Identity()
 	provider2Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/4321/http")
 
 	subject, err := engine.New()
@@ -664,7 +664,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	mmap := make(map[string][]multihash.Multihash)
 	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {
 		if _, ok := mmap[string(contextID)]; !ok {
-			mmap[string(contextID)] = test.RandomMultihashes(42)
+			mmap[string(contextID)] = random.Multihashes(42)
 		}
 		return provider.SliceMultihashIterator(mmap[string(contextID)]), nil
 	})
@@ -680,7 +680,7 @@ func TestEngine_DatastoreBackwardsCompatibilityTest(t *testing.T) {
 	require.NoError(t, err)
 
 	// try publishing for new provider
-	newPID, _, _ := test.RandomIdentity()
+	newPID, _, _ := random.Identity()
 	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: newPID}, []byte("has"), metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err)
 

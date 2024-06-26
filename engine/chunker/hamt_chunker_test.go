@@ -9,9 +9,9 @@ import (
 	cidlink "github.com/ipld/go-ipld-prime/linking/cid"
 	"github.com/ipld/go-ipld-prime/node/bindnode"
 	"github.com/ipld/go-ipld-prime/storage/memstore"
-	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/engine/chunker"
+	"github.com/ipni/test/random"
 	"github.com/multiformats/go-multicodec"
 	"github.com/stretchr/testify/require"
 )
@@ -85,7 +85,7 @@ func TestHamtChunker_Chunk(t *testing.T) {
 	ctx := context.TODO()
 	ls := cidlink.DefaultLinkSystem()
 	chunkHasExpectedMhs := func(t *testing.T, subject chunker.EntriesChunker) {
-		mhs := test.RandomMultihashes(100)
+		mhs := random.Multihashes(100)
 		l, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhs))
 		require.NoError(t, err)
 

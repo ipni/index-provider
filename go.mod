@@ -17,6 +17,7 @@ require (
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20240322071803-376decb85801
 	github.com/ipld/go-ipld-prime v0.21.0
 	github.com/ipni/go-libipni v0.6.8
+	github.com/ipni/test v0.0.3
 	github.com/libp2p/go-libp2p v0.35.1
 	github.com/libp2p/go-libp2p-pubsub v0.11.0
 	github.com/mitchellh/go-homedir v1.1.0

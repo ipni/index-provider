@@ -15,11 +15,11 @@ import (
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipni/go-libipni/metadata"
-	"github.com/ipni/go-libipni/test"
 	provider "github.com/ipni/index-provider"
 	"github.com/ipni/index-provider/cardatatransfer"
 	mock_provider "github.com/ipni/index-provider/mock"
 	"github.com/ipni/index-provider/supplier"
+	"github.com/ipni/test/random"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func Test_importCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleImport)
-	randCids := test.RandomCids(1)
+	randCids := random.Cids(1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 
@@ -183,7 +183,7 @@ func Test_removeCarHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(subject.handleRemove)
-	wantCid := test.RandomCids(1)[0]
+	wantCid := random.Cids(1)[0]
 	requireMockPut(t, mockEng, nil, wantKey, cs)
 
 	mockEng.
@@ -306,7 +306,7 @@ func requireRemoveCarHttpRequest(t *testing.T, body io.Reader) *http.Request {
 func requireMockPut(t *testing.T, mockEng *mock_provider.MockInterface, provider *peer.AddrInfo, key []byte, cs *supplier.CarSupplier) {
 	wantTp, err := cardatatransfer.TransportFromContextID(key)
 	require.NoError(t, err)
-	wantCid := test.RandomCids(1)[0]
+	wantCid := random.Cids(1)[0]
 	wantMetadata := metadata.Default.New(wantTp)
 
 	mockEng.
@@ -351,7 +351,7 @@ func Test_ListCarHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, respBeforePut.Paths, 0)
 
-	randCids := test.RandomCids(1)
+	randCids := random.Cids(1)
 	require.NoError(t, err)
 	wantCid := randCids[0]
 
