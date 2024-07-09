@@ -16,6 +16,7 @@ import (
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/ipfs/go-graphsync/storeutil"
+	"github.com/ipfs/go-test/random"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipld/go-ipld-prime/datamodel"
@@ -27,7 +28,6 @@ import (
 	"github.com/ipld/go-ipld-prime/traversal/selector/builder"
 	selectorparse "github.com/ipld/go-ipld-prime/traversal/selector/parse"
 	"github.com/ipni/go-libipni/metadata"
-	"github.com/ipni/go-libipni/test"
 	"github.com/ipni/index-provider/cardatatransfer"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/ipni/index-provider/testutil"
@@ -50,7 +50,7 @@ func TestCarDataTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, roots2, 1)
 
-	missingCid := test.RandomCids(1)[0]
+	missingCid := random.Cids(1)[0]
 	missingContextID := []byte("notFound")
 
 	supplier := &fakeSupplier{blockstores: make(map[string]supplier.ClosableBlockstore)}
@@ -72,7 +72,7 @@ func TestCarDataTransfer(t *testing.T) {
 	pieceCID2 := pieceCIDFromContextID(t, contextID2)
 	missingPieceCID := pieceCIDFromContextID(t, missingContextID)
 
-	incorrectPieceCid := test.RandomCids(1)[0]
+	incorrectPieceCid := random.Cids(1)[0]
 
 	testCases := map[string]struct {
 		voucher                  datatransfer.TypedVoucher
