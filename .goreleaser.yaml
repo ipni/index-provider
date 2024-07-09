@@ -1,3 +1,4 @@
+version: 2
 builds:
   - main: ./provider
     dir: cmd
@@ -13,4 +14,4 @@ release:
   mode: keep-existing
 changelog:
   # Do not generate changelog since for this project release notes are written manually.
-  skip: true
+  disable: true
