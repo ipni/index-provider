@@ -35,21 +35,10 @@ func run() int {
 		signal.Stop(interrupt)
 	}()
 
-	var rev string
-	if provider.Modified {
-		rev = "SNAPSHOT"
-	} else {
-		rev = provider.Revision
-		if len(rev) > 7 {
-			rev = rev[:7]
-		}
-	}
-	version := provider.Release + "-" + rev
-
 	app := &cli.App{
 		Name:    "provider",
 		Usage:   "Indexer Reference Provider Implementation",
-		Version: version,
+		Version: provider.Version,
 		Commands: []*cli.Command{
 			AnnounceCmd,
 			AnnounceHttpCmd,
