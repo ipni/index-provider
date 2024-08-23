@@ -3,50 +3,46 @@ package provider
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"runtime/debug"
-)
-
-var (
-	// Release is the release version tag value, e.g. "v1.2.3"
-	Release string
-	// Revision is the git commit hash.
-	Revision string
-	// Version is the full version string: Release-Revision.
-	Version string
-	// Modified indicates if the source tree had local modifications.
-	Modified bool
+	"time"
 )
 
 //go:embed version.json
 var versionJSON []byte
 
-func init() {
+var Version = buildVersion()
+
+func buildVersion() string {
 	// Read version from embedded JSON file.
 	var verMap map[string]string
 	json.Unmarshal(versionJSON, &verMap)
-	Release = verMap["version"]
+	release := verMap["version"]
 
-	// If running from a module, try to get the build info.
-	bi, ok := debug.ReadBuildInfo()
+	var revision string
+	var day string
+	var dirty bool
+
+	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return
+		return release + " dev-build"
 	}
-
-	var found int
-
-	// Append the revision to the version.
-	for i := range bi.Settings {
-		switch bi.Settings[i].Key {
+	for _, kv := range info.Settings {
+		switch kv.Key {
 		case "vcs.revision":
-			Revision = bi.Settings[i].Value
-			Version = Release + "-" + Revision
-			found++
+			revision = kv.Value[:7]
+		case "vcs.time":
+			t, _ := time.Parse(time.RFC3339, kv.Value)
+			day = t.UTC().Format("2006-01-02")
 		case "vcs.modified":
-			Modified = bi.Settings[i].Value == "true"
-			found++
-		}
-		if found == 2 {
-			break
+			dirty = kv.Value == "true"
 		}
 	}
+	if dirty {
+		revision += "-dirty"
+	}
+	if revision != "" {
+		return fmt.Sprintf("%s %s-%s", release, day, revision)
+	}
+	return release + " dev-build"
 }
