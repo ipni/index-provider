@@ -3,6 +3,7 @@ module github.com/ipni/index-provider
 go 1.23
 
 require (
+	github.com/gammazero/fsutil v0.1.2
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
@@ -14,20 +15,19 @@ require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/ipfs/go-test v0.0.4
 	github.com/ipld/go-car/v2 v2.14.2
-	github.com/ipld/go-codec-dagpb v1.6.0
+	github.com/ipld/go-codec-dagpb v1.7.0
 	github.com/ipld/go-ipld-adl-hamt v0.0.0-20240322071803-376decb85801
 	github.com/ipld/go-ipld-prime v0.21.0
 	github.com/ipni/go-libipni v0.6.16
 	github.com/libp2p/go-libp2p v0.39.1
 	github.com/libp2p/go-libp2p-pubsub v0.13.0
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.14.0
 	github.com/multiformats/go-multicodec v0.9.0
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/prometheus/client_golang v1.20.5
 	github.com/rogpeppe/go-internal v1.12.0
 	github.com/stretchr/testify v1.10.0
-	github.com/urfave/cli/v2 v2.27.4
+	github.com/urfave/cli/v2 v2.27.5
 	go.opentelemetry.io/otel v1.31.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.50.0
 	go.opentelemetry.io/otel/metric v1.31.0
@@ -103,7 +103,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect

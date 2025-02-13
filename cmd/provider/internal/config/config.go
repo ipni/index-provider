@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mitchellh/go-homedir"
+	"github.com/gammazero/fsutil"
 )
 
 // Config is used to load config files.
@@ -72,7 +72,7 @@ func PathRoot() (string, error) {
 	if dir != "" {
 		return dir, nil
 	}
-	return homedir.Expand(DefaultPathRoot)
+	return fsutil.ExpandHome(DefaultPathRoot)
 }
 
 // Load reads the json-serialized config at the specified path.
