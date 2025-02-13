@@ -66,9 +66,9 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 			if isAdvertisement(n) {
 				if cidSchemaType != "" && cidSchemaType != ipnisync.CidSchemaAdvertisement {
 					log.Errorf("Retrieved advertisement when asked for %s", cidSchemaType)
-					return nil, errors.New("data does not match requested type")
+				} else {
+					log.Debugw("Retrieved advertisement from datastore", "cid", c, "size", len(val))
 				}
-				log.Debugw("Retrieved advertisement from datastore", "cid", c, "size", len(val))
 				return bytes.NewBuffer(val), nil
 			}
 			log.Debugw("Retrieved non-advertisement object from datastore", "cid", c, "size", len(val))
@@ -76,7 +76,6 @@ func (e *Engine) mkLinkSystem() ipld.LinkSystem {
 
 		if cidSchemaType != "" && cidSchemaType != ipnisync.CidSchemaEntryChunk {
 			log.Errorf("Asked for %s when expecting %s", cidSchemaType, ipnisync.CidSchemaEntryChunk)
-			return nil, errors.New("requested unexpected data type")
 		}
 
 		// Not an advertisement, so this means we are receiving ingestion data.
