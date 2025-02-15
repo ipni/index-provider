@@ -10,6 +10,7 @@ import (
 	datatransfer "github.com/filecoin-project/go-data-transfer/v2/impl"
 	dtnetwork "github.com/filecoin-project/go-data-transfer/v2/network"
 	gstransport "github.com/filecoin-project/go-data-transfer/v2/transport/graphsync"
+	"github.com/gammazero/fsutil"
 	"github.com/ipfs/boxo/bootstrap"
 	leveldb "github.com/ipfs/go-ds-leveldb"
 	gsimpl "github.com/ipfs/go-graphsync/impl"
@@ -25,7 +26,6 @@ import (
 	droutingserver "github.com/ipni/index-provider/server/delegatedrouting/server"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/libp2p/go-libp2p"
-	"github.com/mitchellh/go-homedir"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
 )
@@ -314,38 +314,10 @@ func daemonCommand(cctx *cli.Context) error {
 // dirWritable checks if a directory is writable. If the directory does
 // not exist it is created with writable permission.
 func dirWritable(dir string) error {
-	if dir == "" {
-		return errors.New("directory not specified")
-	}
-
 	var err error
-	dir, err = homedir.Expand(dir)
+	dir, err = fsutil.ExpandHome(dir)
 	if err != nil {
 		return err
 	}
-
-	if _, err = os.Stat(dir); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			// dir doesn't exist, check that we can create it
-			err = os.Mkdir(dir, 0o775)
-			if err == nil {
-				return nil
-			}
-		}
-		if errors.Is(err, os.ErrPermission) {
-			err = os.ErrPermission
-		}
-		return fmt.Errorf("cannot write to %s: %w", dir, err)
-	}
-
-	// dir exists, make sure we can write to it
-	file, err := os.CreateTemp(dir, "test")
-	if err != nil {
-		if errors.Is(err, os.ErrPermission) {
-			err = os.ErrPermission
-		}
-		return fmt.Errorf("cannot write to %s: %w", dir, err)
-	}
-	file.Close()
-	return os.Remove(file.Name())
+	return fsutil.DirWritable(dir)
 }
