@@ -304,9 +304,8 @@ func TestMirror_MirrorsAdsIdenticallyWhenConfiguredTo(t *testing.T) {
 		return err == nil && originalHeadCid.Equals(gotMirroredHeadAdCid)
 	}, testEventualTimeout, testCheckInterval, "err: %v", err)
 
-	// Load head and assert it is mirrored correctly.
-	// Note that since head CIDs are equal and assertions from mirror actually sync data over
-	// graphsync, then it means the remaining ad chain must be the same since CIDs are implicitly
-	// verified against the content.
+	// Load head and assert it is mirrored correctly. Note that since head CIDs
+	// are equal it means the remaining ad chain must be the same since CIDs
+	// are implicitly verified against the content.
 	te.requireAdChainMirroredRecursively(t, ctx, originalHeadCid, gotMirroredHeadAdCid)
 }

@@ -10,9 +10,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"provider": run,
-	}))
+	testscript.Main(m, map[string]func(){
+		"provider": func() { run() },
+	})
 }
 
 func TestScript(t *testing.T) {
