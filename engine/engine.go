@@ -165,6 +165,7 @@ func (e *Engine) newPublisher(httpListenAddr, httpPath string) (dagsync.Publishe
 	case Libp2pPublisher:
 		libp2pPub, err := ipnisync.NewPublisher(e.lsys, e.key,
 			ipnisync.WithStreamHost(e.h),
+			ipnisync.WithHandlerPath(httpPath),
 			ipnisync.WithHeadTopic(e.pubTopicName))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create publisher: %w", err)
