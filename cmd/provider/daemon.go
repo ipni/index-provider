@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -26,11 +27,23 @@ import (
 	droutingserver "github.com/ipni/index-provider/server/delegatedrouting/server"
 	"github.com/ipni/index-provider/supplier"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/gologshim"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
 )
 
 var log = logging.Logger("command/reference-provider")
+
+func init() {
+	// Set go-log's slog handler as the application-wide default. This ensures
+	// all slog-based logging uses go-log's formatting.
+	slog.SetDefault(slog.New(logging.SlogHandler()))
+
+	// Wire go-log's slog bridge to go-libp2p's gologshim. This provides
+	// go-libp2p loggers with the "logger" attribute for per-subsystem level
+	// control.
+	gologshim.SetDefaultHandler(logging.SlogHandler())
+}
 
 var (
 	ErrDaemonStart  = errors.New("daemon did not start correctly")
