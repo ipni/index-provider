@@ -267,7 +267,8 @@ func (ls *CachedEntriesChunker) Chunk(ctx context.Context, mhi provider.Multihas
 	root, err := ls.chunker.Chunk(ctx, mhi)
 	if err != nil {
 		return nil, err
-	} else if root == nil {
+	}
+	if root == nil {
 		log.Debugw("multihash iterator returned no elements")
 		return nil, nil
 	}

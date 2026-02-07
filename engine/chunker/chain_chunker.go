@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/ipld/go-ipld-prime"
 	"github.com/ipni/go-libipni/ingest/schema"
@@ -62,7 +63,7 @@ func (ls *ChainChunker) Chunk(ctx context.Context, mhi provider.MultihashIterato
 		mhs = append(mhs, mh)
 		mhCount++
 		if len(mhs) >= ls.chunkSize {
-			cNode, err := newEntriesChunkNode(mhs, next)
+			cNode, err := newEntriesChunkNode(slices.Clone(mhs), next)
 			if err != nil {
 				return nil, err
 			}
@@ -71,12 +72,11 @@ func (ls *ChainChunker) Chunk(ctx context.Context, mhi provider.MultihashIterato
 				return nil, err
 			}
 			chunkCount++
-			// NewLinkedListOfMhs makes it own copy, so safe to reuse mhs
 			mhs = mhs[:0]
 		}
 	}
 	if len(mhs) != 0 {
-		cNode, err := newEntriesChunkNode(mhs, next)
+		cNode, err := newEntriesChunkNode(slices.Clone(mhs), next)
 		if err != nil {
 			return nil, err
 		}
