@@ -85,7 +85,7 @@ const (
 	retryWithBackoffMaxAttempts = 3
 )
 
-var _ server.ContentRouter = (*Listener)(nil)
+var _ server.DelegatedRouter = (*Listener)(nil)
 
 type Listener struct {
 	dsWrapper    *dsWrapper
@@ -114,6 +114,10 @@ func (listener *Listener) FindIPNSRecord(ctx context.Context, name ipns.Name) (*
 
 func (listener *Listener) ProvideIPNSRecord(ctx context.Context, name ipns.Name, record *ipns.Record) error {
 	return errors.New("not implemented")
+}
+
+func (listener *Listener) GetClosestPeers(ctx context.Context, key cid.Cid) (iter.ResultIter[*types.PeerRecord], error) {
+	return nil, errors.New("not implemented")
 }
 
 type MultihashLister struct {
@@ -294,6 +298,8 @@ func (listener *Listener) FindProviders(ctx context.Context, key cid.Cid, limit 
 	return nil, errors.New("unsupported find providers request")
 }
 
+//nolint:staticcheck
+//lint:ignore SA1019 // ignore staticcheck
 func (listener *Listener) ProvideBitswap(ctx context.Context, req *server.BitswapWriteProvideRequest) (time.Duration, error) {
 	const printFrequency = 10_000
 	cids := req.Keys
