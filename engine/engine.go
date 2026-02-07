@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
 	dsn "github.com/ipfs/go-datastore/namespace"
@@ -452,25 +451,26 @@ func (e *Engine) LinkSystem() *ipld.LinkSystem {
 // Shutdown shuts down the engine and discards all resources opened by the
 // engine. The engine is no longer usable after the call to this function.
 func (e *Engine) Shutdown() error {
-	var err, errs error
+	var err error
+	var errs []error
 	if e.publisher != nil {
 		for i := range e.senders {
 			if err = e.senders[i].Close(); err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("error closing sender: %s", err))
+				errs = append(errs, fmt.Errorf("error closing sender: %s", err))
 			}
 		}
 		if err = e.publisher.Close(); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error closing leg publisher: %s", err))
+			errs = append(errs, fmt.Errorf("error closing leg publisher: %s", err))
 		}
 		e.publisher = nil
 	}
 	if e.entriesChunker != nil {
 		if err = e.entriesChunker.Close(); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
+			errs = append(errs, fmt.Errorf("error closing link entriesChunker: %s", err))
 		}
 		e.entriesChunker = nil
 	}
-	return errs
+	return errors.Join(errs...)
 }
 
 // GetPublisherHttpFunc gets the http.HandlerFunc that can be used to serve
