@@ -44,7 +44,7 @@ func Filename(configRoot string) (string, error) {
 }
 
 // Marshal configuration with JSON.
-func Marshal(value interface{}) ([]byte, error) {
+func Marshal(value any) ([]byte, error) {
 	// need to prettyprint, hence MarshalIndent, instead of Encoder.
 	return json.MarshalIndent(value, "", "  ")
 }

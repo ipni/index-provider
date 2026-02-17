@@ -24,7 +24,7 @@ func BenchmarkCachedChunker(b *testing.B) {
 	defer cancel()
 
 	var mhis [][]multihash.Multihash
-	for i := 0; i < capacity; i++ {
+	for range capacity {
 		mhis = append(mhis, random.Multihashes(mhCount))
 	}
 
@@ -75,7 +75,7 @@ func BenchmarkRestoreCache_ChainChunker(b *testing.B) {
 	// Populate the datastore with data.
 	subject, err := chunker.NewCachedEntriesChunker(ctx, store, capacity, chunker.NewChainChunkerFunc(chunkSize), false)
 	require.NoError(b, err)
-	for i := 0; i < capacity; i++ {
+	for range capacity {
 		mhi := random.Multihashes(mhCount)
 		chunk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhi))
 		require.NoError(b, err)

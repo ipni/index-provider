@@ -55,8 +55,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 			mc := gomock.NewController(t)
 			t.Cleanup(mc.Finish)
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 			mockEng := mock_provider.NewMockInterface(mc)
 			ds := datastore.NewMapDatastore()
 			mockEng.EXPECT().RegisterMultihashLister(gomock.Any())
@@ -192,7 +191,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 }
 
 func generateCidV1(t *testing.T, rng *rand.Rand) cid.Cid {
-	data := []byte(fmt.Sprintf("🌊d-%d", rng.Uint64()))
+	data := fmt.Appendf(nil, "🌊d-%d", rng.Uint64())
 	mh, err := multihash.Sum(data, multihash.SHA3_256, -1)
 	require.NoError(t, err)
 	return cid.NewCidV1(cid.Raw, mh)

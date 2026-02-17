@@ -1024,7 +1024,7 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 
 	// generate test cids
 	testCids := make([]cid.Cid, testCidsNum)
-	for i := 0; i < len(testCids); i++ {
+	for i := range testCids {
 		testCids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 	prov := newAddrInfo(t, pID)
@@ -1090,7 +1090,7 @@ func verifyInitialisationFromDatastore(t *testing.T, snapshotSize int, ttl time.
 
 	// verify that in-memory expiry queue contains cids in the correct order
 	reverseTestCids := make([]cid.Cid, len(testCids))
-	for i := 0; i < len(testCids); i++ {
+	for i := range testCids {
 		reverseTestCids[i] = testCids[len(testCids)-i-1]
 	}
 
@@ -1200,7 +1200,7 @@ func TestShouldSplitSnapshotIntoMultipleChunksAndReadThemBack(t *testing.T) {
 	require.NoError(t, err)
 
 	cids := make([]cid.Cid, cidsNumber)
-	for i := 0; i < len(cids); i++ {
+	for i := range cids {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 
@@ -1265,7 +1265,7 @@ func TestShouldCleanUpOldSnapshotChunksAfterStoringNewOnes(t *testing.T) {
 	require.NoError(t, err)
 
 	cids := make([]cid.Cid, cidsNumber)
-	for i := 0; i < len(cids); i++ {
+	for i := range cids {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 

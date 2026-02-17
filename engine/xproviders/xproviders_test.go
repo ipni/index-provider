@@ -37,7 +37,7 @@ func TestPublish(t *testing.T) {
 
 	providerID, priv, _ := random.Identity()
 
-	for i := 0; i < len(eps); i++ {
+	for i := range eps {
 		epID, ep := randomExtendedProvider()
 		eps[i] = ep
 		epIds[i] = epID
@@ -261,7 +261,7 @@ func TestPublishFailsIfOverrideIsTrueWithNoContextId(t *testing.T) {
 	metadata := []byte("thisismeta")
 	eps := make([]ep.Info, 2)
 	epIds := make([]peer.ID, len(eps))
-	for i := 0; i < len(eps); i++ {
+	for i := range eps {
 		epID, ep := randomExtendedProvider()
 		eps[i] = ep
 		epIds[i] = epID

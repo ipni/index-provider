@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -237,12 +238,7 @@ func TestEngine_PublishWithLibp2pHttpPublisher(t *testing.T) {
 	// Await subscriber connection to publisher.
 	require.Eventually(t, func() bool {
 		pubPeers := pubG.ListPeers(topic)
-		for i := range pubPeers {
-			if pubPeers[i] == subHost.ID() {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(pubPeers, subHost.ID())
 	}, 10*time.Second, time.Second, "timed out waiting for subscriber peer ID to appear in publisher's gossipsub peer list")
 
 	chunkLnk, err := subject.Chunker().Chunk(ctx, provider.SliceMultihashIterator(mhs))

@@ -13,7 +13,7 @@ import (
 // application/json to the given path.
 //
 // This function is intended for internal use in CLI to interact with the admin server.
-func doHttpPostReq(ctx context.Context, path string, req interface{}) (resp *http.Response, err error) {
+func doHttpPostReq(ctx context.Context, path string, req any) (resp *http.Response, err error) {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
