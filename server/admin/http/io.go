@@ -95,7 +95,7 @@ func respond(w http.ResponseWriter, statusCode int, body io.WriterTo) {
 	}
 }
 
-func unmarshalAsJson(r io.Reader, dst interface{}) (int64, error) {
+func unmarshalAsJson(r io.Reader, dst any) (int64, error) {
 	body, err := io.ReadAll(r)
 	if err != nil {
 		return 0, err
@@ -103,7 +103,7 @@ func unmarshalAsJson(r io.Reader, dst interface{}) (int64, error) {
 	return int64(len(body)), json.Unmarshal(body, dst)
 }
 
-func marshalToJson(w io.Writer, src interface{}) (int64, error) {
+func marshalToJson(w io.Writer, src any) (int64, error) {
 	body, err := json.Marshal(src)
 	if err != nil {
 		return 0, err

@@ -32,7 +32,7 @@ func TestHandleConcurrentRequests(t *testing.T) {
 	defer ctx.Done()
 
 	cids := make([]cid.Cid, concurrencyFactor)
-	for i := 0; i < len(cids); i++ {
+	for i := range cids {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 
@@ -100,7 +100,7 @@ func TestShouldProcessMillionCIDsInThirtySeconds(t *testing.T) {
 	require.NoError(t, err)
 
 	cids := make([]cid.Cid, cidsNumber)
-	for i := 0; i < len(cids); i++ {
+	for i := range cids {
 		cids[i] = newCid(fmt.Sprintf("test%d", i))
 	}
 

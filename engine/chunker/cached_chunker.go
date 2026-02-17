@@ -185,7 +185,7 @@ func (ls *CachedEntriesChunker) storageReadOpener(lctx ipld.LinkContext, lnk ipl
 	return bytes.NewBuffer(val), nil
 }
 
-func (ls *CachedEntriesChunker) onEvicted(k lru.Key, val interface{}) {
+func (ls *CachedEntriesChunker) onEvicted(k lru.Key, val any) {
 	log := log.With("key", k)
 	log.Debug("Evicting cache key")
 	chunkRoot, ok := k.(ipld.Link)
