@@ -173,6 +173,7 @@ func daemonCommand(cctx *cli.Context) error {
 		engine.WithHttpPublisherAnnounceAddr(cfg.Ingest.HttpPublisher.AnnounceMultiaddr),
 		engine.WithPubsubAnnounce(!cfg.DirectAnnounce.NoPubsubAnnounce),
 		engine.WithSyncPolicy(syncPolicy),
+		engine.WithRetrievalPeerID(cfg.ProviderServer.RetrievalPeerID),
 		engine.WithRetrievalAddrs(cfg.ProviderServer.RetrievalMultiaddrs...),
 	)
 	if err != nil {
