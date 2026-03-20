@@ -20,6 +20,10 @@ var InitCmd = &cli.Command{
 
 var initFlags = []cli.Flag{
 	&cli.StringFlag{
+		Name:  "http-listen",
+		Usage: "Set publisher http listen multiaddr. Only applies if pubkins is http of libp2phttp. Default: /ip4/0.0.0.0/tcp/3104/http",
+	},
+	&cli.StringFlag{
 		Name:  "listen",
 		Usage: "Set publisher listen multiaddr. Default: /ip4/0.0.0.0/tcp/3103",
 	},
@@ -31,6 +35,12 @@ var initFlags = []cli.Flag{
 }
 
 func initCommand(cctx *cli.Context) error {
+	httpMultiaddr := cctx.String("http-listen")
+	if httpMultiaddr != "" {
+		if _, err := multiaddr.NewMultiaddr(httpMultiaddr); err != nil {
+			return fmt.Errorf("bad http-listen multiaddr: %s", err)
+		}
+	}
 	listenMultiaddr := cctx.String("listen")
 	if listenMultiaddr != "" {
 		if _, err := multiaddr.NewMultiaddr(listenMultiaddr); err != nil {
@@ -75,6 +85,9 @@ func initCommand(cctx *cli.Context) error {
 
 	cfg.Ingest.PublisherKind = pubkind
 
+	if httpMultiaddr != "" {
+		cfg.Ingest.HttpPublisher.ListenMultiaddr = httpMultiaddr
+	}
 	if listenMultiaddr != "" {
 		cfg.ProviderServer.ListenMultiaddr = listenMultiaddr
 	}
