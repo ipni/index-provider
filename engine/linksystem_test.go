@@ -112,18 +112,19 @@ func Test_EvictedCachedEntriesChainIsRegeneratedGracefully(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Shutdown()
 
-	otherProviderId, _, _ := random.Identity()
+	rnd := random.New()
+	otherProviderId, _, _ := rnd.Identity()
 
 	ad1CtxID := []byte("first")
 	ad1MhCount := 12
 	wantAd1EntriesChainLen := ad1MhCount / chunkSize
-	ad1Mhs := random.Cids(ad1MhCount)
+	ad1Mhs := rnd.Cids(ad1MhCount)
 	require.NoError(t, err)
 
 	ad2CtxID := []byte("second")
 	ad2MhCount := 10
 	wantAd2ChunkLen := ad2MhCount / chunkSize
-	ad2Mhs := random.Cids(ad2MhCount)
+	ad2Mhs := rnd.Cids(ad2MhCount)
 	require.NoError(t, err)
 
 	subject.RegisterMultihashLister(func(ctx context.Context, p peer.ID, contextID []byte) (provider.MultihashIterator, error) {

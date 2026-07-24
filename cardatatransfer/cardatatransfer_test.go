@@ -50,7 +50,8 @@ func TestCarDataTransfer(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, roots2, 1)
 
-	missingCid := random.Cids(1)[0]
+	rnd := random.New()
+	missingCid := rnd.Cids(1)[0]
 	missingContextID := []byte("notFound")
 
 	supplier := &fakeSupplier{blockstores: make(map[string]supplier.ClosableBlockstore)}
@@ -72,7 +73,7 @@ func TestCarDataTransfer(t *testing.T) {
 	pieceCID2 := pieceCIDFromContextID(t, contextID2)
 	missingPieceCID := pieceCIDFromContextID(t, missingContextID)
 
-	incorrectPieceCid := random.Cids(1)[0]
+	incorrectPieceCid := rnd.Cids(1)[0]
 
 	testCases := map[string]struct {
 		voucher                  datatransfer.TypedVoucher

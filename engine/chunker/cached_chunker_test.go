@@ -34,8 +34,10 @@ func TestCachedEntriesChunker_Chain_OverlappingLinkCounter(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Cache a link with 2 full chunks
-	c1Mhs := random.Multihashes(20)
+	c1Mhs := rnd.Multihashes(20)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
 	c1Chain := listEntriesChain(t, subject, c1Lnk)
@@ -44,7 +46,7 @@ func TestCachedEntriesChunker_Chain_OverlappingLinkCounter(t *testing.T) {
 
 	for i := 1; i < capacity*2; i++ {
 		// Generate a chunk worth of CIDs
-		newMhs := random.Multihashes(i * 2)
+		newMhs := rnd.Multihashes(i * 2)
 		// Append to the previously generated CIDs
 		newMhs = append(c1Mhs, newMhs...)
 		wantChainLen := math.Ceil(float64(len(newMhs)) / float64(chunkSize))
@@ -114,9 +116,10 @@ func testCachedEntriesChunker_CapAndLen(t *testing.T, capacity int, c chunker.Ne
 	require.Equal(t, capacity, subject.Cap())
 	require.Equal(t, 0, subject.Len())
 
+	rnd := random.New()
 	var chunks []ipld.Link
 	for i := 1; i < capacity*2; i++ {
-		mhs := random.Multihashes(5 * i)
+		mhs := rnd.Multihashes(5 * i)
 		chunk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(mhs))
 		require.NoError(t, err)
 		requireChunkIsCached(t, subject, chunk)
@@ -164,8 +167,10 @@ func testCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T, c chunker
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Cache a chain of length 5 and assert it is cached.
-	c1Mhs := random.Multihashes(45)
+	c1Mhs := rnd.Multihashes(45)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
 	require.Equal(t, 1, subject.Len())
@@ -173,7 +178,7 @@ func testCachedEntriesChunker_NonOverlappingDagIsEvicted(t *testing.T, c chunker
 	requireChunkEntriesMatch(t, gotC1Mhs, c1Mhs)
 
 	// Cache a new, non-overlapping chain of length 2 and assert it is cached
-	c2Mhs := random.Multihashes(15)
+	c2Mhs := rnd.Multihashes(15)
 	c2Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c2Mhs))
 	require.NoError(t, err)
 	gotC2Mhs := requireDecodeAllMultihashes(t, c2Lnk, subject.LinkSystem())
@@ -193,8 +198,10 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Chunk and cache a multihash iterator.
-	c1Mhs := random.Multihashes(50)
+	c1Mhs := rnd.Multihashes(50)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
 
@@ -203,7 +210,7 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 	requireChunkEntriesMatch(t, gotC1Mhs, c1Mhs)
 
 	// Chunk another iterator.
-	c2Mhs := random.Multihashes(12)
+	c2Mhs := rnd.Multihashes(12)
 	c2Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c2Mhs))
 	require.NoError(t, err)
 
@@ -212,7 +219,7 @@ func testCachedEntriesChunker_PreviouslyCachedChunksAreRestored(t *testing.T, ca
 	requireChunkEntriesMatch(t, gotC2Mhs, c2Mhs)
 
 	// Chunk and cache another multihash iterators with overlapping section.
-	c3Mhs := random.Multihashes(13)
+	c3Mhs := rnd.Multihashes(13)
 	require.NoError(t, err)
 	c3Mhs = append(c2Mhs, c3Mhs...)
 	c3Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c3Mhs))
@@ -251,12 +258,14 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Chunk 10 random CIDs as c1 and assert that:
 	//  1. It is cached as a valid EntryChunk
 	//  2. Its entries match the original CIDs
 	//  3. The length of chain is 1, i.e. the chunk has no next since chunkSize = 10
 	//  4. The cache length is 1.
-	c1Mhs := random.Multihashes(10)
+	c1Mhs := rnd.Multihashes(10)
 	require.NoError(t, err)
 	c1Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c1Mhs))
 	require.NoError(t, err)
@@ -274,7 +283,7 @@ func TestCachedEntriesChunker_OverlappingDagIsNotEvicted(t *testing.T) {
 	//  3. The first entry in chain has all the newly generated CIDs
 	//  4. The second entry in chain is identical to c1.
 	//  5. The length of cache is still 1.
-	extraMhs := random.Multihashes(10)
+	extraMhs := rnd.Multihashes(10)
 	require.NoError(t, err)
 	c2Mhs := append(c1Mhs, extraMhs...)
 	c2Lnk, err := subject.Chunk(ctx, provider.SliceMultihashIterator(c2Mhs))
@@ -305,8 +314,10 @@ func testCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T, c
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Chunk some data first which we won't corrupt to test partial corruption.
-	wantMhs1 := random.Multihashes(10)
+	wantMhs1 := rnd.Multihashes(10)
 	require.NoError(t, err)
 	chunkLink1, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs1))
 	require.NoError(t, err)
@@ -317,7 +328,7 @@ func testCachedEntriesChunker_RecoversFromCorruptCacheGracefully(t *testing.T, c
 	require.Equal(t, 1, subject.Len())
 
 	// Chunk some more data which we will corrupt.
-	wantMhs2 := random.Multihashes(10)
+	wantMhs2 := rnd.Multihashes(10)
 	require.NoError(t, err)
 	chunkLink2, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs2))
 	require.NoError(t, err)
@@ -370,8 +381,10 @@ func testCachedEntriesChunker_PurgesCacheSuccessfullyEvenIfCorrupted(t *testing.
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Chunk some data
-	wantMhs1 := random.Multihashes(10)
+	wantMhs1 := rnd.Multihashes(10)
 	require.NoError(t, err)
 	chunkLink1, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs1))
 	require.NoError(t, err)
@@ -407,8 +420,10 @@ func testCachedEntriesChunker_PurgesCacheSuccessfully(t *testing.T, capacity int
 	require.NoError(t, err)
 	defer subject.Close()
 
+	rnd := random.New()
+
 	// Chunk some data
-	wantMhs1 := random.Multihashes(10)
+	wantMhs1 := rnd.Multihashes(10)
 	require.NoError(t, err)
 	chunkLink1, err := subject.Chunk(ctx, provider.SliceMultihashIterator(wantMhs1))
 	require.NoError(t, err)
