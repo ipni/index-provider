@@ -4,16 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-test/random"
 	"github.com/ipld/go-car/v2"
 	"github.com/ipni/go-libipni/metadata"
 	mock_provider "github.com/ipni/index-provider/mock"
@@ -23,8 +21,6 @@ import (
 )
 
 func TestPutCarReturnsExpectedIterator(t *testing.T) {
-	rng := rand.New(rand.NewSource(1413))
-
 	tests := []struct {
 		name    string
 		carPath string
@@ -90,7 +86,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 				}
 			}
 
-			wantCid := generateCidV1(t, rng)
+			wantCid := random.Cids(1)[0]
 			mockEng.
 				EXPECT().
 				NotifyPut(ctx, gomock.Any(), gomock.Any(), md).
@@ -139,7 +135,7 @@ func TestPutCarReturnsExpectedIterator(t *testing.T) {
 
 func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	path := "../testdata/sample-wrapped-v2.car"
-	rng := rand.New(rand.NewSource(1413))
+	rnd := random.New()
 
 	ctx := context.Background()
 	mc := gomock.NewController(t)
@@ -153,7 +149,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 
 	md := metadata.Default.New(metadata.Bitswap{})
 
-	wantCid := generateCidV1(t, rng)
+	wantCid := rnd.Cids(1)[0]
 	mockEng.
 		EXPECT().
 		NotifyPut(ctx, gomock.Any(), gomock.Any(), md).
@@ -172,7 +168,7 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	require.Len(t, paths, 1)
 	require.Equal(t, filepath.Clean(path), filepath.Clean(paths[0]))
 
-	wantCid = generateCidV1(t, rng)
+	wantCid = rnd.Cids(1)[0]
 	mockEng.
 		EXPECT().
 		NotifyRemove(ctx, peer.ID(""), gotContextID).
@@ -188,11 +184,4 @@ func TestRemovedPathIsNoLongerSupplied(t *testing.T) {
 	pathsAfterRm, err := subject.List(ctx)
 	require.NoError(t, err)
 	require.Len(t, pathsAfterRm, 0)
-}
-
-func generateCidV1(t *testing.T, rng *rand.Rand) cid.Cid {
-	data := fmt.Appendf(nil, "🌊d-%d", rng.Uint64())
-	mh, err := multihash.Sum(data, multihash.SHA3_256, -1)
-	require.NoError(t, err)
-	return cid.NewCidV1(cid.Raw, mh)
 }

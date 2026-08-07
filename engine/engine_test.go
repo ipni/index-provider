@@ -408,7 +408,8 @@ func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := random.Multihashes(42)
+	rnd := random.New()
+	mhs := rnd.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -424,7 +425,7 @@ func TestEngine_NotifyRemoveWithCustomProvider(t *testing.T) {
 		return nil, errors.New("not found")
 	})
 
-	providerId, _, _ := random.Identity()
+	providerId, _, _ := rnd.Identity()
 	providerAddrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
 
 	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: providerId, Addrs: []multiaddr.Multiaddr{providerAddrs}}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
@@ -442,13 +443,14 @@ func TestEngine_ProducesSingleChainForMultipleProviders(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	randMhs := random.Multihashes(84)
+	rnd := random.New()
+	randMhs := rnd.Multihashes(84)
 	mhs1 := randMhs[:42]
 	mhs2 := randMhs[42:]
 
-	provider1id, _, _ := random.Identity()
+	provider1id, _, _ := rnd.Identity()
 	provider1Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
-	provider2id, _, _ := random.Identity()
+	provider2id, _, _ := rnd.Identity()
 	provider2Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/4321/http")
 
 	subject, err := engine.New()
@@ -527,7 +529,8 @@ func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := random.Multihashes(42)
+	rnd := random.New()
+	mhs := rnd.Multihashes(42)
 
 	subject, err := engine.New()
 	require.NoError(t, err)
@@ -550,7 +553,7 @@ func TestEngine_VerifyErrAlreadyAdvertised(t *testing.T) {
 	_, err = subject.NotifyPut(ctx, nil, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.Error(t, err, provider.ErrAlreadyAdvertised)
 
-	p, _, _ := random.Identity()
+	p, _, _ := rnd.Identity()
 	_, err = subject.NotifyPut(ctx, &peer.AddrInfo{ID: p}, wantContextID, metadata.Default.New(metadata.Bitswap{}))
 	require.NoError(t, err, provider.ErrAlreadyAdvertised)
 }
@@ -559,11 +562,12 @@ func TestEngine_ShouldHaveSameChunksInChunkerForSameCIDs(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
-	mhs := random.Multihashes(42)
+	rnd := random.New()
+	mhs := rnd.Multihashes(42)
 
-	provider1id, _, _ := random.Identity()
+	provider1id, _, _ := rnd.Identity()
 	provider1Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/1234/http")
-	provider2id, _, _ := random.Identity()
+	provider2id, _, _ := rnd.Identity()
 	provider2Addrs, _ := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/4321/http")
 
 	subject, err := engine.New()
